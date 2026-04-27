@@ -1,3 +1,5 @@
+import { existsSync } from "node:fs";
+import { fileURLToPath, URL } from "node:url";
 import { reactRouter } from "@react-router/dev/vite";
 import tailwindcss from "@tailwindcss/vite";
 import alchemy from "alchemy/cloudflare/react-router";
@@ -7,7 +9,11 @@ import { imagetools } from "vite-imagetools";
 import devtoolsJson from "vite-plugin-devtools-json";
 
 export default defineConfig((configEnv) => {
-	const { mode } = configEnv;
+	const { command, mode } = configEnv;
+	const hasAlchemyConfig = existsSync(
+		fileURLToPath(new URL(".alchemy/local/wrangler.jsonc", import.meta.url)),
+	);
+	const useAlchemyPlugin = command === "serve" || hasAlchemyConfig;
 
 	return {
 		define: {
@@ -19,7 +25,7 @@ export default defineConfig((configEnv) => {
 		plugins: [
 			devtoolsJson(),
 			// @see https://alchemy.run/guides/cloudflare-react-router/ (template uses vite-tsconfig-paths; Vite 8+ uses resolve.tsconfigPaths below)
-			alchemy() as PluginOption,
+			useAlchemyPlugin ? (alchemy() as PluginOption) : null,
 			reactRouter(),
 			tailwindcss(),
 			imagetools({
@@ -36,6 +42,11 @@ export default defineConfig((configEnv) => {
 		build: {
 			cssCodeSplit: true,
 			minify: "esbuild",
+			rollupOptions: useAlchemyPlugin
+				? undefined
+				: {
+						external: ["cloudflare:workers"],
+					},
 			target: "esnext",
 			sourcemap: false,
 		},
