@@ -1,5 +1,3 @@
-import { existsSync } from "node:fs";
-import { fileURLToPath } from "node:url";
 import { reactRouter } from "@react-router/dev/vite";
 import tailwindcss from "@tailwindcss/vite";
 import alchemy from "alchemy/cloudflare/react-router";
@@ -9,14 +7,7 @@ import { imagetools } from "vite-imagetools";
 import devtoolsJson from "vite-plugin-devtools-json";
 
 export default defineConfig((configEnv) => {
-	const { command, mode } = configEnv;
-	const alchemyConfigPath = fileURLToPath(
-		new URL(".alchemy/local/wrangler.jsonc", import.meta.url),
-	);
-	// CI build runs before Alchemy has generated its local Wrangler config. In that
-	// path, keep Workers' virtual module external and let runtime resolve it.
-	const shouldLoadAlchemy =
-		command === "serve" || (process.env["CI"] !== "true" && existsSync(alchemyConfigPath));
+	const { mode } = configEnv;
 
 	return {
 		define: {
@@ -27,9 +18,10 @@ export default defineConfig((configEnv) => {
 		},
 		plugins: [
 			devtoolsJson(),
-			shouldLoadAlchemy ? (alchemy() as PluginOption) : null,
-			tailwindcss(),
+			// @see https://alchemy.run/guides/cloudflare-react-router/ (template uses vite-tsconfig-paths; Vite 8+ uses resolve.tsconfigPaths below)
+			alchemy() as PluginOption,
 			reactRouter(),
+			tailwindcss(),
 			imagetools({
 				include: "**/*.{heif,avif,jpeg,jpg,png,tiff,webp,gif,svg}?*",
 				exclude: [],
@@ -44,11 +36,6 @@ export default defineConfig((configEnv) => {
 		build: {
 			cssCodeSplit: true,
 			minify: "esbuild",
-			rollupOptions: shouldLoadAlchemy
-				? undefined
-				: {
-						external: ["cloudflare:workers"],
-					},
 			target: "esnext",
 			sourcemap: false,
 		},
@@ -57,11 +44,6 @@ export default defineConfig((configEnv) => {
 			exclude: [],
 		},
 		resolve: {
-			// Rolldown (Vite 8 production build) does not apply tsconfigPaths the same as esbuild dev;
-			// explicit alias matches apps/web/tsconfig.cloudflare.json paths "~/*" -> "./app/*".
-			alias: {
-				"~": fileURLToPath(new URL("./app", import.meta.url)),
-			},
 			tsconfigPaths: true,
 		},
 	} as UserConfig;

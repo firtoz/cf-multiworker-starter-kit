@@ -12,7 +12,7 @@
 	"include": [
 		"alchemy/**/*.ts",
 		"apps/*/alchemy.run.ts",
-		"apps/*/env.d.ts",
+		"apps/*/types/env.d.ts",
 		"durable-objects/*/alchemy.run.ts",
 		"durable-objects/*/env.d.ts"
 	],

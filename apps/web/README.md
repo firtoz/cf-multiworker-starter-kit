@@ -12,7 +12,7 @@ React Router 7 application deployed on Cloudflare Workers.
 
 **Packages:** `cf-starter-db` (D1 + Drizzle for `/visitors`), `cf-starter-chat-contract` (shared Socka types).
 
-**How bindings work:** **`apps/web/alchemy.run.ts`** declares app bindings and imports worker/DO resources from dependency packages' `./alchemy` exports. Types: **`env.d.ts`** (`typeof web["Env"]`). After route edits, **`bun run typegen`** from the repo root.
+**How bindings work:** **`apps/web/alchemy.run.ts`** declares app bindings and imports worker/DO resources from dependency packages' `./alchemy` exports. Types: **`types/env.d.ts`** (`typeof web["Env"]`). After route edits, **`bun run typegen`** from the repo root.
 
 ## Key files
 
@@ -21,7 +21,7 @@ React Router 7 application deployed on Cloudflare Workers.
 - `app/entry.server.tsx` - SSR entry + 103 Early Hints for CSS
 - `workers/app.ts` - Cloudflare Worker (SSR + WebSocket forward to `ChatroomDo`)
 - `alchemy.run.ts` - Web Alchemy app, D1 binding, and imported worker/DO bindings
-- `env.d.ts` - Cloudflare `env` types from the exported `web` resource
+- `types/env.d.ts` - Cloudflare `env` types from the exported `web` resource
 
 ## Common tasks
 
@@ -158,13 +158,13 @@ Vite prints the local URL in the terminal (`Local:` — default port 5173, or th
 
 ## Type generation
 
-After changing package **`alchemy.run.ts`**, **`env.d.ts`**, or route files, run from the **repo root**:
+After changing package **`alchemy.run.ts`**, **`types/env.d.ts`**, or route files, run from the **repo root**:
 
 ```bash
 bun run typegen
 ```
 
-This runs **`react-router typegen`** (via Turbo) for route types. Cloudflare **`env`** types come from **`env.d.ts`** + package-local Alchemy resources ([Alchemy type-safe bindings](https://alchemy.run/concepts/bindings/#type-safe-bindings)); there is no `wrangler types` step in this stack.
+This runs **`react-router typegen`** (via Turbo) for route types. Cloudflare **`env`** types come from **`types/env.d.ts`** + package-local Alchemy resources ([Alchemy type-safe bindings](https://alchemy.run/concepts/bindings/#type-safe-bindings)); there is no `wrangler types` step in this stack.
 
 In this package only:
 

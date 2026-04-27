@@ -73,7 +73,7 @@
 		},
 		"deploy": {
 			"dependsOn": ["db:generate", "typecheck:prod", "cf-starter-chat-contract#typecheck:prod"],
-			"cache": true,
+			"cache": false,
 			"inputs": [
 				"alchemy.run.ts",
 				"workers/**/*.ts",

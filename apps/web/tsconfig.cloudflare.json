@@ -11,7 +11,7 @@
 		"app/**/.client/**/*.tsx",
 		"workers/**/*.ts",
 		"db/**/*",
-		"env.d.ts",
+		"types/env.d.ts",
 		"alchemy.run.ts"
 	],
 	"compilerOptions": {

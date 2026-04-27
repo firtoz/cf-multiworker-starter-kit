@@ -43,7 +43,7 @@
 			"outputLogs": "new-only"
 		},
 		"deploy": {
-			"cache": true,
+			"cache": false,
 			"outputLogs": "new-only"
 		},
 		"destroy": {

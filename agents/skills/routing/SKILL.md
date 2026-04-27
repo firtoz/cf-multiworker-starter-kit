@@ -149,7 +149,7 @@ When adding new environment variables (see [cf-workers-env-local](../cf-workers-
 bun run typegen
 ```
 
-The `env` object from `cloudflare:workers` is typed from **`apps/web/env.d.ts`** (package Alchemy **`web`** resource + `declare module "cloudflare:workers"`). Keep it aligned with **`apps/web/alchemy.run.ts`** (and **`.env.local`** at runtime).
+The `env` object from `cloudflare:workers` is typed from **`apps/web/types/env.d.ts`** (package Alchemy **`web`** resource + `declare module "cloudflare:workers"`). Keep it aligned with **`apps/web/alchemy.run.ts`** (and **`.env.local`** at runtime).
 
 **Do not** read bindings from React Router loader/action `context` (e.g. `context.cloudflare.env`). In this project, use:
 

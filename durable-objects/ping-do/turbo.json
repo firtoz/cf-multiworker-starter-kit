@@ -53,7 +53,7 @@
 		},
 		"deploy": {
 			"dependsOn": ["typecheck:prod", "other-worker#typecheck:prod"],
-			"cache": true,
+			"cache": false,
 			"inputs": ["alchemy.run.ts", "workers/**/*.ts", "package.json", "tsconfig.json", "env.d.ts"],
 			"outputs": []
 		},

@@ -72,7 +72,7 @@
 		},
 		"deploy": {
 			"dependsOn": ["typecheck:prod", "db:generate"],
-			"cache": true,
+			"cache": false,
 			"inputs": [
 				"alchemy.run.ts",
 				"drizzle.config.ts",

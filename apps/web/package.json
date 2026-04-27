@@ -40,7 +40,7 @@
 	},
 	"devDependencies": {
 		"@biomejs/biome": "catalog:",
-		"@cloudflare/vite-plugin": "1.33.1",
+		"@cloudflare/vite-plugin": "^1.33.2",
 		"@cloudflare/workers-types": "^4.20260425.1",
 		"@react-router/dev": "^7.14.2",
 		"@tailwindcss/vite": "^4.2.4",
@@ -56,8 +56,7 @@
 		"typescript": "catalog:",
 		"vite": "^8.0.10",
 		"vite-imagetools": "^10.0.0",
-		"vite-plugin-devtools-json": "^1.0.0",
-		"wrangler": "catalog:"
+		"vite-plugin-devtools-json": "^1.0.0"
 	},
 	"packageManager": "bun@1.3.0"
 }

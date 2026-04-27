@@ -1,13 +1,16 @@
 {
-	"extends": "./tsconfig.json",
-	"include": ["tailwind.config.ts", "vite.config.ts"],
+	"$schema": "https://json.schemastore.org/tsconfig",
+	"extends": "../../tsconfig.base.json",
+	"include": ["vite.config.ts", "tailwind.config.ts", "types/**/*.ts", "alchemy.run.ts"],
 	"compilerOptions": {
 		"composite": true,
 		"strict": true,
-		"types": ["node"],
 		"lib": ["ES2022"],
 		"target": "ES2022",
 		"module": "ES2022",
-		"moduleResolution": "bundler"
+		"moduleResolution": "bundler",
+		"types": ["@cloudflare/workers-types", "node", "./types/env.d.ts"],
+		"skipLibCheck": true,
+		"noEmit": true
 	}
 }

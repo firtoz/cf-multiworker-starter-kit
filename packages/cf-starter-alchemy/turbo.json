@@ -22,7 +22,7 @@
 		},
 		"deploy": {
 			"dependsOn": ["typecheck:prod"],
-			"cache": true,
+			"cache": false,
 			"outputs": []
 		}
 	}

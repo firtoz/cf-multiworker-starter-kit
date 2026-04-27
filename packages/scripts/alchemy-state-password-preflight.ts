@@ -212,7 +212,9 @@ export async function runAlchemyStatePasswordPreflight(repoRoot: string) {
 		console.error("  Fix one of these, then run `bun run dev` again:");
 		console.error("    1. Put the old ALCHEMY_PASSWORD back in .env.local.");
 		console.error("    2. Back up and delete .alchemy/ to reset local Alchemy state.");
-		console.error("    3. Run `bun run --cwd packages/scripts dev:preflight:interactive` for prompts.");
+		console.error(
+			"    3. Run `bun run --cwd packages/scripts dev:preflight:interactive` for prompts.",
+		);
 		console.error("  Skip: SKIP_ALCHEMY_STATE_PASSWORD_CHECK=1  (not recommended)\n");
 	};
 

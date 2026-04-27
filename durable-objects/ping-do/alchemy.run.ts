@@ -20,6 +20,7 @@ export const pingWorker = await Worker("ping-do", {
 	entrypoint: new URL("./workers/app.ts", import.meta.url).pathname,
 	compatibility: "node",
 	placement: { mode: "smart" },
+	dev: { port: 8782 },
 	adopt: true,
 	bindings: {
 		PingDo,
