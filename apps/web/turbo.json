@@ -16,7 +16,7 @@
 				"tsconfig.cloudflare.json",
 				"vite.config.ts",
 				"react-router.config.ts",
-				"env.d.ts"
+				"types/env.d.ts"
 			],
 			"outputs": [".react-router/**"]
 		},
@@ -34,7 +34,7 @@
 				"tsconfig.cloudflare.json",
 				"vite.config.ts",
 				"react-router.config.ts",
-				"env.d.ts"
+				"types/env.d.ts"
 			],
 			"outputs": [".react-router/**"]
 		},
@@ -58,7 +58,7 @@
 				"biome.json",
 				"vite.config.ts",
 				"react-router.config.ts",
-				"env.d.ts"
+				"types/env.d.ts"
 			],
 			"outputs": []
 		},
@@ -71,7 +71,7 @@
 				"biome.json",
 				"vite.config.ts",
 				"react-router.config.ts",
-				"env.d.ts"
+				"types/env.d.ts"
 			],
 			"outputs": []
 		},
@@ -87,7 +87,7 @@
 				"tsconfig.cloudflare.json",
 				"package.json",
 				"$TURBO_ROOT$/tsconfig.base.json",
-				"env.d.ts"
+				"types/env.d.ts"
 			],
 			"outputs": []
 		},
@@ -103,7 +103,7 @@
 				"tsconfig.cloudflare.json",
 				"package.json",
 				"$TURBO_ROOT$/tsconfig.base.json",
-				"env.d.ts"
+				"types/env.d.ts"
 			],
 			"outputs": []
 		},
@@ -144,7 +144,7 @@
 		},
 		"deploy": {
 			"dependsOn": ["build:prod", "^deploy"],
-			"cache": true,
+			"cache": false,
 			"inputs": [
 				"alchemy.run.ts",
 				"app/**/*.ts",

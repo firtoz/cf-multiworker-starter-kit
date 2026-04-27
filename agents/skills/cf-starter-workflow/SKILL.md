@@ -49,7 +49,7 @@ For **production** parity: `turbo run typegen:prod` then `turbo run typecheck:pr
 
 **Typecheck and lint are not always “done” for user-facing work.** For **UI**, **routes**, **canvas/pointer**, or **realtime** features, also run or document **smoke** checks (render the right route, no obvious breakage), and prefer **in-browser** verification (e.g. Cursor **cursor-ide-browser** MCP, or project E2E if present). At minimum for visual/product changes: see the app in a browser, **capture screenshots** of key surfaces, and for interaction-heavy flows use **automation** (click/type/pointer) — `fetch` to an action alone does not prove the UI works. See [dev-server.mdc](../../rules/dev-server.mdc): do not start `bun run dev` unless the user asked or you need it to verify.
 
-**Cloudflare `Env`:** Comes from each package’s `env.d.ts` and the worker resource exported from that package’s `alchemy.run.ts` (web uses `WebBindingResources` + `Bindings.Runtime<… & { ASSETS }>`; see [apps/web/env.d.ts](../../../apps/web/env.d.ts), [apps/web/alchemy.run.ts](../../../apps/web/alchemy.run.ts)).
+**Cloudflare `Env`:** Comes from each package’s `env.d.ts` and the worker resource exported from that package’s `alchemy.run.ts` (web uses `WebBindingResources` + `Bindings.Runtime<… & { ASSETS }>`; see [apps/web/types/env.d.ts](../../../apps/web/types/env.d.ts), [apps/web/alchemy.run.ts](../../../apps/web/alchemy.run.ts)).
 
 ## Package installation
 
@@ -65,7 +65,7 @@ bun add <package>@latest --cwd apps/web
 
 - **`^task`** in a package’s `turbo.json` runs `task` in **workspace dependencies**; prefer that over listing every `other-pkg#…` by hand.
 - **Per-package `inputs`** — only that package’s files; use `^` + workspace deps to invalidate, not other packages’ source trees. [turborepo/SKILL.md](../turborepo/SKILL.md).
-- **Cache** — only `dev` and `clean` are `cache: false` at root by design; `turbo run <task> --force` to bypass when needed.
+- **Cache** — at root, `dev`, `dev:preflight`, `deploy`, `destroy`, and `clean` are `cache: false` (`deploy` so Alchemy always runs; see [turborepo/SKILL.md](../turborepo/SKILL.md)). Use `turbo run <task> --force` to bypass cache for other tasks when needed.
 
 ## D1 and Alchemy migrations
 
@@ -121,4 +121,4 @@ Access in app code: `import { env } from "cloudflare:workers"` only.
 - [cf-socka-realtime/SKILL.md](../cf-socka-realtime/SKILL.md) — realtime WebSocket + canvas/pointer and pre-merge checks.
 - [cf-starter-gotchas](../cf-starter-gotchas/SKILL.md) — numbered gotchas and edge cases.
 - [project-init](../project-init/SKILL.md) — rename workers/docs after forking the template.
-- [packages/scripts/dev-preflight.ts](../../../packages/scripts/dev-preflight.ts) — `scripts#dev:preflight` checks wrangler/miniflare alignment (Turbo `dev` dependency).
+- [packages/scripts/dev-preflight.ts](../../../packages/scripts/dev-preflight.ts) — `scripts#dev:preflight` runs Alchemy state password checks (Turbo `dev` dependency).

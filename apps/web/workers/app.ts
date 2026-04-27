@@ -1,7 +1,7 @@
 import { WorkerEntrypoint } from "cloudflare:workers";
 import { CHATROOM_INTERNAL_SECRET_HEADER } from "cf-starter-chat-contract";
 import { createRequestHandler } from "react-router";
-import type { CloudflareEnv } from "../env.d.ts";
+import type { CloudflareEnv } from "../types/env.d.ts";
 
 /**
  * Extend the AppLoadContext interface from react-router
@@ -39,20 +39,20 @@ export default class WebAppWorker extends WorkerEntrypoint<CloudflareEnv> {
 	async fetch(request: Request): Promise<Response> {
 		const url = new URL(request.url);
 		if (url.pathname === WORKER_SERVICES_PATH) {
-			const [pingOther, otherPing] = await Promise.all([
-				this.env.PING.fetch("http://ping/other"),
-				this.env.OTHER.fetch("http://other/ping"),
+			const [pingAck, otherAck] = await Promise.all([
+				this.env.PING.fetch("http://ping/ping-service-ack"),
+				this.env.OTHER.fetch("http://other/other-service-ack"),
 			]);
 			return Response.json({
-				pingOther: {
-					ok: pingOther.ok,
-					status: pingOther.status,
-					body: await pingOther.text(),
+				pingAck: {
+					ok: pingAck.ok,
+					status: pingAck.status,
+					body: await pingAck.text(),
 				},
-				otherPing: {
-					ok: otherPing.ok,
-					status: otherPing.status,
-					body: await otherPing.text(),
+				otherAck: {
+					ok: otherAck.ok,
+					status: otherAck.status,
+					body: await otherAck.text(),
 				},
 			});
 		}

@@ -1,5 +1,5 @@
 import { existsSync } from "node:fs";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, URL } from "node:url";
 import { reactRouter } from "@react-router/dev/vite";
 import tailwindcss from "@tailwindcss/vite";
 import alchemy from "alchemy/cloudflare/react-router";
@@ -10,13 +10,10 @@ import devtoolsJson from "vite-plugin-devtools-json";
 
 export default defineConfig((configEnv) => {
 	const { command, mode } = configEnv;
-	const alchemyConfigPath = fileURLToPath(
-		new URL(".alchemy/local/wrangler.jsonc", import.meta.url),
+	const hasAlchemyConfig = existsSync(
+		fileURLToPath(new URL(".alchemy/local/wrangler.jsonc", import.meta.url)),
 	);
-	// CI build runs before Alchemy has generated its local Wrangler config. In that
-	// path, keep Workers' virtual module external and let runtime resolve it.
-	const shouldLoadAlchemy =
-		command === "serve" || (process.env["CI"] !== "true" && existsSync(alchemyConfigPath));
+	const useAlchemyPlugin = command === "serve" || hasAlchemyConfig;
 
 	return {
 		define: {
@@ -27,9 +24,10 @@ export default defineConfig((configEnv) => {
 		},
 		plugins: [
 			devtoolsJson(),
-			shouldLoadAlchemy ? (alchemy() as PluginOption) : null,
-			tailwindcss(),
+			// @see https://alchemy.run/guides/cloudflare-react-router/ (template uses vite-tsconfig-paths; Vite 8+ uses resolve.tsconfigPaths below)
+			useAlchemyPlugin ? (alchemy() as PluginOption) : null,
 			reactRouter(),
+			tailwindcss(),
 			imagetools({
 				include: "**/*.{heif,avif,jpeg,jpg,png,tiff,webp,gif,svg}?*",
 				exclude: [],
@@ -44,7 +42,7 @@ export default defineConfig((configEnv) => {
 		build: {
 			cssCodeSplit: true,
 			minify: "esbuild",
-			rollupOptions: shouldLoadAlchemy
+			rollupOptions: useAlchemyPlugin
 				? undefined
 				: {
 						external: ["cloudflare:workers"],
@@ -57,11 +55,6 @@ export default defineConfig((configEnv) => {
 			exclude: [],
 		},
 		resolve: {
-			// Rolldown (Vite 8 production build) does not apply tsconfigPaths the same as esbuild dev;
-			// explicit alias matches apps/web/tsconfig.cloudflare.json paths "~/*" -> "./app/*".
-			alias: {
-				"~": fileURLToPath(new URL("./app", import.meta.url)),
-			},
 			tsconfigPaths: true,
 		},
 	} as UserConfig;

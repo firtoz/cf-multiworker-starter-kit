@@ -48,7 +48,7 @@ Turbo: resolves package order, parallelizes, caches. **Turbo `inputs`** (per-pac
 
 **D1 / migrations:** **`packages/db/alchemy.run.ts`** defines **`D1Database`** (**`cf-starter-db`** Alchemy app). The web app imports **`mainDb`** from **`cf-starter-db/alchemy`**. **`d1:migrate:remote`** runs **`alchemy deploy --app cf-starter-db`**; **`d1:migrate:local`** documents the dev flow.
 
-**Package Alchemy apps:** Each deployable package owns **`alchemy.run.ts`** and package **`dev` / `deploy` / `destroy`** use **`alchemy dev|deploy|destroy --app <package-id>`** (see [Alchemy Turborepo](https://alchemy.run/guides/turborepo/)). Root **`bun run dev`** filters Turbo to web + **`cf-starter-db`** + worker apps. Deploy tasks are **cacheable** with explicit `inputs` / `dependsOn` in this repo; **`destroy`** stays **`cache: false`**.
+**Package Alchemy apps:** Each deployable package owns **`alchemy.run.ts`** and package **`dev` / `deploy` / `destroy`** use **`alchemy dev|deploy|destroy --app <package-id>`** (see [Alchemy Turborepo](https://alchemy.run/guides/turborepo/)). Root **`bun run dev`** filters Turbo to web + **`cf-starter-db`** + worker apps. **`deploy`** uses **`cache: false`** so Turbo always runs Alchemy deploy (state/limitation: cached hits can skip needed work); **`destroy`** is also **`cache: false`**.
 
 ### 1. Task Dependencies Should Use Outputs, Not Inputs
 
@@ -298,7 +298,7 @@ Tasks are defined in three places:
 ```
 
 ### What stays uncached
-**`dev`** (persistent) and **`clean`** and **`destroy`** (destructive) use **`cache: false`** in this repo. **`d1:migrate:*`** in **`packages/db`** also. **`deploy`** is **cacheable** with package-local **`inputs` / `dependsOn`**; use **`turbo run deploy --force`** when you need a real re-run. Run **`turbo run <task> --force`** to bypass cache when types look stale.
+**`dev`** (persistent) and **`clean`** and **`destroy`** (destructive) use **`cache: false`** in this repo. **`d1:migrate:*`** in **`packages/db`** and **`deploy`** (Alchemy) also. Run **`turbo run <task> --force`** to bypass cache when other tasks look stale.
 
 ```json
 "dev": {

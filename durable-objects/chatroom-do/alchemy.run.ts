@@ -22,6 +22,7 @@ export const chatroomWorker = await Worker("chatroom-do", {
 	entrypoint: new URL("./workers/app.ts", import.meta.url).pathname,
 	compatibility: "node",
 	placement: { mode: "smart" },
+	dev: { port: 8783 },
 	adopt: true,
 	bindings: {
 		CHATROOM_INTERNAL_SECRET: chatroomInternalSecret,

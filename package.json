@@ -12,7 +12,7 @@
 			"durable-objects/*"
 		],
 		"catalog": {
-			"@typescript/native-preview": "^7.0.0-dev.20260425.1",
+			"@typescript/native-preview": "^7.0.0-dev.20260427.1",
 			"@biomejs/biome": "^2.4.13",
 			"@firtoz/socka": "^3.0.3",
 			"@firtoz/hono-fetcher": "^2.7.2",
@@ -20,13 +20,8 @@
 			"alchemy": "^0.93.0",
 			"hono": "^4.12.15",
 			"typescript": "^6.0.3",
-			"wrangler": "4.84.1",
-			"miniflare": "4.20260421.0",
 			"zod": "^4.3.6"
 		}
-	},
-	"overrides": {
-		"miniflare": "4.20260421.0"
 	},
 	"scripts": {
 		"agents:link": "bash agents/install-symlinks.sh",
@@ -60,9 +55,11 @@
 		"@types/bun": "^1.3.13",
 		"@typescript/native-preview": "catalog:",
 		"alchemy": "catalog:",
-		"miniflare": "4.20260421.0",
 		"turbo": "^2.9.6",
 		"typescript": "catalog:"
 	},
-	"packageManager": "bun@1.3.0"
+	"packageManager": "bun@1.3.0",
+	"overrides": {
+		"miniflare": "4.20260424.0"
+	}
 }

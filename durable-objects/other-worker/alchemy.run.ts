@@ -19,6 +19,7 @@ export const otherWorker = await Worker("other-worker", {
 	entrypoint: new URL("./workers/app.ts", import.meta.url).pathname,
 	compatibility: "node",
 	placement: { mode: "smart" },
+	dev: { port: 8781 },
 	adopt: true,
 	bindings: {
 		PING: WorkerRef<PingWorkerRpc>({ service: "cf-starter-ping-do" }),
