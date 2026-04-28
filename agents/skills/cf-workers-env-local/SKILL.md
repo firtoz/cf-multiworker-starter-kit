@@ -31,7 +31,7 @@ description: Alchemy + env files — repo-root `.env.local` (dev) and `.env.prod
 .env.local                # gitignored dev — loaded by root `bun run dev` / package dev scripts
 .env.production           # gitignored prod / CI secrets as needed
 packages/cf-starter-alchemy/
-  password.ts             # `alchemyPassword` — import { alchemyPassword } from "cf-starter-alchemy" in alchemy.run.ts
+  password.ts             # `requireAlchemyPassword(app)` after `await alchemy(...)`
 apps/web/
   alchemy.run.ts          # web Alchemy app
   env.d.ts                # Alchemy-derived Env (see cf-starter-workflow / cf-web-alchemy-bindings)

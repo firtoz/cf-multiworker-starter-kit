@@ -1,11 +1,13 @@
 import alchemy from "alchemy";
 import { DurableObjectNamespace, Worker } from "alchemy/cloudflare";
-import { alchemyPassword, requireEnv } from "cf-starter-alchemy";
+import { requireAlchemyPassword, requireEnv } from "cf-starter-alchemy";
 
-const app = await alchemy("chatroom-do", { password: alchemyPassword });
+const app = await alchemy("chatroom-do");
+requireAlchemyPassword(app);
 const chatroomInternalSecretRaw = requireEnv(
 	"CHATROOM_INTERNAL_SECRET",
 	"Shared secret used when the web worker forwards /api/ws/* to the chatroom DO",
+	app,
 );
 const chatroomInternalSecret = alchemy.secret(chatroomInternalSecretRaw);
 

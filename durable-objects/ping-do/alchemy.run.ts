@@ -1,10 +1,11 @@
 import alchemy from "alchemy";
 import { DurableObjectNamespace, Worker, WorkerRef, WorkerStub } from "alchemy/cloudflare";
-import { alchemyPassword } from "cf-starter-alchemy";
+import { requireAlchemyPassword } from "cf-starter-alchemy";
 import type { OtherWorkerRpc } from "other-worker/alchemy";
 import type { PingDoRpc } from "./workers/ping-do";
 
-const app = await alchemy("ping-do", { password: alchemyPassword });
+const app = await alchemy("ping-do");
+requireAlchemyPassword(app);
 
 export const PingDo = await DurableObjectNamespace<PingDoRpc>("ping-do-PingDo-class", {
 	className: "PingDo",

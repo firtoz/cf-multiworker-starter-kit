@@ -140,7 +140,7 @@ Use **[AGENTS.md](AGENTS.md)** at the repo root (short index to skills) and the 
 │   ├── ping-do/                # Hono DO + service-binding example
 │   └── other-worker/           # Plain worker service-binding example
 └── packages/
-    ├── cf-starter-alchemy/     # Shared `alchemyPassword` for `alchemy()` / secrets
+    ├── cf-starter-alchemy/     # Shared Alchemy env/password helpers
     ├── db/                     # cf-starter-db — Drizzle + D1 schema/migrations
     ├── chat-contract/          # Shared Socka / chat types for web + DO
     └── scripts/                # Workspace scripts package (e.g. build helpers)

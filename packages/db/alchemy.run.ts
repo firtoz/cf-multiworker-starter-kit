@@ -1,8 +1,9 @@
 import alchemy from "alchemy";
 import { D1Database } from "alchemy/cloudflare";
-import { alchemyPassword } from "cf-starter-alchemy";
+import { requireAlchemyPassword } from "cf-starter-alchemy";
 
-const app = await alchemy("cf-starter-db", { password: alchemyPassword });
+const app = await alchemy("cf-starter-db");
+requireAlchemyPassword(app);
 
 export const mainDb = await D1Database("main-db", {
 	adopt: true,

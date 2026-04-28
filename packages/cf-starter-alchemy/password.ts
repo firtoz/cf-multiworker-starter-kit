@@ -1,36 +1,43 @@
 /**
- * Required whenever `alchemy()` uses `{ password: … }` — encrypts `alchemy.secret()` in Alchemy state.
+ * Required whenever the Alchemy app uses `alchemy.secret()` — encrypts secrets in Alchemy state.
  * Set `ALCHEMY_PASSWORD` in repo-root **`.env.local`** (dev) or **`.env.production`** (deploy / CI), or your secret store in CI.
  * Package scripts keep those state files separate with `--stage local` and `--stage prod`, so the passwords do not need to match.
  *
  * @see https://alchemy.run/concepts/secret/#encryption-password
  */
 
-/** Set by this repo’s package.json (deploy/dev/destroy scripts). Alchemy’s worker has no `deploy` in argv. */
-const MODE = process.env["CF_STARTER_ALCHEMY_MODE"] as "deploy" | "destroy" | "dev" | undefined;
+interface AlchemyScopeHint {
+	readonly phase: "up" | "destroy" | "read";
+	readonly local: boolean;
+	readonly stage: string;
+}
 
-function missingRequiredEnvMessage(name: string, description?: string) {
+function missingRequiredEnvMessage(
+	name: string,
+	description?: string,
+	scope?: AlchemyScopeHint,
+) {
 	const prefix = description ? `${name} is not set. ${description}. ` : `${name} is not set. `;
-	if (MODE === "deploy") {
-		return (
-			prefix +
-			"For deploy, run `bun run setup:prod` at the repository root to seed " +
-			`repo-root .env.production, or add ${name} there / in CI. Deploy uses: ` +
-			"bun --env-file ../../.env.production alchemy deploy …"
-		);
-	}
-	if (MODE === "destroy") {
+	if (scope?.phase === "destroy") {
 		return (
 			prefix +
 			"For destroy, set it the same as deploy: repo-root .env.production (e.g. `bun run setup:prod`) " +
 			"or export it. This repo uses: bun --env-file ../../.env.production alchemy destroy …"
 		);
 	}
-	if (MODE === "dev") {
+	if (scope?.local || scope?.stage === "local") {
 		return (
 			prefix +
 			`For local dev, run \`bun run setup\` to seed .env.local, or export ${name}. ` +
 			"Dev uses: bun --env-file ../../.env.local alchemy dev …"
+		);
+	}
+	if (scope?.stage === "prod") {
+		return (
+			prefix +
+			"For deploy, run `bun run setup:prod` at the repository root to seed " +
+			`repo-root .env.production, or add ${name} there / in CI. Deploy uses: ` +
+			"bun --env-file ../../.env.production alchemy deploy …"
 		);
 	}
 
@@ -59,22 +66,28 @@ function missingRequiredEnvMessage(name: string, description?: string) {
 	return (
 		prefix +
 		"Dev: .env.local (bun run setup). Deploy/destroy: .env.production (bun run setup:prod) or " +
-		"export the variable (CI). If you use this package’s alchemy * npm scripts, they set CF_STARTER_ALCHEMY_MODE for clearer errors."
+		"export the variable (CI)."
 	);
 }
 
-export function requireEnv(name: string, description?: string): string {
+export function requireEnv(
+	name: string,
+	description?: string,
+	scope?: AlchemyScopeHint,
+): string {
 	const raw = process.env[name];
 	if (raw == null || raw === "") {
-		throw new Error(missingRequiredEnvMessage(name, description));
+		throw new Error(missingRequiredEnvMessage(name, description, scope));
 	}
 	return raw;
 }
 
-const raw = process.env["ALCHEMY_PASSWORD"];
-if (raw == null || raw === "") {
-	throw new Error(
-		missingRequiredEnvMessage("ALCHEMY_PASSWORD", "Encrypts Alchemy state and secrets"),
-	);
+export function requireAlchemyPassword(
+	scope: AlchemyScopeHint & { readonly password: string | undefined },
+) {
+	if (scope.password == null || scope.password === "") {
+		throw new Error(
+			missingRequiredEnvMessage("ALCHEMY_PASSWORD", "Encrypts Alchemy state and secrets", scope),
+		);
+	}
 }
-export const alchemyPassword: string = raw;

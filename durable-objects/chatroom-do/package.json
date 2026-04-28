@@ -7,9 +7,9 @@
 	},
 	"scripts": {
 		"db:generate": "drizzle-kit generate",
-		"deploy": "CF_STARTER_ALCHEMY_MODE=deploy bun --env-file ../../.env.production alchemy deploy --app chatroom-do --stage prod",
-		"destroy": "CF_STARTER_ALCHEMY_MODE=destroy bun --env-file ../../.env.production alchemy destroy --app chatroom-do --stage prod",
-		"dev": "CF_STARTER_ALCHEMY_MODE=dev bun --env-file ../../.env.local alchemy dev --app chatroom-do --stage local",
+		"deploy": "bun --env-file ../../.env.production alchemy deploy --app chatroom-do --stage prod",
+		"destroy": "bun --env-file ../../.env.production alchemy destroy --app chatroom-do --stage prod",
+		"dev": "bun --env-file ../../.env.local alchemy dev --app chatroom-do --stage local",
 		"typegen:local": "node -e \"process.exit(0)\"",
 		"typegen:prod": "node -e \"process.exit(0)\"",
 		"typecheck:local": "tsgo --noEmit -p ./tsconfig.json",

@@ -1,13 +1,14 @@
 import alchemy from "alchemy";
 import { Worker, WorkerRef, WorkerStub } from "alchemy/cloudflare";
-import { alchemyPassword } from "cf-starter-alchemy";
+import { requireAlchemyPassword } from "cf-starter-alchemy";
 // Keep this as a relative type import: ping-do already depends on other-worker,
 // so a workspace import here would create a Turbo package graph cycle.
 import type { PingWorkerRpc } from "../ping-do/workers/rpc";
 
 export type { OtherWorkerRpc } from "./workers/rpc";
 
-const app = await alchemy("other-worker", { password: alchemyPassword });
+const app = await alchemy("other-worker");
+requireAlchemyPassword(app);
 
 await WorkerStub<PingWorkerRpc>("ping-worker-service-stub", {
 	name: "cf-starter-ping-do",
