@@ -8,9 +8,9 @@
 		"./workers/rpc": "./workers/rpc.ts"
 	},
 	"scripts": {
-		"deploy": "bun --env-file ../../.env.production alchemy deploy --app ping-do --stage prod",
-		"destroy": "bun --env-file ../../.env.production alchemy destroy --app ping-do --stage prod",
-		"dev": "bun --env-file ../../.env.local alchemy dev --app ping-do --stage local",
+		"deploy": "bun --env-file ../../.env.production alchemy deploy --app cf-starter-ping --stage prod",
+		"destroy": "bun --env-file ../../.env.production alchemy destroy --app cf-starter-ping --stage prod",
+		"dev": "bun --env-file ../../.env.local alchemy dev --app cf-starter-ping --stage local",
 		"typegen:local": "node -e \"process.exit(0)\"",
 		"typegen:prod": "node -e \"process.exit(0)\"",
 		"typecheck:local": "tsgo --noEmit -p ./tsconfig.json",

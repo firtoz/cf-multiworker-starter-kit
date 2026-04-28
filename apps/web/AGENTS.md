@@ -18,7 +18,7 @@ Do **not** use `context.cloudflare.env` (or similar) from React Router for bindi
 
 - Source: **`apps/web/alchemy.run.ts`** for web bindings and imported Worker/DO resources.
 - Provider packages export resources through their package **`./alchemy`** export.
-- Root scripts use Turbo; web dev/deploy/destroy calls `alchemy ... --app web`.
+- Root scripts use Turbo; web dev/deploy/destroy calls `alchemy … --app cf-starter-frontend` (see root README “Code-first infra names”).
 
 ## Routes
 

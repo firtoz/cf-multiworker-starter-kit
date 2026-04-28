@@ -20,6 +20,10 @@ description: workers/rpc.ts for WorkerRef or DO RPC types, package exports, cros
 
 3. **Alchemy** — Use the exported RPC type: `DurableObjectNamespace<YourDoRpc>`, `WorkerRef<OtherWorkerRpc>`, etc.
 
+## Cyclic stubs / refs (`ping-do` ↔ `other-worker`)
+
+When two worker packages **`WorkerRef`** / **`WorkerStub`** each other to avoid `./alchemy` value-import cycles, paste **no drift** **`service`** / **`name`** strings derived from **`omitDefaultPhysicalWorkerScriptName(peersCfStarterAppLiteral, app.stage)`** with **`DEFAULT_WORKER_RESOURCE_ID`/`CF_STARTER_APPS`** from **`cf-starter-alchemy/worker-peer-scripts`**.
+
 ## Cross-package imports (avoid Turbo / npm cycles)
 
 - Prefer **one** `workspace:*` direction between two siblings (e.g. `ping-do` → `other-worker` for `import type { OtherWorkerRpc } from "other-worker/alchemy"`).

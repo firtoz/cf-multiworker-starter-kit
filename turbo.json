@@ -1,6 +1,7 @@
 {
 	"$schema": "./node_modules/turbo/schema.json",
-	"globalDependencies": [".env.local", ".env.production", "tsconfig.base.json", "packages/cf-starter-alchemy/password.ts"],
+	"globalDependencies": [".env.local", ".env.production", "tsconfig.base.json", "packages/cf-starter-alchemy/password.ts", "packages/cf-starter-alchemy/worker-peer-scripts.ts"],
+
 	"ui": "tui",
 	"tasks": {
 		"build": {

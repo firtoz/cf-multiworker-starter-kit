@@ -6,6 +6,10 @@
 		".": {
 			"types": "./password.ts",
 			"default": "./password.ts"
+		},
+		"./worker-peer-scripts": {
+			"types": "./worker-peer-scripts.ts",
+			"default": "./worker-peer-scripts.ts"
 		}
 	},
 	"scripts": {

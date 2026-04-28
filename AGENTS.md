@@ -46,6 +46,7 @@ Setup is normally applied via `.cursor/environment.json`.
 - Bindings in app code: `import { env } from "cloudflare:workers"` (not React Router `context.cloudflare.env`).
 - Drizzle migrations: edit `packages/db/src/schema.ts` or `durable-objects/<name>/src/schema.ts`, then run `bun run db:generate` or the package-local `db:generate`. Use the correct Drizzle driver (`d1-http` for D1, `durable-sqlite` for DO SQLite). Do not write SQL/meta snapshots or migration wrappers by hand.
 - Maintenance loop: run the narrowest useful check frequently (`bun run typegen` after routes/env/Alchemy, `bun run typecheck` after TypeScript/API edits, `bun run lint` before finishing) from the **repo root**. Full checklist: [cf-starter-workflow](agents/skills/cf-starter-workflow/SKILL.md).
+- Alchemy infra naming: literals in **`alchemy.run.ts`** (**`await alchemy`**) and **[`packages/cf-starter-alchemy/worker-peer-scripts.ts`](packages/cf-starter-alchemy/worker-peer-scripts.ts)** — no env-var branding. README explains **`--filter`** vs **`--app`**.
 
 ## Creating new skills
 

@@ -77,7 +77,7 @@ After D1 schema changes:
 2. Run `bun run dev` or `bun run deploy`.
 3. Turbo/Alchemy applies migrations through `packages/db/alchemy.run.ts` (`D1Database.migrationsDir` → `packages/db/drizzle`). The web app binds `mainDb` from `cf-starter-db/alchemy`.
 
-`bun run d1:migrate:local` explains the dev flow. `bun run d1:migrate:remote` runs `alchemy deploy --app cf-starter-db` (same as that package’s `deploy`).
+`bun run d1:migrate:local` explains the dev flow. `bun run d1:migrate:remote` runs `alchemy deploy --app cf-starter-database` (same as that package’s `deploy`).
 
 If local dev still reports `no such table`:
 

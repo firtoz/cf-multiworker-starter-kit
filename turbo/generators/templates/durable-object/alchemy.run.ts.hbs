@@ -1,18 +1,22 @@
 import alchemy from "alchemy";
 import { DurableObjectNamespace, Worker } from "alchemy/cloudflare";
-import { alchemyPassword } from "cf-starter-alchemy";
+import { requireAlchemyPassword } from "cf-starter-alchemy";
+import { DEFAULT_WORKER_RESOURCE_ID } from "cf-starter-alchemy/worker-peer-scripts";
 import type { {{ pascalCase name }}DoRpc } from "./workers/rpc";
 
-const app = await alchemy("{{ kebabCase name }}", { password: alchemyPassword });
+const app = await alchemy("cf-starter-{{ kebabCase name }}");
+requireAlchemyPassword(app);
 
 export const {{ pascalCase name }} = await DurableObjectNamespace<{{ pascalCase name }}DoRpc>("{{ kebabCase name }}-{{ pascalCase name }}-class", {
 	className: "{{ pascalCase name }}",
 });
 
-export const {{ camelCase name }}Worker = await Worker("{{ kebabCase name }}", {
+export const {{ camelCase name }}Worker = await Worker(DEFAULT_WORKER_RESOURCE_ID, {
 	entrypoint: new URL("./workers/app.ts", import.meta.url).pathname,
 	compatibility: "node",
 	placement: { mode: "smart" },
+	dev: { port: 8789 },
+	adopt: true,
 	bindings: {
 		{{ pascalCase name }},
 	},

@@ -10,9 +10,9 @@
 {{#if usesSqlite}}
 		"db:generate": "drizzle-kit generate",
 {{/if}}
-		"deploy": "CF_STARTER_ALCHEMY_MODE=deploy bun --env-file ../../.env.production alchemy deploy --app {{ kebabCase name }}",
-		"destroy": "CF_STARTER_ALCHEMY_MODE=destroy bun --env-file ../../.env.production alchemy destroy --app {{ kebabCase name }}",
-		"dev": "CF_STARTER_ALCHEMY_MODE=dev bun --env-file ../../.env.local alchemy dev --app {{ kebabCase name }}",
+		"deploy": "bun --env-file ../../.env.production alchemy deploy --app cf-starter-{{ kebabCase name }} --stage prod",
+		"destroy": "bun --env-file ../../.env.production alchemy destroy --app cf-starter-{{ kebabCase name }} --stage prod",
+		"dev": "bun --env-file ../../.env.local alchemy dev --app cf-starter-{{ kebabCase name }} --stage local",
 		"typegen:local": "node -e \"process.exit(0)\"",
 		"typegen:prod": "node -e \"process.exit(0)\"",
 		"typecheck:local": "tsgo --noEmit -p ./tsconfig.json",

@@ -7,9 +7,9 @@
 		"./workers/rpc": "./workers/rpc.ts"
 	},
 	"scripts": {
-		"deploy": "bun --env-file ../../.env.production alchemy deploy --app other-worker --stage prod",
-		"destroy": "bun --env-file ../../.env.production alchemy destroy --app other-worker --stage prod",
-		"dev": "bun --env-file ../../.env.local alchemy dev --app other-worker --stage local",
+		"deploy": "bun --env-file ../../.env.production alchemy deploy --app cf-starter-other --stage prod",
+		"destroy": "bun --env-file ../../.env.production alchemy destroy --app cf-starter-other --stage prod",
+		"dev": "bun --env-file ../../.env.local alchemy dev --app cf-starter-other --stage local",
 		"typegen:local": "node -e \"process.exit(0)\"",
 		"typegen:prod": "node -e \"process.exit(0)\"",
 		"typecheck:local": "tsgo --noEmit -p ./tsconfig.json",

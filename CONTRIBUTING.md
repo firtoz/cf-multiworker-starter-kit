@@ -42,7 +42,7 @@ The generator and post-steps (root `dev` filter, web bindings, `turbo` destroy, 
 
 ## Deploy and destroy (contributors)
 
-- **`bun run deploy`** — Runs **`turbo run deploy --filter=cf-starter-web`** so the web app and its dependent worker packages deploy in order. Each package uses **`alchemy deploy --app <package-id>`**. Needs production creds and a stable **`ALCHEMY_PASSWORD`** (see README and Alchemy state docs).
+- **`bun run deploy`** — Runs **`turbo run deploy --filter=cf-starter-web`** so the web app and its dependent worker packages deploy in order. Each package runs **`alchemy deploy --app …`** (**`cf-starter-*` literals** mirror **`alchemy("…")`**, not necessarily the **`package.json#name`** — see README “Code-first infra names”). Needs production creds and a stable **`ALCHEMY_PASSWORD`** (see README and Alchemy state docs).
 - **`bun run destroy`** — **`turbo run destroy`**; order follows package `destroy` config (web before dependents where set).
 
 ## Pull requests
