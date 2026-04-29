@@ -117,7 +117,16 @@ If you see **no Cloudflare credentials**, run **`bun alchemy configure`** / **`b
 bun run deploy
 ```
 
-Uses **`turbo run deploy --filter=cf-starter-web`** plus dependent **`deploy`** tasks; each package runs **`alchemy deploy --app …`** (**`cf-starter-frontend`**, **`cf-starter-database`**, …: match **`packages/cf-starter-alchemy/worker-peer-scripts.ts`** and each **`package.json`**). Use repo-root **`.env.production`** (or CI) for **`CLOUDFLARE_*`**, **`ALCHEMY_PASSWORD`**, **`CHATROOM_INTERNAL_SECRET`**. Read [Alchemy State](https://alchemy.run/concepts/state/) before shared CI secrets.
+Uses **`turbo run deploy --filter=cf-starter-web`** plus dependent **`deploy`** tasks; each package runs **`alchemy deploy --app …`** (**`cf-starter-frontend`**, **`cf-starter-database`**, …: match **`packages/cf-starter-alchemy/worker-peer-scripts.ts`** and each **`package.json`**). Use repo-root **`.env.production`** (or CI) for **`CLOUDFLARE_*`**, **`ALCHEMY_PASSWORD`**, **`CHATROOM_INTERNAL_SECRET`**. For a given stage (e.g. production), **`ALCHEMY_PASSWORD`** must be the **same** value everywhere **`alchemy deploy`** runs—your machine **and** CI (e.g. GitHub Actions)—so Alchemy can decrypt and update the same remote state; see [encryption password](https://alchemy.run/concepts/secret/#encryption-password). Read [Alchemy State](https://alchemy.run/concepts/state/) before shared CI secrets.
+
+To sync that production **`ALCHEMY_PASSWORD`** into GitHub Actions, run the admin stack from a trusted dev/admin machine (not from normal CI):
+
+```bash
+gh auth login
+bun run github:secrets:sync
+```
+
+This uses Alchemy’s GitHub provider to ensure the GitHub Environment exists, then write an environment-scoped **`ALCHEMY_PASSWORD`** secret (default **`GITHUB_ENVIRONMENT=production`**); it falls back to **`gh auth token`** and **`gh repo view`** unless you set **`GITHUB_TOKEN`** / **`GITHUB_REPOSITORY=owner/repo`** explicitly. See [GitHubSecret](https://alchemy.run/providers/github/secret/) and [GitHub provider](https://alchemy.run/providers/github/).
 
 Rebrand app ids (**`PRODUCT_PREFIX`**, **`--app`**): **[Naming your product](#naming-your-product)** and **[project-init](agents/skills/project-init/SKILL.md)**. Deeper prod notes: [Deployment](#deployment).
 
@@ -257,7 +266,7 @@ Uses Bun with a frozen lockfile and Turborepo for parallel/cached tasks.
 
 ## Deployment
 
-See **[Quick start → Production deploy](#production-deploy)** for the **`bun run deploy`** invocation. **Summary:** **`turbo run deploy --filter=cf-starter-web`** fans out **`alchemy deploy --app …`** with ids from **`PRODUCT_PREFIX`** / **`CF_STARTER_APPS`** ([Naming](#naming-your-product)). **Auth:** **`bun alchemy configure`** / **`bun alchemy login`** or **`CLOUDFLARE_API_TOKEN`** / **`CLOUDFLARE_ACCOUNT_ID`** ([Alchemy Cloudflare guide](https://alchemy.run/guides/cloudflare/)). Use a stable **`ALCHEMY_PASSWORD`** in prod; **`CHATROOM_INTERNAL_SECRET`** must match web + chatroom. More workflow + CI: **[cf-starter-workflow](agents/skills/cf-starter-workflow/SKILL.md)**, [Alchemy State](https://alchemy.run/concepts/state/).
+See **[Quick start → Production deploy](#production-deploy)** for the **`bun run deploy`** invocation. **Summary:** **`turbo run deploy --filter=cf-starter-web`** fans out **`alchemy deploy --app …`** with ids from **`PRODUCT_PREFIX`** / **`CF_STARTER_APPS`** ([Naming](#naming-your-product)). **Auth:** **`bun alchemy configure`** / **`bun alchemy login`** or **`CLOUDFLARE_API_TOKEN`** / **`CLOUDFLARE_ACCOUNT_ID`** ([Alchemy Cloudflare guide](https://alchemy.run/guides/cloudflare/)). Use one stable **`ALCHEMY_PASSWORD`** per deploy stage everywhere deploy runs (local **and** CI); **`CHATROOM_INTERNAL_SECRET`** must match web + chatroom. **GitHub Actions secret sync:** **`bun run github:secrets:sync`** runs **`stacks/admin.ts`** locally to manage the environment-scoped **`ALCHEMY_PASSWORD`** secret via [GitHubSecret](https://alchemy.run/providers/github/secret/); do not run that admin stack from normal CI/deploy. More workflow + CI: **[cf-starter-workflow](agents/skills/cf-starter-workflow/SKILL.md)**, [Alchemy State](https://alchemy.run/concepts/state/).
 
 ## Scripts
 
@@ -275,6 +284,7 @@ See **[Quick start → Production deploy](#production-deploy)** for the **`bun r
 ### Deployment
 - `bun run deploy`: `turbo run deploy --filter=cf-starter-web` (web app + `^deploy` graph)
 - `bun run destroy`: `turbo run destroy`
+- `bun run github:secrets:sync`: Local/admin-only Alchemy stack (`stacks/admin.ts`) that syncs the production `ALCHEMY_PASSWORD` to GitHub Actions (uses `gh auth token` / `gh repo view`, or explicit `GITHUB_TOKEN`, `GITHUB_REPOSITORY`, optional `GITHUB_ENVIRONMENT`)
 
 ### Dependency management
 - `bun run outdated`: Outdated deps across workspaces (includes **Wrangler** via the workspace catalog where packages still use it)

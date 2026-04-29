@@ -42,7 +42,8 @@ The generator and post-steps (root `dev` filter, web bindings, `turbo` destroy, 
 
 ## Deploy and destroy (contributors)
 
-- **`bun run deploy`** — Runs **`turbo run deploy --filter=cf-starter-web`** so the web app and its dependent worker packages deploy in order. Each package runs **`alchemy deploy --app …`** (**`cf-starter-*` literals** mirror **`alchemy("…")`**, not necessarily the **`package.json#name`** — see README “Code-first infra names”). Needs production creds and a stable **`ALCHEMY_PASSWORD`** (see README and Alchemy state docs).
+- **`bun run deploy`** — Runs **`turbo run deploy --filter=cf-starter-web`** so the web app and its dependent worker packages deploy in order. Each package runs **`alchemy deploy --app …`** (**`cf-starter-*` literals** mirror **`alchemy("…")`**, not necessarily the **`package.json#name`** — see README “Code-first infra names”). Needs production creds and a stable **`ALCHEMY_PASSWORD`**, **the same across local and CI** for that stage (see README and Alchemy state docs).
+- **`bun run github:secrets:sync`** — Local/admin-only Alchemy stack for syncing the stage’s **`ALCHEMY_PASSWORD`** to GitHub Actions. Uses **`gh auth token`** and **`gh repo view`** by default; explicit **`GITHUB_TOKEN`** and **`GITHUB_REPOSITORY=owner/repo`** still work. Do not run it from normal CI/deploy.
 - **`bun run destroy`** — **`turbo run destroy`**; order follows package `destroy` config (web before dependents where set).
 
 ## Pull requests

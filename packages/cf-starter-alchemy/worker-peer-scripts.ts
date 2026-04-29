@@ -46,4 +46,5 @@ export const CF_STARTER_APPS = {
 	ping: `${PRODUCT_PREFIX}-ping`,
 	other: `${PRODUCT_PREFIX}-other`,
 	database: `${PRODUCT_PREFIX}-database`,
+	admin: `${PRODUCT_PREFIX}-admin`,
 } as const;

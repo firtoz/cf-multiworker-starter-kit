@@ -27,6 +27,7 @@
 		"agents:link": "bash agents/install-symlinks.sh",
 		"setup": "bun run --cwd packages/scripts setup",
 		"setup:prod": "bun run --cwd packages/scripts setup:prod",
+		"github:secrets:sync": "bun --env-file .env.production alchemy deploy stacks/admin.ts --app cf-starter-admin --stage prod",
 		"dev": "turbo run dev --filter=cf-starter-web --filter=cf-starter-db --filter=chatroom-do --filter=ping-do --filter=other-worker",
 		"deploy": "turbo run deploy --filter=cf-starter-web",
 		"destroy": "turbo run destroy",

@@ -11,6 +11,7 @@
 	},
 	"include": [
 		"alchemy/**/*.ts",
+		"stacks/**/*.ts",
 		"apps/*/alchemy.run.ts",
 		"apps/*/types/env.d.ts",
 		"durable-objects/*/alchemy.run.ts",

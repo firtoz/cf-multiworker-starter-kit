@@ -18,11 +18,13 @@ description: Alchemy + env files — repo-root `.env.local` (dev) and `.env.prod
 
 2. **Real env** — Put dev values in **`.env.local`** (gitignored). Use **`.env.production`** for deploy/CI secrets and Cloudflare credentials as your pipeline expects. **Do not use a plain `.env` file.**
 
-3. **Infra source of truth** — Package-local **`alchemy.run.ts`** files. Changing bindings means updating the relevant package app. `env.d.ts` files use the exported package worker resource's `Env`.
+3. **`ALCHEMY_PASSWORD` and deploy** — For each stage you deploy (e.g. production), the password must be **identical** for every **`alchemy deploy`**: developer laptops, GitHub Actions, and any other runner. It encrypts Alchemy state and `alchemy.secret()` values; a mismatch breaks decrypt/sync. [Alchemy — encryption password](https://alchemy.run/concepts/secret/#encryption-password). To sync the production value into GitHub Actions, run **`bun run github:secrets:sync`** from a trusted dev/admin machine, not normal CI; it uses **`gh auth token`** / **`gh repo view`** unless env overrides are set.
 
-4. **Turbo graph** — Root **`bun run dev`** runs a **filtered** Turbo **`dev`** so only web + worker packages run **`alchemy dev --app …`** (see [Alchemy Turborepo](https://alchemy.run/guides/turborepo/)). **`bun run deploy`** / **`destroy`** use their Turbo graphs; package scripts use Alchemy CLI with **`--app`**. Checked-in package config belongs in **`alchemy.run.ts`**.
+4. **Infra source of truth** — Package-local **`alchemy.run.ts`** files. Changing bindings means updating the relevant package app. `env.d.ts` files use the exported package worker resource's `Env`.
 
-5. **Per-package `.env.local`** — Optional; include in Turbo **`inputs`** where a package’s tasks need it (e.g. chatroom-do). Never substitute **`.env.example`** for real values.
+5. **Turbo graph** — Root **`bun run dev`** runs a **filtered** Turbo **`dev`** so only web + worker packages run **`alchemy dev --app …`** (see [Alchemy Turborepo](https://alchemy.run/guides/turborepo/)). **`bun run deploy`** / **`destroy`** use their Turbo graphs; package scripts use Alchemy CLI with **`--app`**. Checked-in package config belongs in **`alchemy.run.ts`**.
+
+6. **Per-package `.env.local`** — Optional; include in Turbo **`inputs`** where a package’s tasks need it (e.g. chatroom-do). Never substitute **`.env.example`** for real values.
 
 ## Typical layout
 
@@ -30,6 +32,7 @@ description: Alchemy + env files — repo-root `.env.local` (dev) and `.env.prod
 .env.example              # documentation only
 .env.local                # gitignored dev — loaded by root `bun run dev` / package dev scripts
 .env.production           # gitignored prod / CI secrets as needed
+stacks/admin.ts           # local-only Alchemy admin stack for GitHub Actions secrets
 packages/cf-starter-alchemy/
   password.ts             # `requireAlchemyPassword(app)` after `await alchemy(...)`
 apps/web/
