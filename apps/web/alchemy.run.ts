@@ -1,7 +1,10 @@
+import { mkdirSync, writeFileSync } from "node:fs";
+import path from "node:path";
 import alchemy from "alchemy";
 import { ReactRouter } from "alchemy/cloudflare";
 import { requireAlchemyPassword, requireEnv } from "alchemy-utils";
 import { alchemyCiCloudStateStoreOptions } from "alchemy-utils/alchemy-cloud-state-store";
+import { CF_STARTER_CI_WEB_DEPLOY_URL_RELPATH } from "alchemy-utils/ci-deploy-web-url";
 import { resolveStageFromEnv } from "alchemy-utils/deployment-stage";
 import {
 	CF_STARTER_APPS,
@@ -44,5 +47,14 @@ export const web = await ReactRouter(DEFAULT_REACT_ROUTER_WEB_RESOURCE_ID, {
 });
 
 console.log({ webUrl: web.url });
+/** GitHub Actions: write URL for deploy workflows (**`deploy-*.yml`**) — see **`CF_STARTER_CI_WEB_DEPLOY_URL_RELPATH`**. */
+if (process.env["GITHUB_ACTIONS"] === "true" && web.url) {
+	const root = process.env["GITHUB_WORKSPACE"]?.trim();
+	if (root) {
+		const filePath = path.join(root, CF_STARTER_CI_WEB_DEPLOY_URL_RELPATH);
+		mkdirSync(path.dirname(filePath), { recursive: true });
+		writeFileSync(filePath, `${web.url.trim()}\n`, "utf8");
+	}
+}
 
 await app.finalize();

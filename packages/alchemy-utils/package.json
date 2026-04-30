@@ -18,6 +18,10 @@
 		"./alchemy-cloud-state-store": {
 			"types": "./alchemy-cloud-state-store.ts",
 			"default": "./alchemy-cloud-state-store.ts"
+		},
+		"./ci-deploy-web-url": {
+			"types": "./ci-deploy-web-url.ts",
+			"default": "./ci-deploy-web-url.ts"
 		}
 	},
 	"scripts": {

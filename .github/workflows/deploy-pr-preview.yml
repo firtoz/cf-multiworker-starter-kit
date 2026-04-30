@@ -16,11 +16,7 @@ jobs:
     runs-on: ubuntu-latest
     environment: staging
     steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version-file: .nvmrc
+      - uses: actions/checkout@v6
 
       - uses: oven-sh/setup-bun@v2
         with:
@@ -56,19 +52,29 @@ jobs:
         run: |
           set -o pipefail
           bun run deploy:preview 2>&1 | tee deploy-output.txt
+          deploy_status=${PIPESTATUS[0]}
+          URL_FILE="$GITHUB_WORKSPACE/.alchemy/ci/cf-starter-web-deploy-url.txt"
+          WEB_URL=""
+          if [[ -f "$URL_FILE" ]]; then
+            IFS= read -r WEB_URL <"$URL_FILE" || true
+          fi
+          echo "web_url=$WEB_URL" >> "$GITHUB_OUTPUT"
+          exit "$deploy_status"
 
       - name: Deploy summary
         if: always()
         env:
           PR_NUMBER: ${{ github.event.pull_request.number }}
           WORKFLOW_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          WEB_URL_FROM_STEP: ${{ steps.deploy.outputs.web_url }}
         run: |
           PF_OUT="${{ steps.preflight.outcome }}"
           DE_OUT="${{ steps.deploy.outcome }}"
           EN="${{ steps.preflight.outputs.deploy_enabled }}"
-          WEB_URL=""
-          if [[ -f deploy-output.txt ]]; then
-            WEB_URL=$(grep 'webUrl:' deploy-output.txt | sed -n 's/.*webUrl:[[:space:]]*"\([^"]*\)".*/\1/p' | tail -1)
+          WEB_URL="$WEB_URL_FROM_STEP"
+          URL_FILE="$GITHUB_WORKSPACE/.alchemy/ci/cf-starter-web-deploy-url.txt"
+          if [[ -z "$WEB_URL" && -f "$URL_FILE" ]]; then
+            IFS= read -r WEB_URL <"$URL_FILE" || true
           fi
           {
             echo "## PR #${PR_NUMBER} preview deploy"
@@ -86,7 +92,7 @@ jobs:
                 echo "**Preview (workers.dev):** [$WEB_URL]($WEB_URL)"
                 echo "::notice title=PR-${PR_NUMBER}-preview::$WEB_URL"
               else
-                echo "_Deploy finished but \`webUrl\` was not found in logs — search **Turbo deploy (preview)** for \`webUrl\`._"
+                echo "- **workers.dev preview URL:** artifact missing — ${GITHUB_WORKSPACE}/.alchemy/ci/cf-starter-web-deploy-url.txt _(see apps/web/alchemy.run.ts)._"
               fi
             elif [[ "$DE_OUT" == "failure" ]]; then
               echo "**Status:** Turbo deploy failed — see **Turbo deploy (preview)**."
@@ -101,11 +107,7 @@ jobs:
     runs-on: ubuntu-latest
     environment: staging
     steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version-file: .nvmrc
+      - uses: actions/checkout@v6
 
       - uses: oven-sh/setup-bun@v2
         with:

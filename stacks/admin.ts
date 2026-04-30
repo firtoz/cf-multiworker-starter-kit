@@ -5,7 +5,7 @@
  * - **Staging:** `STAGE=staging`, repo-root `.env.staging`, GitHub environment **`staging`**.
  *
  * **Secrets** (GitHubSecret): `ALCHEMY_PASSWORD`, `ALCHEMY_STATE_TOKEN`, `CHATROOM_INTERNAL_SECRET`, `CLOUDFLARE_API_TOKEN`
- * **Variables** (REST): `CLOUDFLARE_ACCOUNT_ID`, `CF_STARTER_DEPLOY_ENABLED=true` — synced via **`stacks/github-environment-variable.ts`** (Octokit list + cache; no noisy per-name GET 404).
+ * **Variables** (REST): `CLOUDFLARE_ACCOUNT_ID`, `CF_STARTER_DEPLOY_ENABLED=true` — **`GitHubEnvironmentVariable`** resources in **`github-environment-variable.ts`** (shared list prefetch per env/token in-process + one tracked resource per name).
  *
  * Run from repo root:
  * - `bun run github:sync:prod`
@@ -24,10 +24,7 @@ import {
 	CF_STARTER_DEPLOY_ENABLED_VAR,
 	setupCommandLabelForDotfileRel,
 } from "../packages/scripts/github-environment-secrets";
-import {
-	GitHubEnvironmentVariable,
-	prefetchEnvironmentVariablesMap,
-} from "./github-environment-variable";
+import { GitHubEnvironmentVariable } from "./github-environment-variable";
 
 const REPO_ROOT = path.resolve(import.meta.dir, "..");
 
@@ -197,12 +194,6 @@ for (const name of Object.keys(secretPayload) as (keyof typeof secretPayload)[])
 }
 
 const variableNames = Object.keys(githubVariables).sort();
-const variableSyncCache = await prefetchEnvironmentVariablesMap({
-	owner,
-	repository,
-	environment: githubEnvironment,
-	token: githubToken,
-});
 for (const name of variableNames) {
 	const value = githubVariables[name];
 	if (value === undefined) {
@@ -215,7 +206,6 @@ for (const name of variableNames) {
 		name,
 		value,
 		token: githubToken,
-		variableSyncCache,
 	});
 }
 

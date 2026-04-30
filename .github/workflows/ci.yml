@@ -19,13 +19,9 @@ jobs:
     name: Verify (lint, typecheck, build)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version-file: .nvmrc
 
       - uses: oven-sh/setup-bun@v2
         with:
