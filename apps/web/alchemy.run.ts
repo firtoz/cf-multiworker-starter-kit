@@ -1,12 +1,12 @@
 import alchemy from "alchemy";
 import { ReactRouter } from "alchemy/cloudflare";
-import { requireAlchemyPassword, requireEnv } from "cf-starter-alchemy";
-import { alchemyCiCloudStateStoreOptions } from "cf-starter-alchemy/alchemy-cloud-state-store";
-import { resolveStageFromEnv } from "cf-starter-alchemy/deployment-stage";
+import { requireAlchemyPassword, requireEnv } from "alchemy-utils";
+import { alchemyCiCloudStateStoreOptions } from "alchemy-utils/alchemy-cloud-state-store";
+import { resolveStageFromEnv } from "alchemy-utils/deployment-stage";
 import {
 	CF_STARTER_APPS,
 	DEFAULT_REACT_ROUTER_WEB_RESOURCE_ID,
-} from "cf-starter-alchemy/worker-peer-scripts";
+} from "alchemy-utils/worker-peer-scripts";
 import { mainDb } from "cf-starter-db/alchemy";
 import { chatroomWorker } from "chatroom-do/alchemy";
 import { otherWorker } from "other-worker/alchemy";

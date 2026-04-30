@@ -1,13 +1,13 @@
 import alchemy from "alchemy";
 import { Worker, WorkerRef, WorkerStub } from "alchemy/cloudflare";
-import { requireAlchemyPassword } from "cf-starter-alchemy";
-import { alchemyCiCloudStateStoreOptions } from "cf-starter-alchemy/alchemy-cloud-state-store";
-import { resolveStageFromEnv } from "cf-starter-alchemy/deployment-stage";
+import { requireAlchemyPassword } from "alchemy-utils";
+import { alchemyCiCloudStateStoreOptions } from "alchemy-utils/alchemy-cloud-state-store";
+import { resolveStageFromEnv } from "alchemy-utils/deployment-stage";
 import {
 	CF_STARTER_APPS,
 	DEFAULT_WORKER_RESOURCE_ID,
 	omitDefaultPhysicalWorkerScriptName,
-} from "cf-starter-alchemy/worker-peer-scripts";
+} from "alchemy-utils/worker-peer-scripts";
 // Keep this as a relative type import: ping-do already depends on other-worker,
 // so a workspace import here would create a Turbo package graph cycle.
 import type { PingWorkerRpc } from "../ping-do/workers/rpc";

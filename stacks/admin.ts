@@ -16,8 +16,8 @@ import path from "node:path";
 import alchemy from "alchemy";
 import { GitHubSecret, RepositoryEnvironment } from "alchemy/github";
 import { parse } from "dotenv";
-import { resolveStageFromEnv } from "../packages/cf-starter-alchemy/deployment-stage";
-import { CF_STARTER_APPS } from "../packages/cf-starter-alchemy/worker-peer-scripts";
+import { resolveStageFromEnv } from "../packages/alchemy-utils/deployment-stage";
+import { CF_STARTER_APPS } from "../packages/alchemy-utils/worker-peer-scripts";
 import {
 	CF_STARTER_DEPLOY_ENABLED_VAR,
 	buildGitHubSecretPayload,

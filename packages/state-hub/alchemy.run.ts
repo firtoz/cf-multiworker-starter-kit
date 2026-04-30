@@ -1,0 +1,19 @@
+/**
+ * Serializes provisioning of the shared [CloudflareStateStore](https://alchemy.run/guides/cloudflare-state-store)
+ * worker for CI (Turbo: **`^deploy`** on each app after listing **`state-hub`** as a **`devDependency`**).
+ *
+ * Contains no Workers/DO/D1 — **`finalize`** immediately after the CI state store attaches.
+ */
+import alchemy from "alchemy";
+import { alchemyCiCloudStateStoreOptions } from "alchemy-utils/alchemy-cloud-state-store";
+import { requireAlchemyPassword } from "alchemy-utils";
+import { resolveStageFromEnv } from "alchemy-utils/deployment-stage";
+import { CF_STARTER_APPS } from "alchemy-utils/worker-peer-scripts";
+
+const stage = resolveStageFromEnv();
+const app = await alchemy(CF_STARTER_APPS.stateHub, {
+	stage,
+	...alchemyCiCloudStateStoreOptions(stage),
+});
+requireAlchemyPassword(app);
+await app.finalize();

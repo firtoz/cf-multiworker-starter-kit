@@ -8,7 +8,7 @@
 import { existsSync, readFileSync, appendFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { parse as parseDotenv } from "dotenv";
-import { isPrStage, resolveStageFromEnv } from "cf-starter-alchemy/deployment-stage";
+import { isPrStage, resolveStageFromEnv } from "alchemy-utils/deployment-stage";
 import { CF_STARTER_DEPLOY_ENABLED_VAR, missingDeployConfigurationKeys } from "./github-environment-secrets";
 
 const MODES = ["prod", "staging", "preview"] as const;

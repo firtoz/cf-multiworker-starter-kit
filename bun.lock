@@ -24,7 +24,7 @@
         "@firtoz/maybe-error": "^1.6.1",
         "@firtoz/router-toolkit": "^9.0.1",
         "@firtoz/socka": "catalog:",
-        "cf-starter-alchemy": "workspace:*",
+        "alchemy-utils": "workspace:*",
         "cf-starter-chat-contract": "workspace:*",
         "cf-starter-db": "workspace:*",
         "chatroom-do": "workspace:*",
@@ -47,6 +47,7 @@
         "@types/react-dom": "^19.2.3",
         "@typescript/native-preview": "catalog:",
         "alchemy": "catalog:",
+        "state-hub": "workspace:*",
         "concurrently": "^9.1.0",
         "other-worker": "workspace:*",
         "rollup-plugin-visualizer": "^7.0.1",
@@ -72,7 +73,8 @@
         "@types/node": "catalog:",
         "@typescript/native-preview": "catalog:",
         "alchemy": "catalog:",
-        "cf-starter-alchemy": "workspace:*",
+        "alchemy-utils": "workspace:*",
+        "state-hub": "workspace:*",
         "drizzle-kit": "catalog:",
         "typescript": "catalog:",
       },
@@ -88,7 +90,8 @@
         "@types/node": "catalog:",
         "@typescript/native-preview": "catalog:",
         "alchemy": "catalog:",
-        "cf-starter-alchemy": "workspace:*",
+        "alchemy-utils": "workspace:*",
+        "state-hub": "workspace:*",
         "typescript": "catalog:",
       },
     },
@@ -104,15 +107,28 @@
         "@types/node": "catalog:",
         "@typescript/native-preview": "catalog:",
         "alchemy": "catalog:",
-        "cf-starter-alchemy": "workspace:*",
+        "alchemy-utils": "workspace:*",
+        "state-hub": "workspace:*",
         "typescript": "catalog:",
       },
     },
-    "packages/cf-starter-alchemy": {
-      "name": "cf-starter-alchemy",
+    "packages/alchemy-utils": {
+      "name": "alchemy-utils",
       "devDependencies": {
         "@types/node": "catalog:",
         "@typescript/native-preview": "catalog:",
+        "typescript": "catalog:",
+      },
+    },
+    "packages/state-hub": {
+      "name": "state-hub",
+      "dependencies": {
+        "alchemy-utils": "workspace:*",
+      },
+      "devDependencies": {
+        "@types/node": "catalog:",
+        "@typescript/native-preview": "catalog:",
+        "alchemy": "catalog:",
         "typescript": "catalog:",
       },
     },
@@ -137,7 +153,8 @@
         "@types/node": "catalog:",
         "@typescript/native-preview": "catalog:",
         "alchemy": "catalog:",
-        "cf-starter-alchemy": "workspace:*",
+        "alchemy-utils": "workspace:*",
+        "state-hub": "workspace:*",
         "drizzle-kit": "catalog:",
         "typescript": "catalog:",
       },
@@ -145,7 +162,7 @@
     "packages/scripts": {
       "name": "scripts",
       "dependencies": {
-        "cf-starter-alchemy": "workspace:*",
+        "alchemy-utils": "workspace:*",
         "dotenv": "catalog:",
       },
       "devDependencies": {
@@ -843,11 +860,13 @@
 
     "caniuse-lite": ["caniuse-lite@1.0.30001791", "", {}, "sha512-yk0l/YSrOnFZk3UROpDLQD9+kC1l4meK/wed583AXrzoarMGJcbRi2Q4RaUYbKxYAsZ8sWmaSa/DsLmdBeI1vQ=="],
 
-    "cf-starter-alchemy": ["cf-starter-alchemy@workspace:packages/cf-starter-alchemy"],
+    "alchemy-utils": ["alchemy-utils@workspace:packages/alchemy-utils"],
 
     "cf-starter-chat-contract": ["cf-starter-chat-contract@workspace:packages/chat-contract"],
 
     "cf-starter-db": ["cf-starter-db@workspace:packages/db"],
+
+    "state-hub": ["state-hub@workspace:packages/state-hub"],
 
     "cf-starter-web": ["cf-starter-web@workspace:apps/web"],
 

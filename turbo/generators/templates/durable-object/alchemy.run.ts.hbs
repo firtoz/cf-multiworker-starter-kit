@@ -1,13 +1,13 @@
 import alchemy from "alchemy";
 import { DurableObjectNamespace, Worker } from "alchemy/cloudflare";
-import { alchemyCiCloudStateStoreOptions } from "cf-starter-alchemy/alchemy-cloud-state-store";
-import { requireAlchemyPassword } from "cf-starter-alchemy";
-import { resolveStageFromEnv } from "cf-starter-alchemy/deployment-stage";
-import { DEFAULT_WORKER_RESOURCE_ID } from "cf-starter-alchemy/worker-peer-scripts";
+import { alchemyCiCloudStateStoreOptions } from "alchemy-utils/alchemy-cloud-state-store";
+import { requireAlchemyPassword } from "alchemy-utils";
+import { resolveStageFromEnv } from "alchemy-utils/deployment-stage";
+import { DEFAULT_WORKER_RESOURCE_ID, PRODUCT_PREFIX } from "alchemy-utils/worker-peer-scripts";
 import type { {{ pascalCase name }}DoRpc } from "./workers/rpc";
 
 const stage = resolveStageFromEnv();
-const app = await alchemy("cf-starter-{{ kebabCase name }}", {
+const app = await alchemy(`${PRODUCT_PREFIX}-{{ kebabCase name }}`, {
 	stage,
 	...alchemyCiCloudStateStoreOptions(stage),
 });

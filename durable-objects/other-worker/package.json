@@ -7,13 +7,13 @@
 		"./workers/rpc": "./workers/rpc.ts"
 	},
 	"scripts": {
-		"deploy:prod": "bunx dotenv-cli -v STAGE=prod -e ../../.env.production -- bun alchemy deploy --app cf-starter-other",
-		"deploy:staging": "bunx dotenv-cli -v STAGE=staging -e ../../.env.staging -- bun alchemy deploy --app cf-starter-other",
-		"deploy:preview": "bunx dotenv-cli -e ../../.env.staging -- bun alchemy deploy --app cf-starter-other",
-		"destroy:prod": "bunx dotenv-cli -v STAGE=prod -e ../../.env.production -- bun alchemy destroy --app cf-starter-other",
-		"destroy:staging": "bunx dotenv-cli -v STAGE=staging -e ../../.env.staging -- bun alchemy destroy --app cf-starter-other",
-		"destroy:preview": "bunx dotenv-cli -e ../../.env.staging -- bun alchemy destroy --app cf-starter-other",
-		"dev": "bunx dotenv-cli -v STAGE=local -e ../../.env.local -- bun alchemy dev --app cf-starter-other",
+		"deploy:prod": "bunx dotenv-cli -v STAGE=prod -e ../../.env.production -- bun ../../packages/alchemy-utils/alchemy-cli.ts deploy other",
+		"deploy:staging": "bunx dotenv-cli -v STAGE=staging -e ../../.env.staging -- bun ../../packages/alchemy-utils/alchemy-cli.ts deploy other",
+		"deploy:preview": "bunx dotenv-cli -e ../../.env.staging -- bun ../../packages/alchemy-utils/alchemy-cli.ts deploy other",
+		"destroy:prod": "bunx dotenv-cli -v STAGE=prod -e ../../.env.production -- bun ../../packages/alchemy-utils/alchemy-cli.ts destroy other",
+		"destroy:staging": "bunx dotenv-cli -v STAGE=staging -e ../../.env.staging -- bun ../../packages/alchemy-utils/alchemy-cli.ts destroy other",
+		"destroy:preview": "bunx dotenv-cli -e ../../.env.staging -- bun ../../packages/alchemy-utils/alchemy-cli.ts destroy other",
+		"dev": "bunx dotenv-cli -v STAGE=local -e ../../.env.local -- bun ../../packages/alchemy-utils/alchemy-cli.ts dev other",
 		"typegen:local": "node -e \"process.exit(0)\"",
 		"typegen:prod": "node -e \"process.exit(0)\"",
 		"typecheck:local": "tsgo --noEmit -p ./tsconfig.json",
@@ -26,7 +26,8 @@
 		"hono": "catalog:"
 	},
 	"devDependencies": {
-		"cf-starter-alchemy": "workspace:*",
+		"state-hub": "workspace:*",
+		"alchemy-utils": "workspace:*",
 		"@cloudflare/workers-types": "catalog:",
 		"@typescript/native-preview": "catalog:",
 		"@biomejs/biome": "catalog:",

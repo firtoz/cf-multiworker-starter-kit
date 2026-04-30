@@ -415,15 +415,15 @@ bun run build --verbose
 - **`lint`** — `dependsOn`: **`typecheck:local`**
 - **`build:local` / `build:prod`** — `dependsOn`: **`typecheck`**
 - **`deploy:*`** — `dependsOn`: **`typecheck:{prod|staging}`** plus **`^deploy:*`**; do **not** depend on `build:*` because Alchemy **`ReactRouter`** builds during deploy.
-- **`dev`** — `dependsOn`: **`typegen:local`**; root **`bun run dev`** runs a **filtered** Turbo **`dev`** (web + **`cf-starter-db`** + worker apps) so each runs **`alchemy dev --app …`**
+- **`dev`** — `dependsOn`: **`typegen:local`**; root **`bun run dev`** runs a **filtered** Turbo **`dev`** (web + **`cf-starter-db`** + worker apps) so each runs **`alchemy-cli.ts dev <key>`** → **`alchemy dev --app …`**
 
 ### packages/db/turbo.json
 - `db:generate` — Drizzle SQL from `src/`
-- `dev` / `deploy:*` / `destroy:*` — **`alchemy … --app cf-starter-database`** (see **`package.json`** scripts; stage via **`STAGE`** + dotfile)
+- `dev` / `deploy:*` / `destroy:*` — **`packages/alchemy-utils/alchemy-cli.ts`** with **`CF_STARTER_APPS.database`** (**`deploy database`**, **`dev database`**, …; see **`package.json`** scripts; stage via **`STAGE`** + dotfile)
 - `typegen` / `typecheck` — `tsgo` chain for `cf-starter-db`
 
 ### Durable objects (e.g. `chatroom-do`)
-- `turbo.json` with `typegen` / `typecheck` / `lint` / **`deploy:*`** / **`destroy:*`** (and **`dev`** → **`alchemy dev --app …`** in **`package.json`**); no **`generate-wrangler`**
+- `turbo.json` with `typegen` / `typecheck` / `lint` / **`deploy:*`** / **`destroy:*`** (**`package.json`** uses **`alchemy-cli.ts`** for **`dev`/`deploy`/`destroy`**); list **`state-hub`** as a **`devDependency`** so **`dependsOn`** **`^deploy:*`** runs the hub deploy first; no **`generate-wrangler`**
 
 ### Key Dependency Chains (simplified)
 
@@ -431,7 +431,7 @@ bun run build --verbose
 ^typecheck in deps (db, contract, chatroom) → cf-starter-web#typegen (rr-typegen + upstream typechecks)
 typecheck:web → typegen:web, ^typecheck:deps
 lint / build → typecheck
-dev → filtered turbo starts `alchemy dev --app` for web + each worker package
+dev → filtered turbo runs `alchemy-cli.ts dev …` for web + each worker package
 ```
 
 ## Resources

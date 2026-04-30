@@ -1,6 +1,6 @@
 {
 	"$schema": "./node_modules/turbo/schema.json",
-	"globalDependencies": [".env.local", ".env.production", ".env.staging", "tsconfig.base.json", "packages/cf-starter-alchemy/password.ts", "packages/cf-starter-alchemy/worker-peer-scripts.ts", "packages/cf-starter-alchemy/deployment-stage.ts"],
+	"globalDependencies": [".env.local", ".env.production", ".env.staging", "tsconfig.base.json", "packages/alchemy-utils/password.ts", "packages/alchemy-utils/worker-peer-scripts.ts", "packages/alchemy-utils/deployment-stage.ts", "packages/alchemy-utils/alchemy-cli.ts", "packages/state-hub/alchemy.run.ts"],
 
 	"ui": "tui",
 	"tasks": {
@@ -87,6 +87,11 @@
 			"cache": false,
 			"outputLogs": "new-only"
 		},
+		"state-hub#destroy:prod": {
+			"dependsOn": ["cf-starter-web#destroy:prod"],
+			"cache": false,
+			"outputLogs": "new-only"
+		},
 		"chatroom-do#destroy:staging": {
 			"dependsOn": ["cf-starter-web#destroy:staging"],
 			"cache": false,
@@ -107,6 +112,11 @@
 			"cache": false,
 			"outputLogs": "new-only"
 		},
+		"state-hub#destroy:staging": {
+			"dependsOn": ["cf-starter-web#destroy:staging"],
+			"cache": false,
+			"outputLogs": "new-only"
+		},
 		"chatroom-do#destroy:preview": {
 			"dependsOn": ["cf-starter-web#destroy:preview"],
 			"cache": false,
@@ -123,6 +133,11 @@
 			"outputLogs": "new-only"
 		},
 		"cf-starter-db#destroy:preview": {
+			"dependsOn": ["cf-starter-web#destroy:preview"],
+			"cache": false,
+			"outputLogs": "new-only"
+		},
+		"state-hub#destroy:preview": {
 			"dependsOn": ["cf-starter-web#destroy:preview"],
 			"cache": false,
 			"outputLogs": "new-only"

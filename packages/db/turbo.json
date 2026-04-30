@@ -71,7 +71,7 @@
 			"outputs": []
 		},
 		"deploy:prod": {
-			"dependsOn": ["typecheck:prod", "db:generate"],
+			"dependsOn": ["^deploy:prod", "typecheck:prod", "db:generate"],
 			"cache": false,
 			"inputs": [
 				"alchemy.run.ts",
@@ -83,7 +83,7 @@
 			"outputs": []
 		},
 		"deploy:staging": {
-			"dependsOn": ["typecheck:prod", "db:generate"],
+			"dependsOn": ["^deploy:staging", "typecheck:prod", "db:generate"],
 			"cache": false,
 			"inputs": [
 				"alchemy.run.ts",
@@ -95,7 +95,7 @@
 			"outputs": []
 		},
 		"deploy:preview": {
-			"dependsOn": ["typecheck:prod", "db:generate"],
+			"dependsOn": ["^deploy:preview", "typecheck:prod", "db:generate"],
 			"cache": false,
 			"inputs": [
 				"alchemy.run.ts",

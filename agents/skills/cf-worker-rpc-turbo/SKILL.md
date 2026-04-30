@@ -22,7 +22,7 @@ description: workers/rpc.ts for WorkerRef or DO RPC types, package exports, cros
 
 ## Cyclic stubs / refs (`ping-do` ↔ `other-worker`)
 
-When two worker packages **`WorkerRef`** / **`WorkerStub`** each other to avoid `./alchemy` value-import cycles, paste **no drift** **`service`** / **`name`** strings derived from **`omitDefaultPhysicalWorkerScriptName(peersCfStarterAppLiteral, app.stage)`** with **`DEFAULT_WORKER_RESOURCE_ID`/`CF_STARTER_APPS`** from **`cf-starter-alchemy/worker-peer-scripts`**.
+When two worker packages **`WorkerRef`** / **`WorkerStub`** each other to avoid `./alchemy` value-import cycles, paste **no drift** **`service`** / **`name`** strings derived from **`omitDefaultPhysicalWorkerScriptName(peersCfStarterAppLiteral, app.stage)`** with **`DEFAULT_WORKER_RESOURCE_ID`/`CF_STARTER_APPS`** from **`alchemy-utils/worker-peer-scripts`**.
 
 ## Cross-package imports (avoid Turbo / npm cycles)
 

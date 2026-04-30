@@ -52,19 +52,19 @@
 			"outputs": []
 		},
 		"deploy:prod": {
-			"dependsOn": ["typecheck:prod", "ping-do#typecheck:prod"],
+			"dependsOn": ["^deploy:prod", "typecheck:prod", "ping-do#typecheck:prod"],
 			"cache": false,
 			"inputs": ["alchemy.run.ts", "workers/**/*.ts", "package.json", "tsconfig.json", "env.d.ts"],
 			"outputs": []
 		},
 		"deploy:staging": {
-			"dependsOn": ["typecheck:prod", "ping-do#typecheck:prod"],
+			"dependsOn": ["^deploy:staging", "typecheck:prod", "ping-do#typecheck:prod"],
 			"cache": false,
 			"inputs": ["alchemy.run.ts", "workers/**/*.ts", "package.json", "tsconfig.json", "env.d.ts"],
 			"outputs": []
 		},
 		"deploy:preview": {
-			"dependsOn": ["typecheck:prod", "ping-do#typecheck:prod"],
+			"dependsOn": ["^deploy:preview", "typecheck:prod", "ping-do#typecheck:prod"],
 			"cache": false,
 			"inputs": ["alchemy.run.ts", "workers/**/*.ts", "package.json", "tsconfig.json", "env.d.ts"],
 			"outputs": []

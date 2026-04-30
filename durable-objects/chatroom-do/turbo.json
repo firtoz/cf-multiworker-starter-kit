@@ -72,7 +72,12 @@
 			"outputs": []
 		},
 		"deploy:prod": {
-			"dependsOn": ["db:generate", "typecheck:prod", "cf-starter-chat-contract#typecheck:prod"],
+			"dependsOn": [
+				"^deploy:prod",
+				"db:generate",
+				"typecheck:prod",
+				"cf-starter-chat-contract#typecheck:prod"
+			],
 			"cache": false,
 			"inputs": [
 				"alchemy.run.ts",
@@ -87,7 +92,12 @@
 			"outputs": []
 		},
 		"deploy:staging": {
-			"dependsOn": ["db:generate", "typecheck:prod", "cf-starter-chat-contract#typecheck:prod"],
+			"dependsOn": [
+				"^deploy:staging",
+				"db:generate",
+				"typecheck:prod",
+				"cf-starter-chat-contract#typecheck:prod"
+			],
 			"cache": false,
 			"inputs": [
 				"alchemy.run.ts",
@@ -102,7 +112,12 @@
 			"outputs": []
 		},
 		"deploy:preview": {
-			"dependsOn": ["db:generate", "typecheck:prod", "cf-starter-chat-contract#typecheck:prod"],
+			"dependsOn": [
+				"^deploy:preview",
+				"db:generate",
+				"typecheck:prod",
+				"cf-starter-chat-contract#typecheck:prod"
+			],
 			"cache": false,
 			"inputs": [
 				"alchemy.run.ts",

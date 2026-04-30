@@ -72,17 +72,17 @@
 			"outputs": []
 		},
 		"deploy:prod": {
-			"dependsOn": ["db:generate", "typecheck:prod"],
+			"dependsOn": ["^deploy:prod", "db:generate", "typecheck:prod"],
 			"cache": false,
 			"outputs": []
 		},
 		"deploy:staging": {
-			"dependsOn": ["db:generate", "typecheck:prod"],
+			"dependsOn": ["^deploy:staging", "db:generate", "typecheck:prod"],
 			"cache": false,
 			"outputs": []
 		},
 		"deploy:preview": {
-			"dependsOn": ["db:generate", "typecheck:prod"],
+			"dependsOn": ["^deploy:preview", "db:generate", "typecheck:prod"],
 			"cache": false,
 			"outputs": []
 		},

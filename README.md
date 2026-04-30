@@ -94,7 +94,7 @@ bun run setup
 1. **`bun alchemy configure`**: Create the **default** profile and connect **Cloudflare** (OAuth is fine; at “Customize scopes?” **No** is the usual choice).
 2. **`bun alchemy login`**: Refreshes OAuth tokens when needed.
 3. **`.env.local`**: After **`bun run setup`**, **`ALCHEMY_PASSWORD`** and **`CHATROOM_INTERNAL_SECRET`** exist; optional **`CLOUDFLARE_API_TOKEN`** and **`CLOUDFLARE_ACCOUNT_ID`** if you do not use the profile; see [Alchemy’s Cloudflare auth guide](https://alchemy.run/guides/cloudflare/). See [`.env.example`](.env.example) for all keys.
-4. **Secrets**: **Required**; no in-repo defaults. [`cf-starter-alchemy`](packages/cf-starter-alchemy) reads **`ALCHEMY_PASSWORD`** for Alchemy state encryption. The web and chatroom workers both bind **`CHATROOM_INTERNAL_SECRET`** through `alchemy.secret(...)`; the web worker forwards it on `/api/ws/*`, and the chatroom DO rejects `/websocket` when it does not match.
+4. **Secrets**: **Required**; no in-repo defaults. [`alchemy-utils`](packages/alchemy-utils) reads **`ALCHEMY_PASSWORD`** for Alchemy state encryption. The web and chatroom workers both bind **`CHATROOM_INTERNAL_SECRET`** through `alchemy.secret(...)`; the web worker forwards it on `/api/ws/*`, and the chatroom DO rejects `/websocket` when it does not match.
 
 `alchemy dev` / `react-router` load repo-root **`.env.local`** via `bun --env-file` in each package’s **`dev`** script.
 
@@ -111,7 +111,7 @@ If you see **no Cloudflare credentials**, run **`bun alchemy configure`** / **`b
 
 #### Deploy from your machine
 
-Every `alchemy.run.ts` uses **`process.env.STAGE`** (see **`packages/cf-starter-alchemy/deployment-stage.ts`**). Package scripts set **`STAGE`** with **`dotenv-cli -v`** for **local** / **prod** / **staging**; **preview** inherits **`STAGE=pr-<n>`** from CI only.
+Every `alchemy.run.ts` uses **`process.env.STAGE`** (see **`packages/alchemy-utils/deployment-stage.ts`**). Package scripts set **`STAGE`** with **`dotenv-cli -v`** for **local** / **prod** / **staging**; **preview** inherits **`STAGE=pr-<n>`** from CI only.
 
 **Production** (repo-root **`.env.production`**, `STAGE=prod`):
 
@@ -166,7 +166,7 @@ Use **[AGENTS.md](AGENTS.md)** at the repo root (short index to skills) and the 
 
 ### Naming your product
 
-**Fast path:** In **[`packages/cf-starter-alchemy/worker-peer-scripts.ts`](packages/cf-starter-alchemy/worker-peer-scripts.ts)**, change **`PRODUCT_PREFIX`** from **`cf-starter`** to your slug (e.g. **`skybook`**). **`CF_STARTER_APPS`** (roles like **`frontend`**, **`chatroom`**, **`ping`**, **`other`**, **`database`**) derives **`skybook-frontend`**, **`skybook-chatroom`**, …: one prefix, several logical “sub-apps” as separate Alchemy apps.
+**Fast path:** In **[`packages/alchemy-utils/worker-peer-scripts.ts`](packages/alchemy-utils/worker-peer-scripts.ts)**, change **`PRODUCT_PREFIX`** from **`cf-starter`** to your slug (e.g. **`skybook`**). **`CF_STARTER_APPS`** (roles like **`frontend`**, **`chatroom`**, **`ping`**, **`other`**, **`database`**) derives **`skybook-frontend`**, **`skybook-chatroom`**, …: one prefix, several logical “sub-apps” as separate Alchemy apps.
 
 **Sync the CLI:** Each **`package.json`** **`dev` / `deploy:*` / `destroy:*`** script sets **`STAGE`** and uses **`alchemy … --app …`** (no duplicate **`--stage`**): align **`--app`** with **`CF_STARTER_APPS`**. Then **`bun run typegen`** from the repo root.
 
@@ -195,7 +195,8 @@ Dashboard script names reflect [Alchemy physical names](https://alchemy.run/conc
 │   ├── ping-do/                # Hono DO + service-binding example
 │   └── other-worker/           # Plain worker service-binding example
 └── packages/
-    ├── cf-starter-alchemy/     # Shared Alchemy env/password helpers
+    ├── alchemy-utils/          # `PRODUCT_PREFIX`, `CF_STARTER_APPS`, `alchemy-cli`, password helpers
+    ├── state-hub/              # Bootstrap shared CI Alchemy Cloudflare state (no app workers)
     ├── db/                     # cf-starter-db: Drizzle + D1 schema/migrations
     ├── chat-contract/          # Workspace package cf-starter-chat-contract: Socka / chat types
     └── scripts/                # Workspace scripts package (e.g. build helpers)
@@ -283,7 +284,7 @@ The **`cf-starter-db`** **workspace package** owns **`D1Database`** in **`packag
 
 ## Deployment
 
-**Summary:** Set **`STAGE`** (via **`dotenv-cli -v`** in package scripts or in CI). Root commands **`bun run deploy:prod`**, **`deploy:staging`**, **`deploy:preview`** run the full monorepo graph so **`cf-starter-database`** migrates **before** the web worker.
+**Summary:** Set **`STAGE`** (via **`dotenv-cli -v`** in package scripts or in CI). Root **`bun run deploy:prod`**, **`deploy:staging`**, **`deploy:preview`** run the full **`deploy:*`** graph: **`packages/state-hub`** runs first (Turbo **`^deploy:*`** via a **`state-hub`** **`devDependency`**) so the shared [Cloudflare-backed Alchemy state](https://alchemy.run/guides/cloudflare-state-store/) exists once per stage; **[`alchemy-cli.ts`](packages/alchemy-utils/alchemy-cli.ts)** turns **`CF_STARTER_APPS`** keys into **`--app`**; **`database`** (**`CF_STARTER_APPS.database`**) migrates before the web worker deploy.
 
 The web deploy task gates on typecheck, not a separate React Router build. Alchemy's **`ReactRouter`** resource builds the Worker bundle during **`alchemy deploy`**.
 
@@ -294,7 +295,7 @@ The web deploy task gates on typecheck, not a separate React Router build. Alche
 ## Scripts
 
 ### Development
-- `bun run dev`: Filtered **`turbo run dev`**; each package runs **`alchemy dev --app …`** (ids: [Naming your product](#naming-your-product)). [Alchemy + Turborepo](https://alchemy.run/guides/turborepo/).
+- `bun run dev`: Filtered **`turbo run dev`**; each package runs **`alchemy-cli.ts dev <key>`** (keys: [Naming your product](#naming-your-product)), which forwards to **`alchemy dev --app …`**. [Alchemy + Turborepo](https://alchemy.run/guides/turborepo/).
 - `bun run build`: `turbo run build:local`
 - `bun run typecheck`: `typecheck:local` across packages
 - `bun run typecheck:prod`: Prod-shaped types/config
@@ -303,7 +304,7 @@ The web deploy task gates on typecheck, not a separate React Router build. Alche
 - `bun run lint`: **`turbo lint`** → each package runs Biome (**`biome check --write`** where defined)
 
 ### Deployment / CI
-- `bun run deploy:prod` / `deploy:staging` / `deploy:preview`: full Turbo **`deploy:*`** graph (D1 + workers + web)
+- `bun run deploy:prod` / `deploy:staging` / `deploy:preview`: full Turbo **`deploy:*`** graph (state hub in CI, then D1 + workers + web)
 - `bun run destroy:prod` / `destroy:staging` / `destroy:preview`: matching destroy order (web before dependents)
 - `bun run deploy:preflight:*`: optional local check; GitHub Actions runs this before deploy with **`CF_STARTER_DEPLOY_ENABLED`**
 - `bun run github:setup` · `github:setup:staging` · `github:setup:prod`: guided enablement notes
