@@ -4,7 +4,7 @@
  * - **Production:** `STAGE=prod`, repo-root `.env.production`, GitHub environment **`production`**.
  * - **Staging:** `STAGE=staging`, repo-root `.env.staging`, GitHub environment **`staging`**.
  *
- * **Secrets** (GitHubSecret): `ALCHEMY_PASSWORD`, `CHATROOM_INTERNAL_SECRET`, `CLOUDFLARE_API_TOKEN`
+ * **Secrets** (GitHubSecret): `ALCHEMY_PASSWORD`, `ALCHEMY_STATE_TOKEN`, `CHATROOM_INTERNAL_SECRET`, `CLOUDFLARE_API_TOKEN`
  * **Variables** (REST): `CLOUDFLARE_ACCOUNT_ID`, `CF_STARTER_DEPLOY_ENABLED=true`
  *
  * Run from repo root:

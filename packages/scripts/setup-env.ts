@@ -5,7 +5,7 @@
  * - **`bun run setup:staging`** → **`.env.staging`**
  * - **`bun run setup:prod`** → **`.env.production`**
  *
- * Keys align with **`github-environment-secrets.ts`** (three GitHub secrets + **`CLOUDFLARE_ACCOUNT_ID`** for sync/variables).
+ * Keys align with **`github-environment-secrets.ts`** (four GitHub secrets incl. **`ALCHEMY_STATE_TOKEN`**) plus **`CLOUDFLARE_ACCOUNT_ID`** for sync/variables).
  */
 import { randomBytes } from "node:crypto";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
@@ -43,6 +43,7 @@ type SetupMode = "local" | "staging" | "prod";
 const KEYS_LOCAL = ["ALCHEMY_PASSWORD", "CHATROOM_INTERNAL_SECRET"] as const;
 const KEYS_DEPLOY = [
 	"ALCHEMY_PASSWORD",
+	"ALCHEMY_STATE_TOKEN",
 	"CHATROOM_INTERNAL_SECRET",
 	"CLOUDFLARE_API_TOKEN",
 	"CLOUDFLARE_ACCOUNT_ID",
@@ -56,6 +57,10 @@ const KEY_COPY: Readonly<Record<string, { title: string; line: string }>> = {
 	ALCHEMY_PASSWORD: {
 		title: "Alchemy password",
 		line: "Encrypts Alchemy state on disk / in CI (see https://alchemy.run/concepts/secret/#encryption-password).",
+	},
+	ALCHEMY_STATE_TOKEN: {
+		title: "Alchemy Cloud state token",
+		line: "One stable token per Cloudflare account for CI state (see https://alchemy.run/guides/cloudflare-state-store/); same value in staging + prod github:sync secrets",
 	},
 	CHATROOM_INTERNAL_SECRET: {
 		title: "Chatroom internal secret",
@@ -152,7 +157,11 @@ function keyLine(key: string): string {
 }
 
 function canAutoGenerateKey(key: string): boolean {
-	return key === "ALCHEMY_PASSWORD" || key === "CHATROOM_INTERNAL_SECRET";
+	return (
+		key === "ALCHEMY_PASSWORD" ||
+		key === "ALCHEMY_STATE_TOKEN" ||
+		key === "CHATROOM_INTERNAL_SECRET"
+	);
 }
 
 function isMaskedKey(key: string): boolean {
@@ -455,7 +464,7 @@ async function interactiveMain(file: string, mode: SetupMode): Promise<void> {
 	if (mode !== "local") {
 		note(
 			[
-				"GitHub sync uses **secrets** for Alchemy password, chatroom secret, and Cloudflare API token.",
+				"GitHub sync uses **secrets** for Alchemy password, **`ALCHEMY_STATE_TOKEN`** (Cloudflare-backed deploy state), chatroom secret, and Cloudflare API token.",
 				"**CLOUDFLARE_ACCOUNT_ID** is stored as a GitHub Environment **variable** (`github:sync:*`).",
 				"",
 				`When ready: \`bun run github:sync:${mode === "staging" ? "staging" : "prod"}\` (after \`gh auth login\`).`,

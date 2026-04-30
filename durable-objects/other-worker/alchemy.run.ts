@@ -1,6 +1,7 @@
 import alchemy from "alchemy";
 import { Worker, WorkerRef, WorkerStub } from "alchemy/cloudflare";
 import { requireAlchemyPassword } from "cf-starter-alchemy";
+import { alchemyCiCloudStateStoreOptions } from "cf-starter-alchemy/alchemy-cloud-state-store";
 import { resolveStageFromEnv } from "cf-starter-alchemy/deployment-stage";
 import {
 	CF_STARTER_APPS,
@@ -13,8 +14,10 @@ import type { PingWorkerRpc } from "../ping-do/workers/rpc";
 
 export type { OtherWorkerRpc } from "./workers/rpc";
 
+const stage = resolveStageFromEnv();
 const app = await alchemy(CF_STARTER_APPS.other, {
-	stage: resolveStageFromEnv(),
+	stage,
+	...alchemyCiCloudStateStoreOptions(stage),
 });
 requireAlchemyPassword(app);
 

@@ -1,6 +1,7 @@
 import alchemy from "alchemy";
 import { ReactRouter } from "alchemy/cloudflare";
 import { requireAlchemyPassword, requireEnv } from "cf-starter-alchemy";
+import { alchemyCiCloudStateStoreOptions } from "cf-starter-alchemy/alchemy-cloud-state-store";
 import { resolveStageFromEnv } from "cf-starter-alchemy/deployment-stage";
 import {
 	CF_STARTER_APPS,
@@ -11,8 +12,10 @@ import { chatroomWorker } from "chatroom-do/alchemy";
 import { otherWorker } from "other-worker/alchemy";
 import { pingWorker } from "ping-do/alchemy";
 
+const stage = resolveStageFromEnv();
 const app = await alchemy(CF_STARTER_APPS.frontend, {
-	stage: resolveStageFromEnv(),
+	stage,
+	...alchemyCiCloudStateStoreOptions(stage),
 });
 requireAlchemyPassword(app);
 const chatroomInternalSecretRaw = requireEnv(

@@ -148,7 +148,7 @@ bun run github:sync:staging
 bun run github:sync:prod
 ```
 
-**`github:sync:*`** runs **`stacks/admin.ts`** (Alchemy GitHub provider) from a **trusted machine only** — not from normal CI. It writes **GitHub Environment secrets** — **`ALCHEMY_PASSWORD`**, **`CHATROOM_INTERNAL_SECRET`**, **`CLOUDFLARE_API_TOKEN`** — plus **Environment variables** **`CLOUDFLARE_ACCOUNT_ID`** and **`CF_STARTER_DEPLOY_ENABLED=true`** (from your stage dotfile or defaulted on sync). See [GitHubSecret](https://alchemy.run/providers/github/secret/).
+**`github:sync:*`** runs **`stacks/admin.ts`** (Alchemy GitHub provider) from a **trusted machine only** — not from normal CI. It writes **GitHub Environment secrets** — **`ALCHEMY_PASSWORD`**, **`ALCHEMY_STATE_TOKEN`** (CI uses the [Cloudflare state store](https://alchemy.run/guides/cloudflare-state-store/)), **`CHATROOM_INTERNAL_SECRET`**, **`CLOUDFLARE_API_TOKEN`** — plus **Environment variables** **`CLOUDFLARE_ACCOUNT_ID`** and **`CF_STARTER_DEPLOY_ENABLED=true`** (from your stage dotfile or defaulted on sync). See [GitHubSecret](https://alchemy.run/providers/github/secret/).
 
 For a given **`STAGE`**, **`ALCHEMY_PASSWORD`** must match everywhere **`alchemy deploy`** runs. Read [Alchemy State](https://alchemy.run/concepts/state/) before shared CI secrets.
 
@@ -279,7 +279,7 @@ The **`cf-starter-db`** **workspace package** owns **`D1Database`** in **`packag
 
 ## Continuous integration
 
-[`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs on pushes and PRs to **`main`**: lint, typegen + typecheck, and build. **Deploy workflows** (**`deploy-staging.yml`**, **`deploy-production.yml`**, **`deploy-pr-preview.yml`**) are separate; they **no-op successfully** on fresh forks until **`CF_STARTER_DEPLOY_ENABLED=true`** is set on the GitHub Environment (see [Deploy from your machine](#deploy-from-your-machine)).
+[`ci.yml`](.github/workflows/ci.yml) (**Quality checks**) runs on pushes and PRs to **`main`**: lint, typegen + typecheck, and build. **Deploy staging** ([`deploy-staging.yml`](.github/workflows/deploy-staging.yml)) runs only after that workflow **succeeds** on a **`push` to `main`**, on the same commit. **`deploy-production.yml`** and **`deploy-pr-preview.yml`** are separate; workflows **no-op successfully** on fresh forks until **`CF_STARTER_DEPLOY_ENABLED=true`** is set on the GitHub Environment (see [Deploy from your machine](#deploy-from-your-machine)).
 
 ## Deployment
 

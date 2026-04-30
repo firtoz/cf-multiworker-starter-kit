@@ -1,13 +1,14 @@
 /**
  * GitHub Actions **environment** configuration for deploy (CI + `github:sync:*`).
  *
- * - **Secrets** — `ALCHEMY_PASSWORD`, `CHATROOM_INTERNAL_SECRET`, `CLOUDFLARE_API_TOKEN`
+ * - **Secrets** — `ALCHEMY_PASSWORD`, `ALCHEMY_STATE_TOKEN`, `CHATROOM_INTERNAL_SECRET`, `CLOUDFLARE_API_TOKEN`
  * - **Variables** (plaintext on GitHub Environment) — `CLOUDFLARE_ACCOUNT_ID`, `CF_STARTER_DEPLOY_ENABLED`
  *
  * Keep in sync with `deploy-preflight.ts`, `.github/workflows/deploy-*.yml`, and `stacks/admin.ts`.
  */
 export const GITHUB_ENVIRONMENT_SECRET_KEYS = [
 	"ALCHEMY_PASSWORD",
+	"ALCHEMY_STATE_TOKEN",
 	"CHATROOM_INTERNAL_SECRET",
 	"CLOUDFLARE_API_TOKEN",
 ] as const;
@@ -72,12 +73,18 @@ export function buildGitHubVariablePayloadFromDotfile(env: Record<string, string
 /** Every key required for a successful deploy / preflight (secrets + account id). */
 export function missingDeployConfigurationKeys(
 	env: Record<string, string | undefined>,
+	options?: { requiresAlchemyStateToken?: boolean },
 ): string[] {
 	const { missing: missingSecrets } = buildGitHubSecretPayload(env);
 	const accountId = env["CLOUDFLARE_ACCOUNT_ID"]?.trim();
 	const missing = [...missingSecrets];
 	if (!accountId) {
 		missing.push("CLOUDFLARE_ACCOUNT_ID");
+	}
+	if (options?.requiresAlchemyStateToken) {
+		if (!env["ALCHEMY_STATE_TOKEN"]?.trim()) {
+			missing.push("ALCHEMY_STATE_TOKEN");
+		}
 	}
 	return missing;
 }

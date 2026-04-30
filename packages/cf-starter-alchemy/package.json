@@ -14,6 +14,10 @@
 		"./deployment-stage": {
 			"types": "./deployment-stage.ts",
 			"default": "./deployment-stage.ts"
+		},
+		"./alchemy-cloud-state-store": {
+			"types": "./alchemy-cloud-state-store.ts",
+			"default": "./alchemy-cloud-state-store.ts"
 		}
 	},
 	"scripts": {
@@ -31,6 +35,7 @@
 	"devDependencies": {
 		"@types/node": "catalog:",
 		"@typescript/native-preview": "catalog:",
+		"alchemy": "catalog:",
 		"typescript": "catalog:"
 	}
 }

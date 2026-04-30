@@ -8,5 +8,5 @@
 		"rootDir": ".",
 		"types": ["node"]
 	},
-	"include": ["password.ts"]
+	"include": ["*.ts"]
 }

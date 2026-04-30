@@ -129,7 +129,7 @@ try {
 }
 
 const envBag = isCi ? ({ ...process.env } as Record<string, string | undefined>) : loadMergeEnv(mode);
-const missing = missingDeployConfigurationKeys(envBag);
+const missing = missingDeployConfigurationKeys(envBag, { requiresAlchemyStateToken: isCi });
 if (missing.length > 0) {
 	console.error("");
 	console.error(
