@@ -279,7 +279,7 @@ The **`cf-starter-db`** **workspace package** owns **`D1Database`** in **`packag
 
 ## Continuous integration
 
-[`ci.yml`](.github/workflows/ci.yml) (**Quality checks**) runs on pushes and PRs to **`main`**: lint, typegen + typecheck, and build. **Deploy staging** ([`deploy-staging.yml`](.github/workflows/deploy-staging.yml)) runs only after that workflow **succeeds** on a **`push` to `main`**, on the same commit. **`deploy-production.yml`** and **`deploy-pr-preview.yml`** are separate; workflows **no-op successfully** on fresh forks until **`CF_STARTER_DEPLOY_ENABLED=true`** is set on the GitHub Environment (see [Deploy from your machine](#deploy-from-your-machine)).
+[`ci.yml`](.github/workflows/ci.yml) (**Quality checks**) runs **one verify job** on pushes and PRs to **`main`**: Drizzle generated-artifact guard, **`bun run typecheck`** (Turbo pulls `typegen` where needed), **`bun run lint`**, seeded **`.env.local`**, then **`bun run build`**. **Deploy staging** ([`deploy-staging.yml`](.github/workflows/deploy-staging.yml)) runs only after that workflow **succeeds** on a **`push` to `main`**, on the same commit. **`deploy-production.yml`** and **`deploy-pr-preview.yml`** are separate; workflows **no-op successfully** on fresh forks until **`CF_STARTER_DEPLOY_ENABLED=true`** is set on the GitHub Environment (see [Deploy from your machine](#deploy-from-your-machine)).
 
 ## Deployment
 

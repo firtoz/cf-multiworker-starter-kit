@@ -25,15 +25,15 @@
 		"typecheck:prod": "tsgo --noEmit -p ."
 	},
 	"dependencies": {
-		"drizzle-orm": "^0.45.0"
+		"drizzle-orm": "catalog:"
 	},
 	"devDependencies": {
-		"@cloudflare/workers-types": "^4.20260425.1",
+		"@cloudflare/workers-types": "catalog:",
 		"@types/node": "catalog:",
 		"@typescript/native-preview": "catalog:",
 		"alchemy": "catalog:",
 		"cf-starter-alchemy": "workspace:*",
-		"drizzle-kit": "^0.31.4",
+		"drizzle-kit": "catalog:",
 		"typescript": "catalog:"
 	}
 }

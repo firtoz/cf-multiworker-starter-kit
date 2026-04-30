@@ -26,17 +26,17 @@
 		"@firtoz/socka": "catalog:",
 		"@firtoz/websocket-do": "^13.0.2",
 		"cf-starter-chat-contract": "workspace:*",
-		"drizzle-orm": "^0.45.2",
+		"drizzle-orm": "catalog:",
 		"hono": "catalog:"
 	},
 	"devDependencies": {
 		"cf-starter-alchemy": "workspace:*",
-		"@cloudflare/workers-types": "^4.20260425.1",
+		"@cloudflare/workers-types": "catalog:",
 		"@typescript/native-preview": "catalog:",
 		"@biomejs/biome": "catalog:",
 		"@types/node": "catalog:",
 		"alchemy": "catalog:",
-		"drizzle-kit": "^0.31.4",
+		"drizzle-kit": "catalog:",
 		"typescript": "catalog:"
 	}
 }

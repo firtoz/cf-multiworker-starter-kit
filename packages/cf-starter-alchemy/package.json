@@ -35,7 +35,6 @@
 	"devDependencies": {
 		"@types/node": "catalog:",
 		"@typescript/native-preview": "catalog:",
-		"alchemy": "catalog:",
 		"typescript": "catalog:"
 	}
 }

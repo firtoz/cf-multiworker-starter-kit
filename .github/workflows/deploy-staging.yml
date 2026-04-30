@@ -1,10 +1,15 @@
 name: Deploy staging
 
-# Runs after lint / typecheck / build complete on pushes to main (same commit).
+# Runs after lint / typecheck / build complete when **Quality checks** finishes on **`main`**
+# (successful **push**, same commit — not PR runs on feature branches).
+# If this workflow appears with a skipped “Deploy to staging” job, the completion was usually a **pull_request**
+# Quality run or a failure; inspect the triggering run’s event / conclusion in the Actions UI.
 on:
   workflow_run:
     workflows: ["Quality checks"]
     types: [completed]
+    branches:
+      - main
 
 concurrency:
   group: deploy-staging-${{ github.event.workflow_run.head_sha }}

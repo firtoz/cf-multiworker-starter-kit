@@ -61,6 +61,8 @@ bun add <package>@latest --filter apps/web
 bun add <package>@latest --cwd apps/web
 ```
 
+For versions shared across workspaces, **`package.json` → `workspaces.catalog`** is the single source of truth (`alchemy`, **`drizzle-orm`**, TypeScript-related pins, **`@cloudflare/workers-types`**, etc.). Add with the catalog protocol, e.g. **`bun add hono@catalog --cwd durable-objects/ping-do`** or **`bun add -d drizzle-orm@catalog --cwd packages/db`**.
+
 ## Turborepo (short)
 
 - **`^task`** in a package’s `turbo.json` runs `task` in **workspace dependencies**; prefer that over listing every `other-pkg#…` by hand.

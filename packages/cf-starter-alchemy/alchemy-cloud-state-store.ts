@@ -3,8 +3,11 @@
  *
  * - **CI** (`CI=true`): [`CloudflareStateStore`](https://alchemy.run/guides/cloudflare-state-store) with a per-stage worker name (`ALCHEMY_STATE_TOKEN` secret).
  * - **Local** (no CI): omit — stays on the repo `.alchemy/` directory.
+ *
+ * Do **not** add `alchemy` as a direct dependency of `cf-starter-alchemy`; keep a single
+ * workspace-hoisted `alchemy` install so `Scope` / state-store callback types agree with consumers.
  */
-import type { Scope } from "alchemy";
+import type { StateStoreType } from "alchemy";
 import { CloudflareStateStore } from "alchemy/state";
 
 /** CF Worker script segment: lowercase alphanumeric + hyphen, max-ish safe length */
@@ -23,7 +26,7 @@ export function sanitizeAlchemyStateStoreStageSlug(stage: string): string {
  * `{ stage: '…', ...alchemyCiCloudStateStoreOptions(stage) }`
  */
 export function alchemyCiCloudStateStoreOptions(stage: string): {
-	stateStore?: (scope: Scope) => CloudflareStateStore;
+	stateStore?: StateStoreType;
 } {
 	if (process.env["CI"] !== "true") {
 		return {};

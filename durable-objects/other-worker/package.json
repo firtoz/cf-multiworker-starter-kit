@@ -27,7 +27,7 @@
 	},
 	"devDependencies": {
 		"cf-starter-alchemy": "workspace:*",
-		"@cloudflare/workers-types": "^4.20260425.1",
+		"@cloudflare/workers-types": "catalog:",
 		"@typescript/native-preview": "catalog:",
 		"@biomejs/biome": "catalog:",
 		"@types/node": "catalog:",

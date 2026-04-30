@@ -27,20 +27,20 @@
 	"packageManager": "bun@1.3.0",
 	"devDependencies": {
 		"cf-starter-alchemy": "workspace:*",
-		"@cloudflare/workers-types": "^4.20260423.1",
+		"@cloudflare/workers-types": "catalog:",
 		"@typescript/native-preview": "catalog:",
 		"@biomejs/biome": "catalog:",
 		"@types/node": "catalog:",
 		"alchemy": "catalog:",
 {{#if usesSqlite}}
-		"drizzle-kit": "^0.31.4",
+		"drizzle-kit": "catalog:",
 {{/if}}
 		"typescript": "catalog:"
 	},
 	"dependencies": {
 		"@firtoz/hono-fetcher": "catalog:",
 {{#if usesSqlite}}
-		"drizzle-orm": "^0.45.2",
+		"drizzle-orm": "catalog:",
 {{/if}}
 		"hono": "catalog:"
 	}

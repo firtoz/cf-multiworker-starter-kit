@@ -20,10 +20,10 @@
 		"deploy:preflight:preview": "bun ./deploy-preflight.ts preview"
 	},
 	"devDependencies": {
-		"@clack/prompts": "^1.2.0"
+		"@clack/prompts": "^1.3.0"
 	},
 	"dependencies": {
 		"cf-starter-alchemy": "workspace:*",
-		"dotenv": "^17.4.2"
+		"dotenv": "catalog:"
 	}
 }
