@@ -93,7 +93,7 @@ bun run setup
 
 1. **`bun alchemy configure`**: Create the **default** profile and connect **Cloudflare** (OAuth is fine; at “Customize scopes?” **No** is the usual choice).
 2. **`bun alchemy login`**: Refreshes OAuth tokens when needed.
-3. **`.env.local`**: After **`bun run setup`**, **`ALCHEMY_PASSWORD`** and **`CHATROOM_INTERNAL_SECRET`** exist; optional **`CLOUDFLARE_API_TOKEN`** and **`CLOUDFLARE_ACCOUNT_ID`** if you do not use the profile; see [Alchemy’s Cloudflare auth guide](https://alchemy.run/guides/cloudflare/). See [`.env.example`](.env.example) for all keys.
+3. **`.env.local`**: After **`bun run setup`**, **`ALCHEMY_PASSWORD`** and **`CHATROOM_INTERNAL_SECRET`** exist; optional **`CLOUDFLARE_API_TOKEN`** and **`CLOUDFLARE_ACCOUNT_ID`** if you do not use the profile; see [Alchemy’s Cloudflare auth guide](https://alchemy.run/guides/cloudflare/). The token and account id must belong to the **same** Cloudflare account (wrong pairing often shows up as **`workers.dev`** / Alchemy state-store errors). See [`.env.example`](.env.example) for all keys.
 4. **Secrets**: **Required**; no in-repo defaults. [`alchemy-utils`](packages/alchemy-utils) reads **`ALCHEMY_PASSWORD`** for Alchemy state encryption. The web and chatroom workers both bind **`CHATROOM_INTERNAL_SECRET`** through `alchemy.secret(...)`; the web worker forwards it on `/api/ws/*`, and the chatroom DO rejects `/websocket` when it does not match.
 
 `alchemy dev` / `react-router` load repo-root **`.env.local`** via `bun --env-file` in each package’s **`dev`** script.

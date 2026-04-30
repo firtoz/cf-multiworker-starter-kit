@@ -26,6 +26,12 @@ description: Alchemy + env files — repo-root `.env.local` (dev), `.env.staging
 
 6. **Per-package `.env.local`** — Optional; include in Turbo **`inputs`** where a package’s tasks need it (e.g. chatroom-do). Never substitute **`.env.example`** for real values.
 
+## Cloudflare API token + account ID
+
+**`CLOUDFLARE_API_TOKEN`** and **`CLOUDFLARE_ACCOUNT_ID`** must refer to the **same** Cloudflare account. The Workers API resolves scripts and settings under **`CLOUDFLARE_ACCOUNT_ID`**; Alchemy’s [Cloudflare state store](https://alchemy.run/guides/cloudflare-state-store/) builds **`workers.dev`** URLs using that account’s subdomain. Values from **different accounts**, or swapping token and ID fields by mistake, often surface as vague failures—for example **`[CloudflareStateStore]`** RPCs returning **404** with **`text/html`** (edge “not found” page), deployments touching the wrong account, or subdomain mismatch after partial success.
+
+Verify **Account ID** against **Workers & Pages** in the dashboard (account-level details / URL context) when creating the token, and restrict the token to **that** account under **Account Resources**. Keep **`.env.staging`** / **`.env.production`**, **GitHub Environment** secrets/vars, and **local** dotfiles **pair-wise** consistent for each stage.
+
 ## Typical layout
 
 ```
