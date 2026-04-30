@@ -89,11 +89,13 @@ function printEnablementNotice(_mode: PreflightMode) {
 		"  This is expected for a fresh fork. Quality CI still runs; deploy was skipped.",
 		"",
 		"  When you are ready to ship, run from the repo root:",
-		`    • bun run github:setup`,
-		`    • bun run github:setup:staging   — staging / PR previews only`,
-		`    • bun run github:setup:prod      — production`,
+		"    • bun run github:setup           — guided overview",
+		"    • bun run setup:staging          — fill .env.staging for staging / PR previews",
+		"    • bun run github:sync:staging    — sync .env.staging to the GitHub staging Environment",
+		"    • bun run setup:prod             — fill .env.production for production",
+		"    • bun run github:sync:prod       — sync .env.production to the GitHub production Environment",
 		"",
-		`  Then set ${ENABLE_VAR}=true on the GitHub Environment (staging and/or production).`,
+		`  The github:sync:* commands set ${ENABLE_VAR}=true on the target GitHub Environment.`,
 		"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
 		"",
 	];
@@ -136,7 +138,11 @@ if (missing.length > 0) {
 			: `deploy-preflight: missing required values (set in ${dotenvRelForMode(mode)} or the environment): ${missing.join(", ")}`,
 	);
 	console.error("");
-	console.error("  Fix: bun run github:setup   (or github:setup:staging / github:setup:prod)");
+	if (mode === "prod") {
+		console.error("  Fix: bun run setup:prod && bun run github:sync:prod");
+	} else {
+		console.error("  Fix: bun run setup:staging && bun run github:sync:staging");
+	}
 	console.error("");
 	process.exit(1);
 }

@@ -402,7 +402,7 @@ function maybeProvisionNoninteractive(
 }
 
 async function chooseSetupModeInteractive(): Promise<SetupMode | null> {
-	const choice = await select({
+	const choice = await select<SetupMode>({
 		message: "Which environment do you want to set up?",
 		options: [
 			{
