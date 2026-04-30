@@ -39,21 +39,24 @@ export default class WebAppWorker extends WorkerEntrypoint<CloudflareEnv> {
 	async fetch(request: Request): Promise<Response> {
 		const url = new URL(request.url);
 		if (url.pathname === WORKER_SERVICES_PATH) {
+			if (request.method !== "GET") {
+				return new Response("Method Not Allowed", { status: 405 });
+			}
 			const [pingAck, otherAck] = await Promise.all([
-				this.env.PING.fetch("http://ping/ping-service-ack"),
-				this.env.OTHER.fetch("http://other/other-service-ack"),
+				(async () => {
+					const res = await this.env.PING.fetch("http://ping/ping-service-ack");
+					return { ok: res.ok, status: res.status };
+				})(),
+				(async () => {
+					const res = await this.env.OTHER.fetch("http://other/other-service-ack");
+					return { ok: res.ok, status: res.status };
+				})(),
 			]);
+
 			return Response.json({
-				pingAck: {
-					ok: pingAck.ok,
-					status: pingAck.status,
-					body: await pingAck.text(),
-				},
-				otherAck: {
-					ok: otherAck.ok,
-					status: otherAck.status,
-					body: await otherAck.text(),
-				},
+				pingAck,
+				otherAck,
+				note: "Demo probe: response bodies omitted; use SSR routes or tooling for fuller debugging.",
 			});
 		}
 		if (url.pathname.startsWith(CHAT_WS_PREFIX)) {

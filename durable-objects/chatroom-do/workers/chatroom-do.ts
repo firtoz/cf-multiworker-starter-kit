@@ -1,9 +1,12 @@
 import { SockaDoSession, type SockaDoSessionConfig, SockaWebSocketDO } from "@firtoz/socka/do";
 import {
+	CHAT_DISPLAY_NAME_MAX_CHARS,
+	CHAT_MESSAGE_TEXT_MAX_CHARS,
 	CHATROOM_INTERNAL_SECRET_HEADER,
 	type ChatMessageRow,
 	chatContract,
 } from "cf-starter-chat-contract";
+import type { InferSelectModel } from "drizzle-orm";
 import { desc } from "drizzle-orm";
 import { type DrizzleSqliteDODatabase, drizzle } from "drizzle-orm/durable-sqlite";
 import { migrate } from "drizzle-orm/durable-sqlite/migrator";
@@ -23,6 +26,30 @@ function sortPresence(users: { userId: string; displayName: string }[]) {
 
 type ChatroomDb = DrizzleSqliteDODatabase<typeof schema>;
 type ChatroomSession = SockaDoSession<typeof chatContract, SessionData, Env>;
+
+/** Initial display name from `wss://…/api/ws/room?name=` — capped to contract max. */
+function clampChatDisplayNameFromQuery(raw: string | null): string {
+	const base = raw?.trim() || "anon";
+	return base.length <= CHAT_DISPLAY_NAME_MAX_CHARS
+		? base
+		: base.slice(0, CHAT_DISPLAY_NAME_MAX_CHARS);
+}
+
+function chatMessageRowFromDb(r: InferSelectModel<typeof chatMessagesTable>): ChatMessageRow {
+	return {
+		id: r.id,
+		ts: r.ts,
+		userId: r.userId,
+		displayName:
+			r.displayName.length <= CHAT_DISPLAY_NAME_MAX_CHARS
+				? r.displayName
+				: r.displayName.slice(0, CHAT_DISPLAY_NAME_MAX_CHARS),
+		text:
+			r.text.length <= CHAT_MESSAGE_TEXT_MAX_CHARS
+				? r.text
+				: r.text.slice(0, CHAT_MESSAGE_TEXT_MAX_CHARS),
+	};
+}
 
 export class ChatroomDo extends SockaWebSocketDO<ChatroomSession, Env> {
 	readonly app = this.getBaseApp();
@@ -88,13 +115,7 @@ export class ChatroomDo extends SockaWebSocketDO<ChatroomSession, Env> {
 						.from(chatMessagesTable)
 						.orderBy(desc(chatMessagesTable.ts))
 						.limit(lim);
-					const messages: ChatMessageRow[] = rows.reverse().map((r) => ({
-						id: r.id,
-						ts: r.ts,
-						userId: r.userId,
-						displayName: r.displayName,
-						text: r.text,
-					}));
+					const messages: ChatMessageRow[] = rows.reverse().map((r) => chatMessageRowFromDb(r));
 					return { messages };
 				},
 				listPresence: async (_input, session) => {
@@ -107,7 +128,7 @@ export class ChatroomDo extends SockaWebSocketDO<ChatroomSession, Env> {
 				setDisplayName: async (input, session) => {
 					this.touchActivityTtl();
 					const { displayName } = input as { displayName: string };
-					const t = displayName.trim();
+					const t = clampChatDisplayNameFromQuery(displayName);
 					session.data.displayName = t;
 					const users = sortPresence(
 						session.listPeers().map((d) => ({ userId: d.userId, displayName: d.displayName })),

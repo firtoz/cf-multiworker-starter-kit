@@ -25,6 +25,8 @@
         "@firtoz/maybe-error": "^1.6.1",
         "@firtoz/router-toolkit": "^9.0.1",
         "@firtoz/socka": "catalog:",
+        "@fontsource-variable/dm-sans": "^5.2.8",
+        "@fontsource-variable/fira-code": "^5.2.7",
         "alchemy-utils": "workspace:*",
         "cf-starter-chat-contract": "workspace:*",
         "cf-starter-db": "workspace:*",
@@ -424,6 +426,10 @@
     "@firtoz/socka": ["@firtoz/socka@3.0.3", "", { "dependencies": { "@firtoz/maybe-error": "^1.6.1", "@standard-schema/spec": "^1.1.0", "msgpackr": "^1.11.10" }, "peerDependencies": { "@cloudflare/workers-types": "^4.20260423.1", "@firtoz/websocket-do": "^13.0.2", "@hono/node-server": "^1.19.2", "@hono/node-ws": "^1.3.0", "hono": "^4.12.9", "react": "^19.2.5", "ws": "^8.18.0" }, "optionalPeers": ["@cloudflare/workers-types", "@firtoz/websocket-do", "@hono/node-server", "@hono/node-ws", "hono", "react", "ws"] }, "sha512-nPKdwDKDPvJRIiE3cM/aNfc4zh+ebYvAFJKw9SbBL5r3JqR5kVjNuPVcf8xWoTpimQznKSa5sxRnnBG9EY6RpQ=="],
 
     "@firtoz/websocket-do": ["@firtoz/websocket-do@13.0.2", "", { "dependencies": { "@standard-schema/spec": "^1.1.0", "msgpackr": "^1.11.10" }, "peerDependencies": { "@cloudflare/workers-types": "^4.20260423.1", "@firtoz/hono-fetcher": "^2.7.2", "hono": "^4.12.14", "react": ">=18.0.0" }, "optionalPeers": ["react"] }, "sha512-6nfRfV7RpMIWLexH4q/N42zl3oq2vrI3jKWZG3iajh2TrmhK9uz48qreZQ8U7WLjF4ZAgn/OYgG3BVZh1WsgTQ=="],
+
+    "@fontsource-variable/dm-sans": ["@fontsource-variable/dm-sans@5.2.8", "", {}, "sha512-AxkvMTvNWgfrmlyjiV05vlHYJa+nRQCf1EfvIrQAPBpFJW0O9VTz7oAFr9S3lvbWdmnFoBk7yFqQL86u64nl2g=="],
+
+    "@fontsource-variable/fira-code": ["@fontsource-variable/fira-code@5.2.7", "", {}, "sha512-J2bxN7fz5rd8WpQYyau4o19WqTzxoTqaNj9jhsv4p21GSu1Rf34tbqsxqjyDCR+wDMHM3SajyFqtq+5uvRUQ7w=="],
 
     "@iarna/toml": ["@iarna/toml@2.2.5", "", {}, "sha512-trnsAYxU3xnS1gPHPyU961coFyLkh4gAD/0zQ5mymY4yOZ+CYvsPqUbOFSw0aDM4y0tV7tiFxL/1XfXPNC6IPg=="],
 

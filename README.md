@@ -256,6 +256,33 @@ For the detailed checklist, use [agents/skills/cf-durable-object-package/SKILL.m
 
 [Cloudflare Workers](https://workers.cloudflare.com/) + [Durable Objects](https://developers.cloudflare.com/durable-objects/) + [React Router 7](https://reactrouter.com/) + [Hono](https://hono.dev/) + [D1](https://developers.cloudflare.com/d1/) + [Drizzle](https://orm.drizzle.team/) + [Turborepo](https://turbo.build/repo) + [Alchemy](https://alchemy.run/) + [Biome](https://biomejs.dev/) + [Bun](https://bun.sh/) + [Zod](https://zod.dev/).
 
+## Security posture (for template users)
+
+This kit ships with real infra and demos. Treat security as layering: tighten what ships by default, then add product-specific controls when you graduate past the template.
+
+**What’s reasonably locked down here**
+
+| Area | Behavior |
+| ---- | -------- |
+| **GitHub Actions** | Workflows declare least-privilege `permissions` where it matters (`contents: read`, `pull-requests: read`, `issues: write` for PR preview comments). **`pull_request` runs the workflow YAML from `main`**—fork PRs cannot silently replace Actions logic until their branch is merged. |
+| **PR preview deploy** | A **staging secret–bearing deploy** waits on an **explicit PR review APPROVED** from a collaborator with **`push`/maintain/admin** permission who **is not the PR author**. Teardown checks out the **`base` branch** so **`bun install` does not execute untrusted `package.json` scripts** during destroy. The bot upserts one PR comment (no deploy secrets attached). |
+| **Production manual deploy** | `workflow_dispatch` is rejected unless **`GITHUB_REF` is `refs/heads/production`** so Operators cannot accidentally run prod deploy against an arbitrary branch. |
+| **`/api/worker-services`** | Demo probe is **GET-only** and returns **health metadata only**—not full downstream Worker response bodies (reduces leakage and scraper value). |
+| **Demo chat** | Socka contract caps **display name length** (including **`?name=` on the WebSocket URL**) and **message body length**. History responses clamp legacy DB rows so oversized rows do not break the wire contract. |
+| **Headers + fonts** | Baseline **`Referrer-Policy`**, **`Permissions-Policy`**, **`X-Frame-Options`**. UI fonts are **self-hosted variable** DM Sans / Fira Code (`@fontsource-variable/*`) via **`<link rel="preload">` in `links()` plus `font-display: swap`** — reduces reload “twitch” without Google Fonts. |
+
+**What stays intentionally lightweight (demo)**
+
+- **Public demos**: `/chat`, `/visitors`, `/ping-do`, and the Socka **`clearHistory`** path are trusts-everyone examples—fine for showcases, weak for moderation or tenancy.
+- **PR preview economics**: Approved preview deploy **still checks out PR head**—`bun install` and any postinstall/run scripts can execute. Keep **narrow Cloudflare tokens** scoped to Workers/D1 previews, consider **additional GitHub Environment protection rules**, and treat preview secrets as disposable.
+- **No strict Content-Security-Policy yet**: SSR + React bundles need careful nonces/hashes before turning on CSP in production—plan that when you freeze third-party origins.
+
+**If you fork for production**
+
+Add what your threat model demands: authenticated admin surfaces, structured logging, CSP + security headers tuning, outbound abuse controls (especially on WebSockets and public writes), tighter Cloudflare account/IAM segmentation, OIDC/GitHub deployments instead of long-lived tokens, dependency review/supply-chain checks, secrets rotation, rate limits/WAF tuning, etc.
+
+See also [agents/skills/cf-workers-env-local/SKILL.md](agents/skills/cf-workers-env-local/SKILL.md) for env and secret hygiene across stages.
+
 ## Contributing
 
 Bug reports, doc fixes, and improvements that keep the template honest for day-to-day use are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md).

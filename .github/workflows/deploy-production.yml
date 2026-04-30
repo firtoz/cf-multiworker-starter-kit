@@ -9,12 +9,25 @@ concurrency:
   group: deploy-production
   cancel-in-progress: false
 
+permissions:
+  contents: read
+
 jobs:
   deploy:
     name: Deploy to production
     runs-on: ubuntu-latest
     environment: production
     steps:
+      # Manual dispatch must pick branch `production`; otherwise attackers with Actions permission could
+      # checkout another ref and ship arbitrary code while still reading production secrets.
+      - name: Require production branch on manual dispatch
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          if [ "${GITHUB_REF}" != "refs/heads/production" ]; then
+            echo "::error::Manual production deploy must be run from ref refs/heads/production (select branch \"production\" in the workflow_dispatch UI)."
+            exit 1
+          fi
+
       - uses: actions/checkout@v6
 
       - uses: oven-sh/setup-bun@v2

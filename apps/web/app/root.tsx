@@ -1,3 +1,10 @@
+import type { Route } from "./+types/root";
+import "./app.css";
+
+import dmSansLatinExtWoff2 from "@fontsource-variable/dm-sans/files/dm-sans-latin-ext-wght-normal.woff2?url";
+import dmSansLatinWoff2 from "@fontsource-variable/dm-sans/files/dm-sans-latin-wght-normal.woff2?url";
+import firaCodeLatinExtWoff2 from "@fontsource-variable/fira-code/files/fira-code-latin-ext-wght-normal.woff2?url";
+import firaCodeLatinWoff2 from "@fontsource-variable/fira-code/files/fira-code-latin-wght-normal.woff2?url";
 import {
 	isRouteErrorResponse,
 	Links,
@@ -7,46 +14,70 @@ import {
 	ScrollRestoration,
 } from "react-router";
 
-import type { Route } from "./+types/root";
-import "./app.css";
-
-const FONT_URL = "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap";
+const CRITICAL_FONT_FACE_CSS = `
+@font-face {
+	font-family: "DM Sans Variable";
+	font-style: normal;
+	font-display: swap;
+	font-weight: 100 1000;
+	src: url("${dmSansLatinWoff2}") format("woff2-variations");
+}
+@font-face {
+	font-family: "Fira Code Variable";
+	font-style: normal;
+	font-display: swap;
+	font-weight: 300 700;
+	src: url("${firaCodeLatinWoff2}") format("woff2-variations");
+}
+`;
 
 export function headers(_args: Route.HeadersArgs) {
 	return {
-		// Security header that prevents MIME type sniffing attacks. Forces browsers to respect
-		// the declared Content-Type instead of guessing, preventing malicious files disguised
-		// as safe types (e.g., executable code masked as an image) from being executed.
-		// See: https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/X-Content-Type-Options
+		// Forces browsers to respect Content-Type instead of MIME sniffing.
+		// See https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/X-Content-Type-Options
 		"X-Content-Type-Options": "nosniff",
-		// HTTP Link headers for early connection hints - allows browser to start DNS/TCP/TLS
-		// handshakes before HTML parsing, reducing font loading latency by ~100-200ms.
-		// See: https://web.dev/articles/preconnect-and-dns-prefetch
-		Link: [
-			"<https://fonts.googleapis.com>; rel=preconnect",
-			"<https://fonts.gstatic.com>; rel=preconnect; crossorigin",
-		].join(", "),
+		/** Limit referrer leakage on navigations away from this site. */
+		"Referrer-Policy": "strict-origin-when-cross-origin",
+		/** Narrow powerful browser APIs (baseline for a Workers app that does not use them yet). */
+		"Permissions-Policy":
+			"accelerometer=(), camera=(), geolocation=(), microphone=(), gyroscope=(), magnetometer=(), payment=(), usb=(), browsing-topics=()",
+		/** Allow same-origin iframe embedding only. */
+		"X-Frame-Options": "SAMEORIGIN",
 	};
 }
 
+/** Preloads WOFF2 so critical font faces can render before first paint. */
 export const links: Route.LinksFunction = () => [
-	// Preconnect to Google Fonts domains - establishes early connections to reduce latency.
-	// fonts.googleapis.com serves the CSS, fonts.gstatic.com serves the actual font files.
-	// crossOrigin needed for fonts.gstatic.com because font files are fetched as CORS requests.
-	{ rel: "preconnect", href: "https://fonts.googleapis.com" },
 	{
-		rel: "preconnect",
-		href: "https://fonts.gstatic.com",
+		rel: "preload",
+		href: dmSansLatinWoff2,
+		as: "font",
+		type: "font/woff2",
+		crossOrigin: "anonymous",
+		fetchPriority: "high",
+	},
+	{
+		rel: "preload",
+		href: dmSansLatinExtWoff2,
+		as: "font",
+		type: "font/woff2",
 		crossOrigin: "anonymous",
 	},
 	{
 		rel: "preload",
-		href: FONT_URL,
-		as: "style",
+		href: firaCodeLatinWoff2,
+		as: "font",
+		type: "font/woff2",
+		crossOrigin: "anonymous",
+		fetchPriority: "low",
 	},
 	{
-		rel: "stylesheet",
-		href: FONT_URL,
+		rel: "preload",
+		href: firaCodeLatinExtWoff2,
+		as: "font",
+		type: "font/woff2",
+		crossOrigin: "anonymous",
+		fetchPriority: "low",
 	},
 ];
 
@@ -56,15 +87,15 @@ export function Layout({ children }: { children: React.ReactNode }) {
 			<head>
 				<meta charSet="utf-8" />
 				<meta name="viewport" content="width=device-width, initial-scale=1" />
-				{/* 
-					Critical CSS for dark mode FOUC prevention - industry standard practice
-					Prevents white flash on page load for users with dark mode preference
-					See: https://web.dev/articles/prefers-color-scheme#dark-mode-but-add-an-opt-out
+				{/*
+					Critical CSS for dark mode FOUC prevention
+					https://web.dev/articles/prefers-color-scheme#dark-mode-but-add-an-opt-out
 				*/}
 				<style
 					// biome-ignore lint/security/noDangerouslySetInnerHtml: We need to set the color scheme of the html tag to light dark
 					dangerouslySetInnerHTML={{
 						__html: `
+							${CRITICAL_FONT_FACE_CSS}
 							html { color-scheme: light dark; }
 							html, body { 
 								background-color: #fff; 
@@ -82,7 +113,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
 				<Meta />
 				<Links />
 			</head>
-			<body>
+			<body className="font-sans antialiased">
 				{children}
 				<ScrollRestoration />
 				<Scripts />
@@ -114,7 +145,7 @@ export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
 			<h1>{message}</h1>
 			<p>{details}</p>
 			{stack && (
-				<pre className="w-full p-4 overflow-x-auto">
+				<pre className="w-full p-4 overflow-x-auto font-mono text-sm">
 					<code>{stack}</code>
 				</pre>
 			)}
