@@ -55,10 +55,10 @@ export function buildGitHubVariablePayloadFromDotfile(env: Record<string, string
 	const payload: Record<string, string> = {};
 
 	const accountId = env["CLOUDFLARE_ACCOUNT_ID"]?.trim();
-	if (!accountId) {
-		missing.push("CLOUDFLARE_ACCOUNT_ID");
-	} else {
+	if (accountId) {
 		payload["CLOUDFLARE_ACCOUNT_ID"] = accountId;
+	} else {
+		missing.push("CLOUDFLARE_ACCOUNT_ID");
 	}
 
 	const deployFlag = env[CF_STARTER_DEPLOY_ENABLED_VAR]?.trim();

@@ -7,6 +7,7 @@
       "devDependencies": {
         "@biomejs/biome": "catalog:",
         "@cloudflare/workers-types": "catalog:",
+        "@octokit/rest": "^21.1.1",
         "@turbo/gen": "^2.9.6",
         "@types/bun": "^1.3.13",
         "@typescript/native-preview": "catalog:",
@@ -47,10 +48,10 @@
         "@types/react-dom": "^19.2.3",
         "@typescript/native-preview": "catalog:",
         "alchemy": "catalog:",
-        "state-hub": "workspace:*",
         "concurrently": "^9.1.0",
         "other-worker": "workspace:*",
         "rollup-plugin-visualizer": "^7.0.1",
+        "state-hub": "workspace:*",
         "tailwindcss": "^4.2.4",
         "typescript": "catalog:",
         "vite": "^8.0.10",
@@ -74,8 +75,8 @@
         "@typescript/native-preview": "catalog:",
         "alchemy": "catalog:",
         "alchemy-utils": "workspace:*",
-        "state-hub": "workspace:*",
         "drizzle-kit": "catalog:",
+        "state-hub": "workspace:*",
         "typescript": "catalog:",
       },
     },
@@ -120,18 +121,6 @@
         "typescript": "catalog:",
       },
     },
-    "packages/state-hub": {
-      "name": "state-hub",
-      "dependencies": {
-        "alchemy-utils": "workspace:*",
-      },
-      "devDependencies": {
-        "@types/node": "catalog:",
-        "@typescript/native-preview": "catalog:",
-        "alchemy": "catalog:",
-        "typescript": "catalog:",
-      },
-    },
     "packages/chat-contract": {
       "name": "cf-starter-chat-contract",
       "dependencies": {
@@ -154,8 +143,8 @@
         "@typescript/native-preview": "catalog:",
         "alchemy": "catalog:",
         "alchemy-utils": "workspace:*",
-        "state-hub": "workspace:*",
         "drizzle-kit": "catalog:",
+        "state-hub": "workspace:*",
         "typescript": "catalog:",
       },
     },
@@ -167,6 +156,18 @@
       },
       "devDependencies": {
         "@clack/prompts": "^1.3.0",
+      },
+    },
+    "packages/state-hub": {
+      "name": "state-hub",
+      "dependencies": {
+        "alchemy-utils": "workspace:*",
+      },
+      "devDependencies": {
+        "@types/node": "catalog:",
+        "@typescript/native-preview": "catalog:",
+        "alchemy": "catalog:",
+        "typescript": "catalog:",
       },
     },
   },
@@ -826,6 +827,8 @@
 
     "alchemy": ["alchemy@0.93.6", "", { "dependencies": { "@aws-sdk/credential-providers": "^3.0.0", "@cloudflare/unenv-preset": "2.7.7", "@cloudflare/workers-types": "^4.20260420.1", "@iarna/toml": "^2.2.5", "@octokit/rest": "^21.1.1", "@smithy/node-config-provider": "^4.0.0", "@smithy/types": "^4.6.0", "aws4fetch": "^1.0.20", "drizzle-orm": "^0.45.1", "env-paths": "^3.0.0", "esbuild": "^0.25.1", "execa": "^9.6.0", "fast-json-patch": "^3.1.1", "fast-xml-parser": "^5.2.5", "find-process": "^2.0.0", "glob": "^10.0.0", "jszip": "^3.0.0", "libsodium-wrappers": "^0.8.0", "miniflare": "4.20260424.0", "neverthrow": "^8.2.0", "open": "^10.1.2", "openapi-types": "^12.1.3", "pathe": "^2.0.3", "picocolors": "^1.1.1", "proper-lockfile": "^4.1.2", "signal-exit": "^4.1.0", "unenv": "2.0.0-rc.21", "wrangler": "^4.85.0", "ws": "^8.18.3", "yaml": "^2.0.0" }, "peerDependencies": { "@astrojs/cloudflare": "^12.6.4", "@aws-sdk/client-dynamodb": "^3.0.0", "@aws-sdk/client-iam": "^3.0.0", "@aws-sdk/client-lambda": "^3.0.0", "@aws-sdk/client-s3": "^3.0.0", "@aws-sdk/client-sesv2": "^3.0.0", "@aws-sdk/client-sqs": "^3.0.0", "@aws-sdk/client-ssm": "^3.0.0", "@aws-sdk/client-sts": "^3.0.0", "@cloudflare/vite-plugin": "^1.21.2", "@coinbase/cdp-sdk": "^0.10.0", "@libsql/client": "^0.15.12", "@opennextjs/cloudflare": "^1.6.5", "astro": "^5.13.2", "rwsdk": "^1.0.0-beta.51", "stripe": "^18.5.0", "vite": ">=6.0.0" }, "optionalPeers": ["@astrojs/cloudflare", "@aws-sdk/client-dynamodb", "@aws-sdk/client-iam", "@aws-sdk/client-lambda", "@aws-sdk/client-s3", "@aws-sdk/client-sesv2", "@aws-sdk/client-sqs", "@aws-sdk/client-ssm", "@aws-sdk/client-sts", "@cloudflare/vite-plugin", "@coinbase/cdp-sdk", "@libsql/client", "@opennextjs/cloudflare", "astro", "rwsdk", "stripe", "vite"], "bin": { "alchemy": "bin/alchemy.js" } }, "sha512-KmgkSz4PiFu6yT9Pxt0mjKq5eA8iDW+15J4rUS0KQ47VMxw9kyIF5BeiSbcYc53m7xCLElJsc9eb8hjTa2nB6g=="],
 
+    "alchemy-utils": ["alchemy-utils@workspace:packages/alchemy-utils"],
+
     "ansi-regex": ["ansi-regex@5.0.1", "", {}, "sha512-quJQXlTSUGL2LH9SUXo8VwsY4soanhgo6LNSm84E1LBcE8s3O0wpdiRzyR9z/ZZJMlMWv37qOOb9pdJlMUEKFQ=="],
 
     "ansi-styles": ["ansi-styles@4.3.0", "", { "dependencies": { "color-convert": "^2.0.1" } }, "sha512-zbB9rCJAT1rbjiVDb2hqKFHNYLxgtk8NURxZ3IZwD3F6NtxbXZQCnnSi1Lkx+IDohdPlFp222wVALIheZJQSEg=="],
@@ -860,13 +863,9 @@
 
     "caniuse-lite": ["caniuse-lite@1.0.30001791", "", {}, "sha512-yk0l/YSrOnFZk3UROpDLQD9+kC1l4meK/wed583AXrzoarMGJcbRi2Q4RaUYbKxYAsZ8sWmaSa/DsLmdBeI1vQ=="],
 
-    "alchemy-utils": ["alchemy-utils@workspace:packages/alchemy-utils"],
-
     "cf-starter-chat-contract": ["cf-starter-chat-contract@workspace:packages/chat-contract"],
 
     "cf-starter-db": ["cf-starter-db@workspace:packages/db"],
-
-    "state-hub": ["state-hub@workspace:packages/state-hub"],
 
     "cf-starter-web": ["cf-starter-web@workspace:apps/web"],
 
@@ -1211,6 +1210,8 @@
     "source-map-js": ["source-map-js@1.2.1", "", {}, "sha512-UXWMKhLOwVKb728IUtQPXxfYU+usdybtUrK/8uGE8CQMvrhOpwvzDBwj0QhSL7MQc7vIsISBG8VQ8+IDQxpfQA=="],
 
     "source-map-support": ["source-map-support@0.5.21", "", { "dependencies": { "buffer-from": "^1.0.0", "source-map": "^0.6.0" } }, "sha512-uBHU3L3czsIyYXKX88fdrGovxdSCoTGDRZ6SYXtSRxLZUzHg5P/66Ht6uoUlHu9EZod+inXhKo3qQgwXUT/y1w=="],
+
+    "state-hub": ["state-hub@workspace:packages/state-hub"],
 
     "string-width": ["string-width@4.2.3", "", { "dependencies": { "emoji-regex": "^8.0.0", "is-fullwidth-code-point": "^3.0.0", "strip-ansi": "^6.0.1" } }, "sha512-wKyQRQpjJ0sIp62ErSZdGsjMJWsap5oRNihHhu6G7JVO/9jIB6UyevL+tXuOqrng8j/cxKTWyWUwvSTriiZz/g=="],
 
