@@ -27,7 +27,7 @@ export function resolveStageFromEnv(): string {
 	throw new Error(
 		[
 			"Missing deploy stage: set STAGE in the environment (e.g. local, staging, prod, pr-123).",
-			"Package scripts use cross-env STAGE=…; CI workflows set STAGE per job.",
+			"Package scripts use dotenv-cli -v STAGE=…; CI workflows set STAGE per job.",
 			"Alchemy `alchemy.run.ts` entrypoints do not read `--stage` from argv.",
 		].join(" "),
 	);

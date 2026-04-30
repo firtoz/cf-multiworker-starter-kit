@@ -10,13 +10,13 @@
 {{#if usesSqlite}}
 		"db:generate": "drizzle-kit generate",
 {{/if}}
-		"deploy:prod": "cross-env STAGE=prod bun --env-file ../../.env.production alchemy deploy --app cf-starter-{{ kebabCase name }}",
-		"deploy:staging": "cross-env STAGE=staging bun --env-file ../../.env.staging alchemy deploy --app cf-starter-{{ kebabCase name }}",
-		"deploy:preview": "bun --env-file ../../.env.staging alchemy deploy --app cf-starter-{{ kebabCase name }}",
-		"destroy:prod": "cross-env STAGE=prod bun --env-file ../../.env.production alchemy destroy --app cf-starter-{{ kebabCase name }}",
-		"destroy:staging": "cross-env STAGE=staging bun --env-file ../../.env.staging alchemy destroy --app cf-starter-{{ kebabCase name }}",
-		"destroy:preview": "bun --env-file ../../.env.staging alchemy destroy --app cf-starter-{{ kebabCase name }}",
-		"dev": "cross-env STAGE=local bun --env-file ../../.env.local alchemy dev --app cf-starter-{{ kebabCase name }}",
+		"deploy:prod": "bunx dotenv-cli -v STAGE=prod -e ../../.env.production -- bun alchemy deploy --app cf-starter-{{ kebabCase name }}",
+		"deploy:staging": "bunx dotenv-cli -v STAGE=staging -e ../../.env.staging -- bun alchemy deploy --app cf-starter-{{ kebabCase name }}",
+		"deploy:preview": "bunx dotenv-cli -e ../../.env.staging -- bun alchemy deploy --app cf-starter-{{ kebabCase name }}",
+		"destroy:prod": "bunx dotenv-cli -v STAGE=prod -e ../../.env.production -- bun alchemy destroy --app cf-starter-{{ kebabCase name }}",
+		"destroy:staging": "bunx dotenv-cli -v STAGE=staging -e ../../.env.staging -- bun alchemy destroy --app cf-starter-{{ kebabCase name }}",
+		"destroy:preview": "bunx dotenv-cli -e ../../.env.staging -- bun alchemy destroy --app cf-starter-{{ kebabCase name }}",
+		"dev": "bunx dotenv-cli -v STAGE=local -e ../../.env.local -- bun alchemy dev --app cf-starter-{{ kebabCase name }}",
 		"typegen:local": "node -e \"process.exit(0)\"",
 		"typegen:prod": "node -e \"process.exit(0)\"",
 		"typecheck:local": "tsgo --noEmit -p ./tsconfig.json",
@@ -32,7 +32,6 @@
 		"@biomejs/biome": "catalog:",
 		"@types/node": "catalog:",
 		"alchemy": "catalog:",
-		"cross-env": "catalog:",
 {{#if usesSqlite}}
 		"drizzle-kit": "^0.31.4",
 {{/if}}

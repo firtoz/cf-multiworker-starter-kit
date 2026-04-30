@@ -117,17 +117,6 @@
 		"destroy:preview": {
 			"cache": false,
 			"outputs": []
-		},
-		"d1:migrate:local": {
-			"inputs": ["drizzle.config.ts", "src/**/*.ts", "drizzle/**"],
-			"outputs": [],
-			"cache": false
-		},
-		"d1:migrate:remote": {
-			"dependsOn": ["db:generate"],
-			"inputs": ["alchemy.run.ts", "drizzle.config.ts", "src/**/*.ts", "drizzle/**"],
-			"outputs": [],
-			"cache": false
 		}
 	}
 }

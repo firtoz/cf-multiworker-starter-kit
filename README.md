@@ -111,7 +111,7 @@ If you see **no Cloudflare credentials**, run **`bun alchemy configure`** / **`b
 
 #### Deploy from your machine
 
-Every `alchemy.run.ts` uses **`process.env.STAGE`** (see **`packages/cf-starter-alchemy/deployment-stage.ts`**). Package scripts set **`STAGE`** with **`cross-env`** for **local** / **prod** / **staging**; **preview** inherits **`STAGE=pr-<n>`** from CI only.
+Every `alchemy.run.ts` uses **`process.env.STAGE`** (see **`packages/cf-starter-alchemy/deployment-stage.ts`**). Package scripts set **`STAGE`** with **`dotenv-cli -v`** for **local** / **prod** / **staging**; **preview** inherits **`STAGE=pr-<n>`** from CI only.
 
 **Production** (repo-root **`.env.production`**, `STAGE=prod`):
 
@@ -254,7 +254,7 @@ Full package and Hono checklists: **[agents/skills/cf-durable-object-package/SKI
 
 The generator does not wire the monorepo for you. For each new package:
 
-1. **Root [package.json](package.json) `dev`**: Add `--filter=<workspace-name>` so the app joins the root `turbo run dev` TUI. Each package runs `cross-env STAGE=local … alchemy dev --app <alchemy-app-id>` (see [Naming your product](#naming-your-product); web **`--filter`** name is still **`cf-starter-web`**).
+1. **Root [package.json](package.json) `dev`**: Add `--filter=<workspace-name>` so the app joins the root `turbo run dev` TUI. Each package runs `bunx dotenv-cli -v STAGE=local -e ../../.env.local -- bun alchemy dev --app <alchemy-app-id>` (see [Naming your product](#naming-your-product); web **`--filter`** name is still **`cf-starter-web`**).
 
 2. **[turbo.json](turbo.json) `destroy:*`**: Add `<your-package>#destroy:prod`, `#destroy:staging`, and `#destroy:preview` with `dependsOn` on the matching **`cf-starter-web#destroy:*`** (match existing **`ping-do`** entries).
 
@@ -275,7 +275,7 @@ The generator does not wire the monorepo for you. For each new package:
 
 The D1 schema source of truth is **`packages/db/src/schema.ts`**. Do not manually create or edit Drizzle migration SQL, **`drizzle/meta/_journal.json`**, or snapshot JSON. Change the schema, then run **`bun run db:generate`** so generated SQL/meta lands in **`packages/db/drizzle/`**.
 
-The **`cf-starter-db`** **workspace package** owns **`D1Database`** in **`packages/db/alchemy.run.ts`** (**`migrationsDir`** → **`packages/db/drizzle`**). **`apps/web/alchemy.run.ts`** imports **`mainDb`** from **`cf-starter-db/alchemy`**. Remote migrations run when you deploy the **alchemy app** **`cf-starter-database`** (via **`bun run deploy:prod`**, **`deploy:staging`**, or **`deploy:preview`**). Staging and **each PR preview** get **their own D1** physical resources because Alchemy scopes by **`STAGE`**. **`d1:migrate:local`** prints the dev flow; **`d1:migrate:remote`** runs **`cf-starter-db`** **`deploy:prod`**. Do not add runtime `CREATE TABLE` fallbacks in loaders/actions; if local dev reports `no such table`, check that **`db:generate`** produced a migration, restart dev, and reset local Alchemy/D1 state only as a troubleshooting step.
+The **`cf-starter-db`** **workspace package** owns **`D1Database`** in **`packages/db/alchemy.run.ts`** (**`migrationsDir`** → **`packages/db/drizzle`**). **`apps/web/alchemy.run.ts`** imports **`mainDb`** from **`cf-starter-db/alchemy`**. Remote migrations run when you deploy the **alchemy app** **`cf-starter-database`** (via **`bun run deploy:prod`**, **`deploy:staging`**, or **`deploy:preview`**). Staging and **each PR preview** get **their own D1** physical resources because Alchemy scopes by **`STAGE`**. Do not add runtime `CREATE TABLE` fallbacks in loaders/actions; if local dev reports `no such table`, check that **`db:generate`** produced a migration, restart dev, and reset local Alchemy/D1 state only as a troubleshooting step.
 
 ## Continuous integration
 
@@ -283,7 +283,9 @@ The **`cf-starter-db`** **workspace package** owns **`D1Database`** in **`packag
 
 ## Deployment
 
-**Summary:** Set **`STAGE`** (via **`cross-env`** in package scripts or in CI). Root commands **`bun run deploy:prod`**, **`deploy:staging`**, **`deploy:preview`** run the full monorepo graph so **`cf-starter-database`** migrates **before** the web worker.
+**Summary:** Set **`STAGE`** (via **`dotenv-cli -v`** in package scripts or in CI). Root commands **`bun run deploy:prod`**, **`deploy:staging`**, **`deploy:preview`** run the full monorepo graph so **`cf-starter-database`** migrates **before** the web worker.
+
+The web deploy task gates on typecheck, not a separate React Router build. Alchemy's **`ReactRouter`** resource builds the Worker bundle during **`alchemy deploy`**.
 
 **Auth:** **`CLOUDFLARE_API_TOKEN`** / **`CLOUDFLARE_ACCOUNT_ID`** plus **`ALCHEMY_PASSWORD`** and **`CHATROOM_INTERNAL_SECRET`** (see [`.env.example`](.env.example)).
 
@@ -299,8 +301,6 @@ The **`cf-starter-db`** **workspace package** owns **`D1Database`** in **`packag
 - `bun run typegen` / `typegen:local`: React Router route types (+ workspace `typegen` chain)
 - `bun run typegen:prod`: Prod env inputs for web `typegen:prod`
 - `bun run lint`: **`turbo lint`** → each package runs Biome (**`biome check --write`** where defined)
-- `bun run d1:migrate:local`: Prints how local D1 migrations apply during **`bun run dev`**
-- `bun run d1:migrate:remote`: **`cf-starter-db`** package script — **`STAGE=prod`**, **`.env.production`**, **`alchemy deploy --app cf-starter-database`**
 
 ### Deployment / CI
 - `bun run deploy:prod` / `deploy:staging` / `deploy:preview`: full Turbo **`deploy:*`** graph (D1 + workers + web)
@@ -310,9 +310,9 @@ The **`cf-starter-db`** **workspace package** owns **`D1Database`** in **`packag
 - `bun run github:sync:staging` / `github:sync:prod`: local/admin **`stacks/admin.ts`** → GitHub Environment **secrets** + **variables** (incl. **`CF_STARTER_DEPLOY_ENABLED`**)
 
 ### Dependency management
-- `bun run outdated`: Outdated deps across workspaces (includes **Wrangler** via the workspace catalog where packages still use it)
-- `bun update wrangler`: From the **repo root**, bumps **Wrangler** to the newest version allowed by **`workspaces.catalog.wrangler`** in root **`package.json`**; **`bun.lock`** pins the exact release
-- `bun run update:interactive`: Interactive updates
+- `bun run outdated`: Outdated deps across workspaces (e.g. **`alchemy`**, **`@cloudflare/workers-types`**, packages using **`catalog:`** pins from root **`package.json`**)
+- **`bun update <package>`** (repo root): bumps **`<package>`** within the ranges declared in each workspace **`package.json`** / **`catalog:`**; **`bun.lock`** pins the exact release
+- `bun run update:interactive`: Interactive updates (**`bun update --latest --ir`**)
 - `bun run clean`: Remove `node_modules` and build artifacts (**Turbo `clean`**)
 
 ### Code generation

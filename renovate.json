@@ -27,7 +27,7 @@
 		{
 			"description": "Group Cloudflare packages",
 			"groupName": "Cloudflare packages",
-			"matchPackagePatterns": ["^wrangler", "^@cloudflare/"]
+			"matchPackagePatterns": ["^@cloudflare/"]
 		},
 		{
 			"description": "Group Biome updates",

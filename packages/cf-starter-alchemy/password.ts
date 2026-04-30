@@ -38,7 +38,7 @@ function missingRequiredEnvMessage(
 			prefix +
 			"For production deploy, run `bun run setup:prod` at the repository root to seed " +
 			`repo-root .env.production (STAGE=prod), or add ${name} in CI secrets. ` +
-			"Deploy scripts use: cross-env STAGE=prod bun --env-file ../../.env.production alchemy deploy …"
+			"Deploy scripts use: bunx dotenv-cli -v STAGE=prod -e ../../.env.production -- bun alchemy deploy …"
 		);
 	}
 	if (scope?.stage === "staging" || (scope?.stage && scope.stage.startsWith("pr-"))) {
@@ -46,7 +46,7 @@ function missingRequiredEnvMessage(
 			prefix +
 			"For staging/preview deploy, run `bun run setup:staging` and use repo-root .env.staging " +
 			"(STAGE=staging or STAGE=pr-<n>), or set secrets on the GitHub **staging** environment. " +
-			"Deploy scripts use: cross-env STAGE=staging bun --env-file ../../.env.staging alchemy deploy …"
+			"Deploy scripts use: bunx dotenv-cli -v STAGE=staging -e ../../.env.staging -- bun alchemy deploy …"
 		);
 	}
 

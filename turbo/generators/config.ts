@@ -4,11 +4,6 @@ import * as path from "node:path";
 import type { PlopTypes } from "@turbo/gen";
 
 export default function generator(plop: PlopTypes.NodePlopAPI): void {
-	plop.setHelper("workerNameEnvKey", (name: string) => {
-		const kebab = plop.getHelper("kebabCase")(name) as string;
-		return `${kebab.replace(/-/g, "_").toUpperCase()}_WORKER_NAME`;
-	});
-
 	plop.setGenerator("durable-object", {
 		description:
 			"Generate a typed Hono Durable Object package with its own package-local Alchemy app.",

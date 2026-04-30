@@ -8,13 +8,13 @@
 		"./workers/rpc": "./workers/rpc.ts"
 	},
 	"scripts": {
-		"deploy:prod": "cross-env STAGE=prod bun --env-file ../../.env.production alchemy deploy --app cf-starter-ping",
-		"deploy:staging": "cross-env STAGE=staging bun --env-file ../../.env.staging alchemy deploy --app cf-starter-ping",
-		"deploy:preview": "bun --env-file ../../.env.staging alchemy deploy --app cf-starter-ping",
-		"destroy:prod": "cross-env STAGE=prod bun --env-file ../../.env.production alchemy destroy --app cf-starter-ping",
-		"destroy:staging": "cross-env STAGE=staging bun --env-file ../../.env.staging alchemy destroy --app cf-starter-ping",
-		"destroy:preview": "bun --env-file ../../.env.staging alchemy destroy --app cf-starter-ping",
-		"dev": "cross-env STAGE=local bun --env-file ../../.env.local alchemy dev --app cf-starter-ping",
+		"deploy:prod": "bunx dotenv-cli -v STAGE=prod -e ../../.env.production -- bun alchemy deploy --app cf-starter-ping",
+		"deploy:staging": "bunx dotenv-cli -v STAGE=staging -e ../../.env.staging -- bun alchemy deploy --app cf-starter-ping",
+		"deploy:preview": "bunx dotenv-cli -e ../../.env.staging -- bun alchemy deploy --app cf-starter-ping",
+		"destroy:prod": "bunx dotenv-cli -v STAGE=prod -e ../../.env.production -- bun alchemy destroy --app cf-starter-ping",
+		"destroy:staging": "bunx dotenv-cli -v STAGE=staging -e ../../.env.staging -- bun alchemy destroy --app cf-starter-ping",
+		"destroy:preview": "bunx dotenv-cli -e ../../.env.staging -- bun alchemy destroy --app cf-starter-ping",
+		"dev": "bunx dotenv-cli -v STAGE=local -e ../../.env.local -- bun alchemy dev --app cf-starter-ping",
 		"typegen:local": "node -e \"process.exit(0)\"",
 		"typegen:prod": "node -e \"process.exit(0)\"",
 		"typecheck:local": "tsgo --noEmit -p ./tsconfig.json",
@@ -34,7 +34,6 @@
 		"@biomejs/biome": "catalog:",
 		"@types/node": "catalog:",
 		"alchemy": "catalog:",
-		"cross-env": "catalog:",
 		"typescript": "catalog:"
 	}
 }

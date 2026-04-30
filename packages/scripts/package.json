@@ -15,13 +15,12 @@
 		"github:setup": "bun ./github-setup.ts",
 		"github:setup:staging": "bun ./github-setup.ts --staging",
 		"github:setup:prod": "bun ./github-setup.ts --prod",
-		"deploy:preflight:prod": "cross-env STAGE=prod bun ./deploy-preflight.ts prod",
-		"deploy:preflight:staging": "cross-env STAGE=staging bun ./deploy-preflight.ts staging",
+		"deploy:preflight:prod": "bunx dotenv-cli -v STAGE=prod -- bun ./deploy-preflight.ts prod",
+		"deploy:preflight:staging": "bunx dotenv-cli -v STAGE=staging -- bun ./deploy-preflight.ts staging",
 		"deploy:preflight:preview": "bun ./deploy-preflight.ts preview"
 	},
 	"devDependencies": {
-		"@clack/prompts": "^1.2.0",
-		"cross-env": "^10.1.0"
+		"@clack/prompts": "^1.2.0"
 	},
 	"dependencies": {
 		"cf-starter-alchemy": "workspace:*",

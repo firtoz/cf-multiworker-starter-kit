@@ -25,7 +25,7 @@ Ask the user (or infer from context):
 
 ## 2. Code-first Alchemy ids and Workers
 
-Every deployable **`alchemy.run.ts`** owns **one **`await alchemy(<appId>, { stage: … })`** from **`STAGE`** in **`package.json`** scripts (**`cross-env STAGE=…`** or CI); **`alchemy dev|deploy|destroy --app <appId>`** in that **`package.json`** must match (no CLI **`--stage`** required — env is source of truth).
+Every deployable **`alchemy.run.ts`** owns **one **`await alchemy(<appId>, { stage: … })`** from **`STAGE`** in **`package.json`** scripts (**`dotenv-cli -v STAGE=…`** or CI); **`alchemy dev|deploy|destroy --app <appId>`** in that **`package.json`** must match (no CLI **`--stage`** required — env is source of truth).
 
 ### Where the starter literals live
 

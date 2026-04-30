@@ -20,8 +20,7 @@
 			"alchemy": "^0.93.4",
 			"hono": "^4.12.15",
 			"typescript": "^6.0.3",
-			"zod": "^4.3.6",
-			"cross-env": "^10.1.0"
+			"zod": "^4.3.6"
 		}
 	},
 	"scripts": {
@@ -33,8 +32,8 @@
 		"github:setup": "bun run --cwd packages/scripts github:setup",
 		"github:setup:staging": "bun run --cwd packages/scripts github:setup:staging",
 		"github:setup:prod": "bun run --cwd packages/scripts github:setup:prod",
-		"github:sync:prod": "cross-env STAGE=prod bun --env-file .env.production alchemy deploy stacks/admin.ts --app cf-starter-admin",
-		"github:sync:staging": "cross-env STAGE=staging bun --env-file .env.staging alchemy deploy stacks/admin.ts --app cf-starter-admin",
+		"github:sync:prod": "bunx dotenv-cli -v STAGE=prod -e .env.production -- bun alchemy deploy stacks/admin.ts --app cf-starter-admin",
+		"github:sync:staging": "bunx dotenv-cli -v STAGE=staging -e .env.staging -- bun alchemy deploy stacks/admin.ts --app cf-starter-admin",
 		"deploy:preflight:prod": "bun run --cwd packages/scripts deploy:preflight:prod",
 		"deploy:preflight:staging": "bun run --cwd packages/scripts deploy:preflight:staging",
 		"deploy:preflight:preview": "bun run --cwd packages/scripts deploy:preflight:preview",
@@ -59,9 +58,7 @@
 		"outdated": "bun outdated --recursive",
 		"update:interactive": "bun update --latest --ir",
 		"clean": "turbo clean && rm -rf node_modules **/node_modules",
-		"db:generate": "turbo run db:generate --filter=cf-starter-db",
-		"d1:migrate:local": "turbo run d1:migrate:local --filter=cf-starter-db",
-		"d1:migrate:remote": "turbo run d1:migrate:remote --filter=cf-starter-db"
+		"db:generate": "turbo run db:generate --filter=cf-starter-db"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "^2.4.13",
@@ -70,8 +67,8 @@
 		"@types/bun": "^1.3.13",
 		"@typescript/native-preview": "catalog:",
 		"alchemy": "catalog:",
-		"cross-env": "^10.1.0",
 		"dotenv": "^17.4.2",
+		"dotenv-cli": "^11.0.0",
 		"turbo": "^2.9.6",
 		"typescript": "catalog:"
 	},

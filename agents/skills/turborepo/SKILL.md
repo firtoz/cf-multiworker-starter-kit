@@ -46,9 +46,9 @@ Turbo: resolves package order, parallelizes, caches. **Turbo `inputs`** (per-pac
 
 **Durable Object packages (e.g. `chatroom-do`):** do **not** set **`typegen`** to depend on **`^typecheck:local`** (cycle risk). Use **`^typegen:local`** for upstreams (e.g. **`cf-starter-chat-contract`**) instead.
 
-**D1 / migrations:** **`packages/db/alchemy.run.ts`** defines **`D1Database`** (**alchemy app **`cf-starter-database`**, npm workspace **`cf-starter-db`**). The web app imports **`mainDb`** from **`cf-starter-db/alchemy`**. **`d1:migrate:remote`** runs the **`cf-starter-db`** script: **`STAGE=prod`**, **`.env.production`**, **`alchemy deploy --app cf-starter-database`**; **`d1:migrate:local`** documents the dev flow.
+**D1 / migrations:** **`packages/db/alchemy.run.ts`** defines **`D1Database`** (**alchemy app **`cf-starter-database`**, npm workspace **`cf-starter-db`**). The web app imports **`mainDb`** from **`cf-starter-db/alchemy`**. D1 migrations are applied by Alchemy from **`migrationsDir`** during **`dev`** / **`deploy:*`**; do not add separate Wrangler migration scripts.
 
-**Package Alchemy apps:** Each deployable package owns **`alchemy.run.ts`** and package **`dev` / `deploy:*` / `destroy:*`** use **`alchemy dev|deploy|destroy --app <package-id>`** with **`STAGE`** from **`cross-env`** or CI (see [Alchemy Turborepo](https://alchemy.run/guides/turborepo/)). Root **`bun run dev`** filters Turbo to web + **`cf-starter-db`** + worker apps. **`deploy:*`** uses **`cache: false`** so Turbo always runs Alchemy deploy; **`destroy:*`** is also **`cache: false`**.
+**Package Alchemy apps:** Each deployable package owns **`alchemy.run.ts`** and package **`dev` / `deploy:*` / `destroy:*`** use **`alchemy dev|deploy|destroy --app <package-id>`** with **`STAGE`** from **`dotenv-cli -v STAGE=…`** or CI (see [Alchemy Turborepo](https://alchemy.run/guides/turborepo/)). Root **`bun run dev`** filters Turbo to web + **`cf-starter-db`** + worker apps. **`deploy:*`** uses **`cache: false`** so Turbo always runs Alchemy deploy; **`destroy:*`** is also **`cache: false`**.
 
 ### 1. Task Dependencies Should Use Outputs, Not Inputs
 
@@ -298,7 +298,7 @@ Tasks are defined in three places:
 ```
 
 ### What stays uncached
-**`dev`** (persistent) and **`clean`** and **`destroy:*`** (destructive) use **`cache: false`** in this repo. **`d1:migrate:*`** in **`packages/db`** and **`deploy:*`** (Alchemy) also. Run **`turbo run <task> --force`** to bypass cache when other tasks look stale.
+**`dev`** (persistent) and **`clean`** and **`destroy:*`** (destructive) use **`cache: false`** in this repo. **`deploy:*`** (Alchemy) also. Run **`turbo run <task> --force`** to bypass cache when other tasks look stale.
 
 ```json
 "dev": {
@@ -405,7 +405,7 @@ bun run build --verbose
 
 ### Root turbo.json
 - Global settings: `globalDependencies`, `ui`, task defaults
-- Tasks: `build`, `build:local`, `build:prod`, `typecheck`, `typegen`, `rr-typegen`, `dev`, `lint`, `clean`, `db:generate`, `d1:migrate:local`, `d1:migrate:remote`, `deploy:*`, `destroy:*` (output log defaults; **`d1:migrate:remote`** is **`cf-starter-db`** **`STAGE=prod`** **`alchemy deploy --app cf-starter-database`**)
+- Tasks: `build`, `build:local`, `build:prod`, `typecheck`, `typegen`, `rr-typegen`, `dev`, `lint`, `clean`, `db:generate`, `deploy:*`, `destroy:*` (output log defaults)
 
 - `globalEnv`: `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, `CI`, `ALCHEMY_PASSWORD`, `CHATROOM_INTERNAL_SECRET`, `STAGE`, `CF_STARTER_DEPLOY_ENABLED`
 
@@ -414,13 +414,13 @@ bun run build --verbose
 - **`typecheck:local` / `typecheck:prod`** — `dependsOn`: this package’s `typegen`, then `^typecheck`
 - **`lint`** — `dependsOn`: **`typecheck:local`**
 - **`build:local` / `build:prod`** — `dependsOn`: **`typecheck`**
+- **`deploy:*`** — `dependsOn`: **`typecheck:{prod|staging}`** plus **`^deploy:*`**; do **not** depend on `build:*` because Alchemy **`ReactRouter`** builds during deploy.
 - **`dev`** — `dependsOn`: **`typegen:local`**; root **`bun run dev`** runs a **filtered** Turbo **`dev`** (web + **`cf-starter-db`** + worker apps) so each runs **`alchemy dev --app …`**
 
 ### packages/db/turbo.json
 - `db:generate` — Drizzle SQL from `src/`
 - `dev` / `deploy:*` / `destroy:*` — **`alchemy … --app cf-starter-database`** (see **`package.json`** scripts; stage via **`STAGE`** + dotfile)
 - `typegen` / `typecheck` — `tsgo` chain for `cf-starter-db`
-- `d1:migrate:local` / `d1:migrate:remote` — **`cache: false`**; remote is prod-shaped D1-only deploy, local script documents dev
 
 ### Durable objects (e.g. `chatroom-do`)
 - `turbo.json` with `typegen` / `typecheck` / `lint` / **`deploy:*`** / **`destroy:*`** (and **`dev`** → **`alchemy dev --app …`** in **`package.json`**); no **`generate-wrangler`**

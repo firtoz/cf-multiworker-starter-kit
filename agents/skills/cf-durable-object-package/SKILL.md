@@ -22,7 +22,7 @@ description: Add or change a Durable Object worker package under durable-objects
 
 5. **Hono** — In `workers/app.ts`: `import type { CloudflareEnv } from "../env"`, `const app = new Hono<{ Bindings: CloudflareEnv }>()` (same as [durable-objects/other-worker/workers/app.ts](durable-objects/other-worker/workers/app.ts)).
 
-6. **Scripts** — Prefer `cross-env STAGE=local … alchemy dev --app <kebab-id>` in `package.json` `dev` (not raw `wrangler dev` for this monorepo’s flow). Expose **`deploy:prod` / `deploy:staging` / `deploy:preview`** and **`destroy:*`** aligned with **`--app`** id. SQLite packages should also expose package-local `db:generate`.
+6. **Scripts** — Prefer `bunx dotenv-cli -v STAGE=local -e ../../.env.local -- bun alchemy dev --app <kebab-id>` in `package.json` `dev` (not raw `wrangler dev` for this monorepo’s flow). Expose **`deploy:prod` / `deploy:staging` / `deploy:preview`** and **`destroy:*`** aligned with **`--app`** id. SQLite packages should also expose package-local `db:generate`.
 
 7. **After edits** — From repo root: `bun run typegen` and `bun run typecheck` (or package-local `typecheck:local`). If schema changed, run package-local `db:generate` first.
 

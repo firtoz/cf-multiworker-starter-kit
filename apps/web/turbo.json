@@ -192,40 +192,37 @@
 			"outputs": ["build/**/*"]
 		},
 		"deploy:prod": {
-			"dependsOn": ["build:prod", "^deploy:prod"],
+			"dependsOn": ["typecheck:prod", "^deploy:prod"],
 			"cache": false,
 			"inputs": [
 				"alchemy.run.ts",
 				"app/**/*.ts",
 				"app/**/*.tsx",
 				"workers/**/*.ts",
-				"build/**",
 				"package.json"
 			],
 			"outputs": []
 		},
 		"deploy:staging": {
-			"dependsOn": ["build:staging", "^deploy:staging"],
+			"dependsOn": ["typecheck:staging", "^deploy:staging"],
 			"cache": false,
 			"inputs": [
 				"alchemy.run.ts",
 				"app/**/*.ts",
 				"app/**/*.tsx",
 				"workers/**/*.ts",
-				"build/**",
 				"package.json"
 			],
 			"outputs": []
 		},
 		"deploy:preview": {
-			"dependsOn": ["build:staging", "^deploy:preview"],
+			"dependsOn": ["typecheck:staging", "^deploy:preview"],
 			"cache": false,
 			"inputs": [
 				"alchemy.run.ts",
 				"app/**/*.ts",
 				"app/**/*.tsx",
 				"workers/**/*.ts",
-				"build/**",
 				"package.json"
 			],
 			"outputs": []

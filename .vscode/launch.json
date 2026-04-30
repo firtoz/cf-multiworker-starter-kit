@@ -19,12 +19,12 @@
         {
             "type": "node",
             "request": "launch",
-            "name": "Debug cf-typegen",
+            "name": "Debug web typegen (React Router)",
             "skipFiles": [
                 "<node_internals>/**"
             ],
             "runtimeExecutable": "bun",
-            "runtimeArgs": ["run", "cf-typegen"],
+            "runtimeArgs": ["run", "typegen:local"],
             "cwd": "${workspaceFolder}/apps/web",
             "console": "integratedTerminal",
             "internalConsoleOptions": "neverOpen"
