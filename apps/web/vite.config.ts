@@ -29,7 +29,9 @@ export default defineConfig((configEnv) => {
 			reactRouter(),
 			tailwindcss(),
 			imagetools({
-				include: "**/*.{heif,avif,jpeg,jpg,png,tiff,webp,gif,svg}?*",
+				// Omit `svg`: Sharp rasterizes SVGs; SSR and client could disagree on `.png` vs `.svg`
+				// URLs for the same `?url` import. Use `*.svg?url` (plain Vite asset) for icons instead.
+				include: "**/*.{heif,avif,jpeg,jpg,png,tiff,webp,gif}?*",
 				exclude: [],
 			}),
 			visualizer({

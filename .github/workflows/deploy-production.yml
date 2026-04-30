@@ -88,7 +88,6 @@ jobs:
               echo ""
               if [[ -n "$WEB_URL" ]]; then
                 echo "**App (workers.dev):** [$WEB_URL]($WEB_URL)"
-                echo "::notice title=Production-deploy::$WEB_URL"
               else
                 echo "- **workers.dev URL:** artifact missing — ${GITHUB_WORKSPACE}/.alchemy/ci/cf-starter-web-deploy-url.txt _(see apps/web/alchemy.run.ts when CI runs on GitHub Actions)._"
               fi

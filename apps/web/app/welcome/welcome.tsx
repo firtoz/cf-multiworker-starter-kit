@@ -1,13 +1,12 @@
 import { Suspense } from "react";
 import { Await } from "react-router";
-import cloudflareWorkersIcon from "~/assets/cloudflare-workers.svg?width=24&as=metadata";
-import durableObjectsIcon from "~/assets/durable-objects.svg?width=24&as=metadata";
-import reactRouterIcon from "~/assets/react-router.svg?width=44&as=metadata";
-import turborepoIcon from "~/assets/turborepo.svg?width=18&as=metadata";
+import cloudflareWorkersSrc from "~/assets/cloudflare-workers.svg?url";
+import durableObjectsSrc from "~/assets/durable-objects.svg?url";
+import reactRouterSrc from "~/assets/react-router.svg?url";
+import turborepoSrc from "~/assets/turborepo.svg?url";
 import zodLogoIcon from "~/assets/zod-logo.png?width=18&as=metadata";
 import { cn } from "~/lib/cn";
-import alchemyLogoDark from "./alchemy-logo-dark.svg?width=72&as=metadata";
-import alchemyLogoLight from "./alchemy-logo-light.svg?width=72&as=metadata";
+import alchemyProfileSrc from "./alchemy-profile.jpg?url";
 
 // Icon styling constants
 const ICON_CONTAINER_SIZE = 40; // 40px container
@@ -20,11 +19,16 @@ const iconContainerClassName = cn(
 	"flex items-center justify-center",
 );
 
+/** Natural dimensions for aspect ratio; SVGs use `?url` so SSR and client share the same hashed asset (no Sharp raster mismatch). */
+type IconDims = { src: string; width: number; height: number };
+
 type ResourceInfo = {
 	href: string;
 	text: string;
-	icon: OutputMetadata | { light: OutputMetadata; dark: OutputMetadata };
+	icon: IconDims | { light: IconDims; dark: IconDims };
 	iconWidth?: number;
+	/** Extra classes on `<img>` (e.g. `rounded-full` for square avatars). */
+	iconImgClassName?: string;
 };
 
 // Resource icon component with consistent styling
@@ -54,7 +58,7 @@ function ResourceIcon({ info }: { info: ResourceInfo }) {
 						alt={`${info.text} Documentation`}
 						width={displayWidth}
 						height={displayHeight}
-						className={darkIconData ? "dark:hidden" : undefined}
+						className={cn(info.iconImgClassName, darkIconData ? "dark:hidden" : undefined)}
 					/>
 					{darkIconData && (
 						<img
@@ -62,7 +66,7 @@ function ResourceIcon({ info }: { info: ResourceInfo }) {
 							alt={`${info.text} Documentation`}
 							width={displayWidth}
 							height={displayHeight}
-							className="hidden dark:block"
+							className={cn("hidden dark:block", info.iconImgClassName)}
 						/>
 					)}
 				</div>
@@ -140,38 +144,39 @@ const resources: ResourceInfo[] = [
 	{
 		href: "https://developers.cloudflare.com/workers/",
 		text: "Cloudflare Workers",
-		icon: cloudflareWorkersIcon,
+		icon: { src: cloudflareWorkersSrc, width: 48, height: 49 },
 	},
 	{
 		href: "https://developers.cloudflare.com/durable-objects/",
 		text: "Durable Objects",
-		icon: durableObjectsIcon,
+		icon: { src: durableObjectsSrc, width: 64, height: 64 },
 	},
 	// Framework & Libraries
 	{
 		href: "https://reactrouter.com/",
 		text: "React Router",
-		icon: reactRouterIcon,
+		icon: { src: reactRouterSrc, width: 256, height: 140 },
 		iconWidth: 44,
 	},
 	// Deployment & Infrastructure
 	{
 		href: "https://alchemy.run/",
 		text: "Alchemy",
-		icon: { light: alchemyLogoDark, dark: alchemyLogoLight },
-		iconWidth: 72,
+		icon: { src: alchemyProfileSrc, width: 400, height: 400 },
+		iconWidth: 36,
+		iconImgClassName: "rounded-full object-cover",
 	},
 	// Monorepo Tools
 	{
 		href: "https://turborepo.com/",
 		text: "Turborepo",
-		icon: turborepoIcon,
+		icon: { src: turborepoSrc, width: 256, height: 318 },
 		iconWidth: 18,
 	},
 	{
 		href: "https://zod.dev/",
 		text: "Zod",
-		icon: zodLogoIcon,
+		icon: { src: zodLogoIcon.src, width: zodLogoIcon.width, height: zodLogoIcon.height },
 		iconWidth: 18,
 	},
 ];

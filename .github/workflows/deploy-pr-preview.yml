@@ -90,7 +90,6 @@ jobs:
               echo ""
               if [[ -n "$WEB_URL" ]]; then
                 echo "**Preview (workers.dev):** [$WEB_URL]($WEB_URL)"
-                echo "::notice title=PR-${PR_NUMBER}-preview::$WEB_URL"
               else
                 echo "- **workers.dev preview URL:** artifact missing — ${GITHUB_WORKSPACE}/.alchemy/ci/cf-starter-web-deploy-url.txt _(see apps/web/alchemy.run.ts)._"
               fi
@@ -164,7 +163,6 @@ jobs:
               echo "**Status:** skipped — deploy was not enabled; nothing to tear down via CI."
             elif [[ "$DS_OUT" == "success" ]]; then
               echo "**Status:** Turbo **destroy** completed for \`STAGE=pr-${PR_NUMBER}\`."
-              echo "::notice title=PR-${PR_NUMBER}-preview-destroy::Preview resources destroyed"
             elif [[ "$DS_OUT" == "failure" ]]; then
               echo "**Status:** Turbo destroy failed — see **Turbo destroy (preview)**."
             else
