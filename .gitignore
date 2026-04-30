@@ -8,11 +8,9 @@ node_modules/
 .alchemy/
 .dev.vars
 
-# Env — real secrets only in `.env.local` / `.env.production` (never commit plain `.env`)
-.env
+# Env — ignore all `.env` / `.env.*` (any directory); keep human-only examples tracked
 **/.env
-**/.env.local
-**/.env.production
+**/.env.*
 !.env.example
 !.env.example.*
 !**/.env.example

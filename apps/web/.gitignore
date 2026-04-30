@@ -9,11 +9,13 @@
 .mf
 .wrangler
 
-# Env — only `.env.local` / `.env.production` for overrides; never plain `.env`
-.env
-.env.local
-.env.production
+# Env — same as repo root: all `.env*` except `.env.example*`
+**/.env
+**/.env.*
 !.env.example
+!.env.example.*
+!**/.env.example
+!**/.env.example.*
 
 # Turbo
 .turbo

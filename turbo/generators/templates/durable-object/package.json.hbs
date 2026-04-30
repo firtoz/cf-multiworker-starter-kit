@@ -10,9 +10,13 @@
 {{#if usesSqlite}}
 		"db:generate": "drizzle-kit generate",
 {{/if}}
-		"deploy": "bun --env-file ../../.env.production alchemy deploy --app cf-starter-{{ kebabCase name }} --stage prod",
-		"destroy": "bun --env-file ../../.env.production alchemy destroy --app cf-starter-{{ kebabCase name }} --stage prod",
-		"dev": "bun --env-file ../../.env.local alchemy dev --app cf-starter-{{ kebabCase name }} --stage local",
+		"deploy:prod": "cross-env STAGE=prod bun --env-file ../../.env.production alchemy deploy --app cf-starter-{{ kebabCase name }}",
+		"deploy:staging": "cross-env STAGE=staging bun --env-file ../../.env.staging alchemy deploy --app cf-starter-{{ kebabCase name }}",
+		"deploy:preview": "bun --env-file ../../.env.staging alchemy deploy --app cf-starter-{{ kebabCase name }}",
+		"destroy:prod": "cross-env STAGE=prod bun --env-file ../../.env.production alchemy destroy --app cf-starter-{{ kebabCase name }}",
+		"destroy:staging": "cross-env STAGE=staging bun --env-file ../../.env.staging alchemy destroy --app cf-starter-{{ kebabCase name }}",
+		"destroy:preview": "bun --env-file ../../.env.staging alchemy destroy --app cf-starter-{{ kebabCase name }}",
+		"dev": "cross-env STAGE=local bun --env-file ../../.env.local alchemy dev --app cf-starter-{{ kebabCase name }}",
 		"typegen:local": "node -e \"process.exit(0)\"",
 		"typegen:prod": "node -e \"process.exit(0)\"",
 		"typecheck:local": "tsgo --noEmit -p ./tsconfig.json",
@@ -28,6 +32,7 @@
 		"@biomejs/biome": "catalog:",
 		"@types/node": "catalog:",
 		"alchemy": "catalog:",
+		"cross-env": "catalog:",
 {{#if usesSqlite}}
 		"drizzle-kit": "^0.31.4",
 {{/if}}

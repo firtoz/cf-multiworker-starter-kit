@@ -38,6 +38,24 @@
 			],
 			"outputs": [".react-router/**"]
 		},
+		"typegen:staging": {
+			"dependsOn": ["^typecheck:prod", "^db:generate", "rr-typegen"],
+			"inputs": [
+				"app/**/*.ts",
+				"app/**/*.tsx",
+				"workers/**/*.ts",
+				"workers/**/*.tsx",
+				"$TURBO_ROOT$/.env.staging",
+				"package.json",
+				"tsconfig.json",
+				"tsconfig.node.json",
+				"tsconfig.cloudflare.json",
+				"vite.config.ts",
+				"react-router.config.ts",
+				"types/env.d.ts"
+			],
+			"outputs": [".react-router/**"]
+		},
 		"rr-typegen": {
 			"inputs": [
 				"app/routes.ts",
@@ -107,6 +125,22 @@
 			],
 			"outputs": []
 		},
+		"typecheck:staging": {
+			"dependsOn": ["typegen:staging", "^typecheck:prod"],
+			"inputs": [
+				"app/**/*.ts",
+				"app/**/*.tsx",
+				"workers/**/*.ts",
+				"workers/**/*.tsx",
+				"tsconfig.json",
+				"tsconfig.node.json",
+				"tsconfig.cloudflare.json",
+				"package.json",
+				"$TURBO_ROOT$/tsconfig.base.json",
+				"types/env.d.ts"
+			],
+			"outputs": []
+		},
 		"dev": {
 			"dependsOn": ["scripts#dev:preflight", "typegen:local"],
 			"persistent": true,
@@ -142,8 +176,23 @@
 			],
 			"outputs": ["build/**/*"]
 		},
-		"deploy": {
-			"dependsOn": ["build:prod", "^deploy"],
+		"build:staging": {
+			"dependsOn": ["typecheck:staging"],
+			"inputs": [
+				"app/**/*.ts",
+				"app/**/*.tsx",
+				"workers/**/*.ts",
+				"workers/**/*.tsx",
+				"vite.config.ts",
+				"react-router.config.ts",
+				"package.json",
+				"$TURBO_ROOT$/tsconfig.base.json",
+				"node_modules/.cache/imagetools"
+			],
+			"outputs": ["build/**/*"]
+		},
+		"deploy:prod": {
+			"dependsOn": ["build:prod", "^deploy:prod"],
 			"cache": false,
 			"inputs": [
 				"alchemy.run.ts",
@@ -155,7 +204,41 @@
 			],
 			"outputs": []
 		},
-		"destroy": {
+		"deploy:staging": {
+			"dependsOn": ["build:staging", "^deploy:staging"],
+			"cache": false,
+			"inputs": [
+				"alchemy.run.ts",
+				"app/**/*.ts",
+				"app/**/*.tsx",
+				"workers/**/*.ts",
+				"build/**",
+				"package.json"
+			],
+			"outputs": []
+		},
+		"deploy:preview": {
+			"dependsOn": ["build:staging", "^deploy:preview"],
+			"cache": false,
+			"inputs": [
+				"alchemy.run.ts",
+				"app/**/*.ts",
+				"app/**/*.tsx",
+				"workers/**/*.ts",
+				"build/**",
+				"package.json"
+			],
+			"outputs": []
+		},
+		"destroy:prod": {
+			"cache": false,
+			"outputs": []
+		},
+		"destroy:staging": {
+			"cache": false,
+			"outputs": []
+		},
+		"destroy:preview": {
 			"cache": false,
 			"outputs": []
 		}

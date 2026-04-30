@@ -10,10 +10,19 @@
 		"./worker-peer-scripts": {
 			"types": "./worker-peer-scripts.ts",
 			"default": "./worker-peer-scripts.ts"
+		},
+		"./deployment-stage": {
+			"types": "./deployment-stage.ts",
+			"default": "./deployment-stage.ts"
 		}
 	},
 	"scripts": {
-		"deploy": "node -e \"process.exit(0)\"",
+		"deploy:prod": "node -e \"process.exit(0)\"",
+		"deploy:staging": "node -e \"process.exit(0)\"",
+		"deploy:preview": "node -e \"process.exit(0)\"",
+		"destroy:prod": "node -e \"process.exit(0)\"",
+		"destroy:staging": "node -e \"process.exit(0)\"",
+		"destroy:preview": "node -e \"process.exit(0)\"",
 		"typegen:local": "tsgo --noEmit -p .",
 		"typegen:prod": "tsgo --noEmit -p .",
 		"typecheck:local": "tsgo --noEmit -p .",

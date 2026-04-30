@@ -7,7 +7,7 @@ Thanks for helping improve this starter. This file is **contribution process and
 ## Local setup (summary)
 
 1. Install [Bun](https://bun.sh/) and clone the repo.
-2. From the repo root: `bun install` then `bun run setup` (seeds `ALCHEMY_PASSWORD` and `CHATROOM_INTERNAL_SECRET` into `.env.local` — see README for non-interactive/CI).
+2. From the repo root: `bun install` then `bun run setup` / `bun run setup:local` (interactive variable browser in a TTY, or `-- --yes` / `CI=true` for auto-generated Alchemy + chatroom secrets only — see README).
 3. Complete first-time Alchemy/Cloudflare steps from the README before relying on `bun run dev` or deploy.
 4. **Bun version:** match repo **`packageManager`** in root [package.json](package.json) and [`.github/workflows/ci.yml`](.github/workflows/ci.yml) (CI is the source of truth for drift).
 
@@ -42,9 +42,9 @@ The generator and post-steps (root `dev` filter, web bindings, `turbo` destroy, 
 
 ## Deploy and destroy (contributors)
 
-- **`bun run deploy`** — Runs **`turbo run deploy --filter=cf-starter-web`** so the web app and its dependent worker packages deploy in order. Each package runs **`alchemy deploy --app …`** (**`cf-starter-*` literals** mirror **`alchemy("…")`**, not necessarily the **`package.json#name`** — see README “Code-first infra names”). Needs production creds and a stable **`ALCHEMY_PASSWORD`**, **the same across local and CI** for that stage (see README and Alchemy state docs).
-- **`bun run github:secrets:sync`** — Local/admin-only Alchemy stack for syncing the stage’s **`ALCHEMY_PASSWORD`** to GitHub Actions. Uses **`gh auth token`** and **`gh repo view`** by default; explicit **`GITHUB_TOKEN`** and **`GITHUB_REPOSITORY=owner/repo`** still work. Do not run it from normal CI/deploy.
-- **`bun run destroy`** — **`turbo run destroy`**; order follows package `destroy` config (web before dependents where set).
+- **`bun run deploy:prod`** / **`deploy:staging`** / **`deploy:preview`** — Root Turbo runs the full **`deploy:*`** graph (D1 **`cf-starter-database`**, workers, web) in dependency order — **not** a web-only filter. Each package runs **`alchemy deploy --app …`** with **`STAGE`** set via **`cross-env`** (preview: CI sets **`STAGE=pr-<n>`**). **`cf-starter-*` literals** mirror **`alchemy("…")`**, not necessarily **`package.json#name`** — see README “Code-first infra names”. Needs the right dotfile (**`.env.production`**, **`.env.staging`**, or preview from CI) and a stable **`ALCHEMY_PASSWORD`** **identical across every runner** for that stage (see README and Alchemy state docs).
+- **`bun run github:sync:staging`** / **`github:sync:prod`** — Local/admin-only **`stacks/admin.ts`** run: upserts GitHub Environment **secrets** (`ALCHEMY_PASSWORD`, `CHATROOM_INTERNAL_SECRET`, `CLOUDFLARE_API_TOKEN`) and **variables** (`CLOUDFLARE_ACCOUNT_ID`, `CF_STARTER_DEPLOY_ENABLED`; deploy flag defaults to `true` when syncing). Uses **`gh auth token`** / **`gh repo view`** by default. Do not run from normal CI/deploy.
+- **`bun run destroy:prod`** / **`destroy:staging`** / **`destroy:preview`** — Matching Turbo **`destroy:*`** graphs; order follows package config (web before dependents where set).
 
 ## Pull requests
 

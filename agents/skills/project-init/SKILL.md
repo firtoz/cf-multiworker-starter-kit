@@ -11,7 +11,7 @@ Use this skill when someone is building **their** app on top of this starter kit
 
 **Note:** Infra naming is **code-first** ([`packages/cf-starter-alchemy/worker-peer-scripts.ts`](../../packages/cf-starter-alchemy/worker-peer-scripts.ts)): set **`PRODUCT_PREFIX`** once, then reconcile **`CF_STARTER_APPS`**, **`package.json`** **`alchemy … --app …`**, and rerun **`bun run typegen`**. No env vars for Worker branding — edit **TypeScript** literals consistently. Also read [cf-starter-workflow](../cf-starter-workflow/SKILL.md) and [cf-starter-gotchas](../cf-starter-gotchas/SKILL.md).
 
-**Adding** a new Durable Object package or binding workers (after or alongside fork setup): use the focused skills (short checklists, not a single mega-doc)—[cf-durable-object-package](../cf-durable-object-package/SKILL.md) (Alchemy + Hono in `durable-objects/`), [cf-web-alchemy-bindings](../cf-web-alchemy-bindings/SKILL.md) (`cf-starter-web` **`alchemy.run.ts`** and workspace deps), [cf-worker-rpc-turbo](../cf-worker-rpc-turbo/SKILL.md) (`workers/rpc`, Turbo `dev`/`destroy`, cyclic **`WorkerStub`/`WorkerRef`** + **`cf-starter-alchemy/worker-peer-scripts`** helpers).
+**Adding** a new Durable Object package or binding workers (after or alongside fork setup): use the focused skills (short checklists, not a single mega-doc)—[cf-durable-object-package](../cf-durable-object-package/SKILL.md) (Alchemy + Hono in `durable-objects/`), [cf-web-alchemy-bindings](../cf-web-alchemy-bindings/SKILL.md) (`cf-starter-web` **`alchemy.run.ts`** and workspace deps), [cf-worker-rpc-turbo](../cf-worker-rpc-turbo/SKILL.md) (`workers/rpc`, Turbo `dev`/`destroy:*`, cyclic **`WorkerStub`/`WorkerRef`** + **`cf-starter-alchemy/worker-peer-scripts`** helpers).
 
 ## 1. Gather information
 
@@ -25,7 +25,7 @@ Ask the user (or infer from context):
 
 ## 2. Code-first Alchemy ids and Workers
 
-Every deployable **`alchemy.run.ts`** owns **one **`await alchemy(<appId>)`** and matches **`alchemy dev|deploy|destroy --app <appId> --stage …`** in that **`package.json`**.
+Every deployable **`alchemy.run.ts`** owns **one **`await alchemy(<appId>, { stage: … })`** from **`STAGE`** in **`package.json`** scripts (**`cross-env STAGE=…`** or CI); **`alchemy dev|deploy|destroy --app <appId>`** in that **`package.json`** must match (no CLI **`--stage`** required — env is source of truth).
 
 ### Where the starter literals live
 
@@ -49,14 +49,14 @@ After edits: **`bun run typegen`** from the repo root. **`env.d.ts`** reflects e
 
 - **Root** [`package.json`](../../package.json): set **`"name"`** to the fork project slug (replaces `cf-multiworker-starter-kit`).
 - **`apps/web/package.json`**: set **`"name"`** (e.g. **`my-saas-web`**) — **Turbo filter** usage; **`alchemy`** app id stays in **`alchemy.run.ts`** (**`CF_STARTER_APPS.frontend`** …).
-- **Each DO/worker **`package.json`**: **`dev`/`deploy`/`destroy`** scripts must **`--app`** whatever **`alchemy("…")`** uses in **`alchemy.run.ts`**.
+- Each DO/worker **`package.json`**: **`dev`** plus **`deploy:prod` / `deploy:staging` / `deploy:preview`** and matching **`destroy:*`** scripts must **`--app`** whatever **`alchemy("…")`** uses in **`alchemy.run.ts`**.
 - **`workspace:*` dependencies:** If you rename a workspace package (**`chatroom-do`** folder / **`name`**), update every consumer and **`bun install`**.
 
 ## 4. README
 
 Rewrite [`README.md`](../../README.md) for the **product**:
 
-- Title, description, **`bun install`**, **`bun run dev`**, **`bun run deploy`**.
+- Title, description, **`bun install`**, **`bun run dev`**, **`bun run deploy:prod`** (and **`deploy:staging`** / **`deploy:preview`** as needed).
 - Update or shorten template links/marketing unless you keep attribution.
 - Keep CI, scripts, **`ALCHEMY_PASSWORD`/`CHATROOM_INTERNAL_SECRET`** — [cf-workers-env-local](../cf-workers-env-local/SKILL.md).
 - Mention **liter Alchemy **`--app`** IDs** (`cf-starter-*` → your slug) alongside **workspace **`name`****.

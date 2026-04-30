@@ -1,6 +1,7 @@
 import alchemy from "alchemy";
 import { Worker, WorkerRef, WorkerStub } from "alchemy/cloudflare";
 import { requireAlchemyPassword } from "cf-starter-alchemy";
+import { resolveStageFromEnv } from "cf-starter-alchemy/deployment-stage";
 import {
 	CF_STARTER_APPS,
 	DEFAULT_WORKER_RESOURCE_ID,
@@ -12,7 +13,9 @@ import type { PingWorkerRpc } from "../ping-do/workers/rpc";
 
 export type { OtherWorkerRpc } from "./workers/rpc";
 
-const app = await alchemy(CF_STARTER_APPS.other);
+const app = await alchemy(CF_STARTER_APPS.other, {
+	stage: resolveStageFromEnv(),
+});
 requireAlchemyPassword(app);
 
 const PEER_PING_SCRIPT_NAME = omitDefaultPhysicalWorkerScriptName(CF_STARTER_APPS.ping, app.stage);

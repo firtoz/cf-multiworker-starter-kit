@@ -22,8 +22,8 @@ function missingRequiredEnvMessage(
 	if (scope?.phase === "destroy") {
 		return (
 			prefix +
-			"For destroy, set it the same as deploy: repo-root .env.production (e.g. `bun run setup:prod`) " +
-			"or export it. This repo uses: bun --env-file ../../.env.production alchemy destroy …"
+			"For destroy, set it the same as deploy: .env.production for STAGE=prod, .env.staging for staging/pr-* " +
+			"(e.g. `bun run setup:prod` / `bun run setup:staging`) or export it. Destroy scripts mirror deploy env files."
 		);
 	}
 	if (scope?.local || scope?.stage === "local") {
@@ -36,9 +36,17 @@ function missingRequiredEnvMessage(
 	if (scope?.stage === "prod") {
 		return (
 			prefix +
-			"For deploy, run `bun run setup:prod` at the repository root to seed " +
-			`repo-root .env.production, or add ${name} there / in CI. Deploy uses: ` +
-			"bun --env-file ../../.env.production alchemy deploy …"
+			"For production deploy, run `bun run setup:prod` at the repository root to seed " +
+			`repo-root .env.production (STAGE=prod), or add ${name} in CI secrets. ` +
+			"Deploy scripts use: cross-env STAGE=prod bun --env-file ../../.env.production alchemy deploy …"
+		);
+	}
+	if (scope?.stage === "staging" || (scope?.stage && scope.stage.startsWith("pr-"))) {
+		return (
+			prefix +
+			"For staging/preview deploy, run `bun run setup:staging` and use repo-root .env.staging " +
+			"(STAGE=staging or STAGE=pr-<n>), or set secrets on the GitHub **staging** environment. " +
+			"Deploy scripts use: cross-env STAGE=staging bun --env-file ../../.env.staging alchemy deploy …"
 		);
 	}
 
@@ -46,15 +54,15 @@ function missingRequiredEnvMessage(
 	if (argv.includes("destroy")) {
 		return (
 			prefix +
-			"For alchemy destroy, set it in repo-root .env.production (bun run setup:prod) " +
-			"or in the environment. This repo’s destroy script uses: bun --env-file ../../.env.production alchemy destroy …"
+			"For alchemy destroy, set ALCHEMY_PASSWORD in the same repo-root file as deploy " +
+			"(.env.production for prod, .env.staging for staging/preview) or in the environment."
 		);
 	}
 	if (argv.includes("deploy")) {
 		return (
 			prefix +
-			"For alchemy deploy, set it in repo-root .env.production (bun run setup:prod) " +
-			"or in the environment. This repo’s deploy script uses: bun --env-file ../../.env.production alchemy deploy …"
+			"For alchemy deploy, use .env.production with STAGE=prod or .env.staging with STAGE=staging/pr-* " +
+			"(see `bun run setup:prod` / `bun run setup:staging`) or set variables in CI."
 		);
 	}
 	if (argv.includes("dev")) {
@@ -66,8 +74,8 @@ function missingRequiredEnvMessage(
 	}
 	return (
 		prefix +
-		"Dev: .env.local (bun run setup). Deploy/destroy: .env.production (bun run setup:prod) or " +
-		"export the variable (CI)."
+		"Staging/preview: .env.staging (`bun run setup:staging`). Production: .env.production (`bun run setup:prod`). " +
+		"Export the variable or use GitHub Environment secrets when running in Actions."
 	);
 }
 

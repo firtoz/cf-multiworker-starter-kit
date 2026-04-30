@@ -9,9 +9,22 @@
 		"dev:preflight:interactive": "ALCHEMY_STATE_PASSWORD_INTERACTIVE=1 bun ./dev-preflight.ts",
 		"check:drizzle-generated": "bun ./check-drizzle-generated.ts",
 		"setup": "bun ./setup-env.ts",
-		"setup:prod": "bun ./setup-env.ts --prod"
+		"setup:local": "bun ./setup-env.ts --local",
+		"setup:prod": "bun ./setup-env.ts --prod",
+		"setup:staging": "bun ./setup-env.ts --staging",
+		"github:setup": "bun ./github-setup.ts",
+		"github:setup:staging": "bun ./github-setup.ts --staging",
+		"github:setup:prod": "bun ./github-setup.ts --prod",
+		"deploy:preflight:prod": "cross-env STAGE=prod bun ./deploy-preflight.ts prod",
+		"deploy:preflight:staging": "cross-env STAGE=staging bun ./deploy-preflight.ts staging",
+		"deploy:preflight:preview": "bun ./deploy-preflight.ts preview"
 	},
 	"devDependencies": {
-		"@clack/prompts": "^1.2.0"
+		"@clack/prompts": "^1.2.0",
+		"cross-env": "^10.1.0"
+	},
+	"dependencies": {
+		"cf-starter-alchemy": "workspace:*",
+		"dotenv": "^17.4.2"
 	}
 }

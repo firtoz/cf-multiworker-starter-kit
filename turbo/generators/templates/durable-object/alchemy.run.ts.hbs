@@ -1,10 +1,13 @@
 import alchemy from "alchemy";
 import { DurableObjectNamespace, Worker } from "alchemy/cloudflare";
 import { requireAlchemyPassword } from "cf-starter-alchemy";
+import { resolveStageFromEnv } from "cf-starter-alchemy/deployment-stage";
 import { DEFAULT_WORKER_RESOURCE_ID } from "cf-starter-alchemy/worker-peer-scripts";
 import type { {{ pascalCase name }}DoRpc } from "./workers/rpc";
 
-const app = await alchemy("cf-starter-{{ kebabCase name }}");
+const app = await alchemy("cf-starter-{{ kebabCase name }}", {
+	stage: resolveStageFromEnv(),
+});
 requireAlchemyPassword(app);
 
 export const {{ pascalCase name }} = await DurableObjectNamespace<{{ pascalCase name }}DoRpc>("{{ kebabCase name }}-{{ pascalCase name }}-class", {

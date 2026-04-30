@@ -1,6 +1,6 @@
 {
 	"$schema": "./node_modules/turbo/schema.json",
-	"globalDependencies": [".env.local", ".env.production", "tsconfig.base.json", "packages/cf-starter-alchemy/password.ts", "packages/cf-starter-alchemy/worker-peer-scripts.ts"],
+	"globalDependencies": [".env.local", ".env.production", ".env.staging", "tsconfig.base.json", "packages/cf-starter-alchemy/password.ts", "packages/cf-starter-alchemy/worker-peer-scripts.ts", "packages/cf-starter-alchemy/deployment-stage.ts"],
 
 	"ui": "tui",
 	"tasks": {
@@ -10,7 +10,7 @@
 		"build:local": {
 			"outputLogs": "new-only"
 		},
-		"build:prod": {
+		"build:staging": {
 			"outputLogs": "new-only"
 		},
 		"typecheck": {
@@ -19,7 +19,7 @@
 		"typecheck:local": {
 			"outputLogs": "new-only"
 		},
-		"typecheck:prod": {
+		"typecheck:staging": {
 			"outputLogs": "new-only"
 		},
 		"typegen": {
@@ -28,7 +28,7 @@
 		"typegen:local": {
 			"outputLogs": "new-only"
 		},
-		"typegen:prod": {
+		"typegen:staging": {
 			"outputLogs": "new-only"
 		},
 		"rr-typegen": {
@@ -43,31 +43,87 @@
 			"persistent": true,
 			"outputLogs": "new-only"
 		},
-		"deploy": {
+		"deploy:prod": {
 			"cache": false,
 			"outputLogs": "new-only"
 		},
-		"destroy": {
+		"deploy:staging": {
 			"cache": false,
 			"outputLogs": "new-only"
 		},
-		"chatroom-do#destroy": {
-			"dependsOn": ["cf-starter-web#destroy"],
+		"deploy:preview": {
 			"cache": false,
 			"outputLogs": "new-only"
 		},
-		"ping-do#destroy": {
-			"dependsOn": ["cf-starter-web#destroy"],
+		"destroy:prod": {
 			"cache": false,
 			"outputLogs": "new-only"
 		},
-		"other-worker#destroy": {
-			"dependsOn": ["cf-starter-web#destroy"],
+		"destroy:staging": {
 			"cache": false,
 			"outputLogs": "new-only"
 		},
-		"cf-starter-db#destroy": {
-			"dependsOn": ["cf-starter-web#destroy"],
+		"destroy:preview": {
+			"cache": false,
+			"outputLogs": "new-only"
+		},
+		"chatroom-do#destroy:prod": {
+			"dependsOn": ["cf-starter-web#destroy:prod"],
+			"cache": false,
+			"outputLogs": "new-only"
+		},
+		"ping-do#destroy:prod": {
+			"dependsOn": ["cf-starter-web#destroy:prod"],
+			"cache": false,
+			"outputLogs": "new-only"
+		},
+		"other-worker#destroy:prod": {
+			"dependsOn": ["cf-starter-web#destroy:prod"],
+			"cache": false,
+			"outputLogs": "new-only"
+		},
+		"cf-starter-db#destroy:prod": {
+			"dependsOn": ["cf-starter-web#destroy:prod"],
+			"cache": false,
+			"outputLogs": "new-only"
+		},
+		"chatroom-do#destroy:staging": {
+			"dependsOn": ["cf-starter-web#destroy:staging"],
+			"cache": false,
+			"outputLogs": "new-only"
+		},
+		"ping-do#destroy:staging": {
+			"dependsOn": ["cf-starter-web#destroy:staging"],
+			"cache": false,
+			"outputLogs": "new-only"
+		},
+		"other-worker#destroy:staging": {
+			"dependsOn": ["cf-starter-web#destroy:staging"],
+			"cache": false,
+			"outputLogs": "new-only"
+		},
+		"cf-starter-db#destroy:staging": {
+			"dependsOn": ["cf-starter-web#destroy:staging"],
+			"cache": false,
+			"outputLogs": "new-only"
+		},
+		"chatroom-do#destroy:preview": {
+			"dependsOn": ["cf-starter-web#destroy:preview"],
+			"cache": false,
+			"outputLogs": "new-only"
+		},
+		"ping-do#destroy:preview": {
+			"dependsOn": ["cf-starter-web#destroy:preview"],
+			"cache": false,
+			"outputLogs": "new-only"
+		},
+		"other-worker#destroy:preview": {
+			"dependsOn": ["cf-starter-web#destroy:preview"],
+			"cache": false,
+			"outputLogs": "new-only"
+		},
+		"cf-starter-db#destroy:preview": {
+			"dependsOn": ["cf-starter-web#destroy:preview"],
 			"cache": false,
 			"outputLogs": "new-only"
 		},
@@ -99,6 +155,7 @@
 		"CI",
 		"ALCHEMY_PASSWORD",
 		"CHATROOM_INTERNAL_SECRET",
-		"STAGE"
+		"STAGE",
+		"CF_STARTER_DEPLOY_ENABLED"
 	]
 }

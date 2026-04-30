@@ -71,7 +71,17 @@
 			],
 			"outputs": []
 		},
-		"deploy": {
+		"deploy:prod": {
+			"dependsOn": ["db:generate", "typecheck:prod"],
+			"cache": false,
+			"outputs": []
+		},
+		"deploy:staging": {
+			"dependsOn": ["db:generate", "typecheck:prod"],
+			"cache": false,
+			"outputs": []
+		},
+		"deploy:preview": {
 			"dependsOn": ["db:generate", "typecheck:prod"],
 			"cache": false,
 			"outputs": []
@@ -80,7 +90,15 @@
 			"inputs": ["drizzle.config.ts", "src/**/*.ts"],
 			"outputs": ["drizzle/**"]
 		},
-		"destroy": {
+		"destroy:prod": {
+			"cache": false,
+			"outputs": []
+		},
+		"destroy:staging": {
+			"cache": false,
+			"outputs": []
+		},
+		"destroy:preview": {
 			"cache": false,
 			"outputs": []
 		}

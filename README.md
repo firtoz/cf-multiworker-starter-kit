@@ -31,9 +31,9 @@ Production-proven Turborepo monorepo starter kit for full-stack Cloudflare Worke
 
 Building on Cloudflare's edge platform is powerful but complex. This starter kit solves the hard parts so you can focus on your app:
 
-**Jump in:** **[Quick start](#quick-start)** (`bun install`, **`bun run setup`**, **`bun run dev`**).
+**Jump in:** **[Quick start](#quick-start)** (`bun install`, **`bun run setup`** or **`setup:local`**, **`bun run dev`**).
 
-**[Getting started](#getting-started)**. Read downward: **[Where this doc goes deeper](#where-this-doc-goes-deeper)** (skills table); **[quick start](#quick-start)** (clone repo, **`bun run dev`**); **[Naming your product](#naming-your-product)** when you personalize; **[Production deploy](#production-deploy)** then **[Deploy](#deployment)** when you publish.
+**[Getting started](#getting-started)**. Read downward: **[Where this doc goes deeper](#where-this-doc-goes-deeper)** (skills table); **[quick start](#quick-start)** (clone repo, **`bun run dev`**); **[Naming your product](#naming-your-product)** when you personalize; **[Deploy from your machine](#deploy-from-your-machine)** then **[Deploy](#deployment)** when you publish.
 
 ### Key features
 
@@ -43,7 +43,7 @@ Brief list; **[breakdown sections](#key-feature-breakdown)** carry the narrative
 - **[Web app](#web-app)**: React Router 7 + Tailwind, streaming SSR, form actions, 103 Early Hints.
 - **[Validation](#validation)**: Typed routes, Hono, shared Zod contracts end to end.
 - **[Data & realtime](#data-and-realtime)**: **D1** + **Drizzle** (`packages/db`, `/visitors`); **`chatroom-do`** (**@firtoz/socka**, per-room SQLite) and **`/chat`**.
-- **[Shipping](#shipping)**: **[Alchemy](https://alchemy.run/)** apps per package; root **Turbo** runs **`alchemy dev/deploy/destroy`**.
+- **[Shipping](#shipping)**: **[Alchemy](https://alchemy.run/)** apps per package; stage-aware **`STAGE`** + root **Turbo** **`deploy:prod` / `deploy:staging` / `deploy:preview`** (and matching **`destroy:*`**).
 - **[Scaffolding](#scaffolding)**: Turborepo generator for new `durable-objects/*` with package-local **`alchemy.run.ts`**.
 
 ## Getting started
@@ -54,7 +54,7 @@ You can treat onboarding in three layers: the **order of sections below** is: [d
 
 1. **Run it locally.** Follow [Quick start](#quick-start): install, seed **`.env.local`**, connect Cloudflare, **`bun run dev`**. No naming changes required to try the sample apps.
 2. **Name your product**: Before meaningful deploys or when Cloudflare dashboards should show *your* scripts, set **`PRODUCT_PREFIX`** and sync **`alchemy --app …`**; then **`bun run typegen`**. Full UI/workspace rebrand: **[project-init](agents/skills/project-init/SKILL.md)**.
-3. **Ship**: [Production deploy](#production-deploy) below, then [Deployment](#deployment) and **`.env.production`** for ongoing releases.
+3. **Ship**: [Deploy from your machine](#deploy-from-your-machine) below, then [Deployment](#deployment) and **`.env.staging`** / **`.env.production`** for ongoing releases.
 
 ### Where this doc goes deeper
 
@@ -87,7 +87,7 @@ bun install
 bun run setup
 ```
 
-In a **normal terminal**, **`bun run setup`** asks to confirm before appending random **`ALCHEMY_PASSWORD`** and **`CHATROOM_INTERNAL_SECRET`** values to repo-root **`.env.local`**. Pipes, **`CI=true`**, and **`bun run setup -- --yes`** skip the prompt and write immediately (used by CI and agent bootstrap). For production-style env on disk, use **`bun run setup:prod`** (same interactive / **`--yes`** rules for **`.env.production`**).
+**`bun run setup`** (same as **`bun run setup:local`**) targets **`.env.local`** by default. In a **TTY**, you can choose **local** / **staging** / **prod** first; then you get a **variable browser** (`[x]` / `[ ]` per key) to edit one key at a time — generate random, copy from **`.env.local`** when editing staging/prod, paste, or clear. **`bun run setup:staging`** / **`bun run setup:prod`** open **`.env.staging`** / **`.env.production`** directly. Non-TTY / **`CI=true`** defaults to **local** and **`bun run setup -- --yes`** only auto-fills keys that can be generated (**`ALCHEMY_PASSWORD`**, **`CHATROOM_INTERNAL_SECRET`**); missing **Cloudflare** values still need a real terminal or manual paste.
 
 **First-time Alchemy + Cloudflare (everyone on a new machine):**
 
@@ -109,26 +109,48 @@ Open the URL Vite/Alchemy prints (usually `http://localhost:5173`; next free por
 
 If you see **no Cloudflare credentials**, run **`bun alchemy configure`** / **`bun alchemy login`** or add **`CLOUDFLARE_API_TOKEN`** to **`.env.local`**. Missing secrets: rerun **`bun run setup`** or set **`ALCHEMY_PASSWORD`** / **`CHATROOM_INTERNAL_SECRET`** in **`.env.local`**.
 
-#### Production deploy
+#### Deploy from your machine
 
-**First Cloudflare rollout:** From the repo root (after **`bun alchemy configure`** / login and **`.env.production`** or CI secrets as needed):
+Every `alchemy.run.ts` uses **`process.env.STAGE`** (see **`packages/cf-starter-alchemy/deployment-stage.ts`**). Package scripts set **`STAGE`** with **`cross-env`** for **local** / **prod** / **staging**; **preview** inherits **`STAGE=pr-<n>`** from CI only.
+
+**Production** (repo-root **`.env.production`**, `STAGE=prod`):
 
 ```bash
-bun run deploy
+bun run deploy:prod
 ```
 
-Uses **`turbo run deploy --filter=cf-starter-web`** plus dependent **`deploy`** tasks; each package runs **`alchemy deploy --app …`** (**`cf-starter-frontend`**, **`cf-starter-database`**, …: match **`packages/cf-starter-alchemy/worker-peer-scripts.ts`** and each **`package.json`**). Use repo-root **`.env.production`** (or CI) for **`CLOUDFLARE_*`**, **`ALCHEMY_PASSWORD`**, **`CHATROOM_INTERNAL_SECRET`**. For a given stage (e.g. production), **`ALCHEMY_PASSWORD`** must be the **same** value everywhere **`alchemy deploy`** runs—your machine **and** CI (e.g. GitHub Actions)—so Alchemy can decrypt and update the same remote state; see [encryption password](https://alchemy.run/concepts/secret/#encryption-password). Read [Alchemy State](https://alchemy.run/concepts/state/) before shared CI secrets.
+**Staging** (repo-root **`.env.staging`**, `STAGE=staging`):
 
-To sync that production **`ALCHEMY_PASSWORD`** into GitHub Actions, run the admin stack from a trusted dev/admin machine (not from normal CI):
+```bash
+bun run deploy:staging
+```
+
+Each command runs the **full** Turbo graph (web + D1 + workers) in dependency order — **not** a web-only filter.
+
+**GitHub Actions** (optional): Workflows in **`.github/workflows/`** deploy **`main`** → staging, **`production`** branch → prod, and **PRs** → preview stacks using **`STAGE=pr-${{ github.event.pull_request.number }}`**. They reuse GitHub Environment **`staging`** for both staging and PR previews.
+
+**Fresh forks stay green:** until you set repository variable **`CF_STARTER_DEPLOY_ENABLED=true`** on the target GitHub Environment, deploy jobs print a short enablement notice and exit successfully without calling Alchemy.
+
+**Enable CI deploys:**
+
+```bash
+bun run github:setup
+# or focused:
+bun run github:setup:staging
+bun run github:setup:prod
+```
+
+Then **`bun run setup:staging`** / **`bun run setup:prod`**, and sync secrets + the enablement variable:
 
 ```bash
 gh auth login
-bun run github:secrets:sync
+bun run github:sync:staging
+bun run github:sync:prod
 ```
 
-This uses Alchemy’s GitHub provider to ensure the GitHub Environment exists, then write an environment-scoped **`ALCHEMY_PASSWORD`** secret (default **`GITHUB_ENVIRONMENT=production`**); it falls back to **`gh auth token`** and **`gh repo view`** unless you set **`GITHUB_TOKEN`** / **`GITHUB_REPOSITORY=owner/repo`** explicitly. See [GitHubSecret](https://alchemy.run/providers/github/secret/) and [GitHub provider](https://alchemy.run/providers/github/).
+**`github:sync:*`** runs **`stacks/admin.ts`** (Alchemy GitHub provider) from a **trusted machine only** — not from normal CI. It writes **GitHub Environment secrets** — **`ALCHEMY_PASSWORD`**, **`CHATROOM_INTERNAL_SECRET`**, **`CLOUDFLARE_API_TOKEN`** — plus **Environment variables** **`CLOUDFLARE_ACCOUNT_ID`** and **`CF_STARTER_DEPLOY_ENABLED=true`** (from your stage dotfile or defaulted on sync). See [GitHubSecret](https://alchemy.run/providers/github/secret/).
 
-Rebrand app ids (**`PRODUCT_PREFIX`**, **`--app`**): **[Naming your product](#naming-your-product)** and **[project-init](agents/skills/project-init/SKILL.md)**. Deeper prod notes: [Deployment](#deployment).
+For a given **`STAGE`**, **`ALCHEMY_PASSWORD`** must match everywhere **`alchemy deploy`** runs. Read [Alchemy State](https://alchemy.run/concepts/state/) before shared CI secrets.
 
 #### Build on the starter
 
@@ -136,7 +158,7 @@ Rebrand app ids (**`PRODUCT_PREFIX`**, **`--app`**): **[Naming your product](#na
 2. **Add stateful features**: `bunx turbo gen durable-object`, then [After `turbo gen durable-object`](#after-turbo-gen-durable-object) (filters, web binding, **`typegen`**).
 3. **Wire the web worker**: workspace dep, import **`./alchemy`** in **`apps/web/alchemy.run.ts`**, **`import { env } from "cloudflare:workers"`** in Workers ([cf-starter-gotchas **#1**](agents/skills/cf-starter-gotchas/SKILL.md)).
 4. **Schema**: **`packages/db/src/schema.ts`** → **`bun run db:generate`**; no hand-written SQL.
-5. **Ship**: **`.env.production`**, stable **`ALCHEMY_PASSWORD`**, **`bun run typecheck`**, **`bun run lint`**, **`bun run build`**, **`bun run deploy`**.
+5. **Ship**: **`.env.production`** or **`.env.staging`**, stable per-stage **`ALCHEMY_PASSWORD`**, **`bun run typecheck`**, **`bun run lint`**, **`bun run build`**, **`bun run deploy:prod`** or **`deploy:staging`**.
 
 #### Conventions (humans & AI coding agents)
 
@@ -146,7 +168,7 @@ Use **[AGENTS.md](AGENTS.md)** at the repo root (short index to skills) and the 
 
 **Fast path:** In **[`packages/cf-starter-alchemy/worker-peer-scripts.ts`](packages/cf-starter-alchemy/worker-peer-scripts.ts)**, change **`PRODUCT_PREFIX`** from **`cf-starter`** to your slug (e.g. **`skybook`**). **`CF_STARTER_APPS`** (roles like **`frontend`**, **`chatroom`**, **`ping`**, **`other`**, **`database`**) derives **`skybook-frontend`**, **`skybook-chatroom`**, …: one prefix, several logical “sub-apps” as separate Alchemy apps.
 
-**Sync the CLI:** Each **`package.json`** **`dev` / `deploy` / `destroy`** script passes **`alchemy … --app …`**: align those **`--app`** strings with the same ids (search/replace is fine). Then **`bun run typegen`** from the repo root.
+**Sync the CLI:** Each **`package.json`** **`dev` / `deploy:*` / `destroy:*`** script sets **`STAGE`** and uses **`alchemy … --app …`** (no duplicate **`--stage`**): align **`--app`** with **`CF_STARTER_APPS`**. Then **`bun run typegen`** from the repo root.
 
 **Iterate later:** You can tweak individual **`CF_STARTER_APPS`** entries (suffixes like **`-portal`** instead of **`-frontend`**) when your architecture diverges: optional after the **`PRODUCT_PREFIX`** pass. **`omitDefaultPhysicalWorkerScriptName`** in the same file keeps cyclic **`WorkerStub` / `WorkerRef`** strings coherent. **`turbo … --filter=…`** follows **workspace** **`package.json#name`** (e.g. **`cf-starter-web`**): a different knob than **`alchemy --app`**: see [project-init](agents/skills/project-init/SKILL.md).
 
@@ -214,7 +236,7 @@ Patterns cover typed routes/loaders (**`RoutePath`**), **`formAction`**, **[Zod]
 
 ### Shipping
 
-Infra-as-code **`alchemy.run.ts`** files per Worker/DO (**[Alchemy](https://alchemy.run/)**); **`bun run dev`** chains filtered **Turbo** tasks that run **`alchemy dev --app …`**. **`bun run deploy`** invokes **`alchemy deploy`** per dependency graph; app ids and **`PRODUCT_PREFIX`**: [Naming your product](#naming-your-product); operations: [Deployment](#deployment) · **[cf-starter-workflow](agents/skills/cf-starter-workflow/SKILL.md)** · [Alchemy + Turborepo](https://alchemy.run/guides/turborepo/).
+Infra-as-code **`alchemy.run.ts`** files per Worker/DO (**[Alchemy](https://alchemy.run/)**); **`bun run dev`** chains filtered **Turbo** tasks that run **`alchemy dev --app …`**. Root **`bun run deploy:prod`** / **`deploy:staging`** / **`deploy:preview`** run the full **`deploy:*`** graph so **`alchemy deploy`** runs in dependency order; app ids and **`PRODUCT_PREFIX`**: [Naming your product](#naming-your-product); operations: [Deployment](#deployment) · **[cf-starter-workflow](agents/skills/cf-starter-workflow/SKILL.md)** · [Alchemy + Turborepo](https://alchemy.run/guides/turborepo/).
 
 ### Scaffolding
 
@@ -232,9 +254,9 @@ Full package and Hono checklists: **[agents/skills/cf-durable-object-package/SKI
 
 The generator does not wire the monorepo for you. For each new package:
 
-1. **Root [package.json](package.json) `dev`**: Add `--filter=<workspace-name>` so the app joins the root `turbo run dev` TUI. Each package still runs `alchemy dev --app <alchemy-app-id> --stage local`: **`<alchemy-app-id>`** equals **`alchemy("…")`** in that folder (see [Naming your product](#naming-your-product); web **`--filter`** name is still **`cf-starter-web`**).
+1. **Root [package.json](package.json) `dev`**: Add `--filter=<workspace-name>` so the app joins the root `turbo run dev` TUI. Each package runs `cross-env STAGE=local … alchemy dev --app <alchemy-app-id>` (see [Naming your product](#naming-your-product); web **`--filter`** name is still **`cf-starter-web`**).
 
-2. **[turbo.json](turbo.json) `destroy`**: Add `<your-package>#destroy` with `dependsOn: ["cf-starter-web#destroy"]` (match `ping-do#destroy`).
+2. **[turbo.json](turbo.json) `destroy:*`**: Add `<your-package>#destroy:prod`, `#destroy:staging`, and `#destroy:preview` with `dependsOn` on the matching **`cf-starter-web#destroy:*`** (match existing **`ping-do`** entries).
 
 3. **Web**: [apps/web/package.json](apps/web/package.json) `"<your-package>": "workspace:*"`, `bun install`, then wire [apps/web/alchemy.run.ts](apps/web/alchemy.run.ts) from `"<your-package>/alchemy"`.
 
@@ -247,26 +269,25 @@ The generator does not wire the monorepo for you. For each new package:
 ### Environment variables
 
 - **`.env.example`** (committed): **Documentation** for humans/agents; Alchemy and other tools use real gitignored env files, not this file wholesale.
-- **`.env.local`** (gitignored): Loaded by **`bun run setup`** and by package **`dev`** scripts via **`bun --env-file`**. Set **`ALCHEMY_PASSWORD`**, **`CHATROOM_INTERNAL_SECRET`**, and optional **`CLOUDFLARE_*`** (see [Quick start](#quick-start)).
-- **`.env.production`** (gitignored): Use for **`bun run deploy`** / CI when you want prod-shaped values in a file.
+- **`.env.local`** (gitignored): Default target of **`bun run setup`** / **`setup:local`**; loaded by package **`dev`** via **`bun --env-file`**. **`ALCHEMY_PASSWORD`**, **`CHATROOM_INTERNAL_SECRET`**, optional **`CLOUDFLARE_*`**.
+- **`.env.staging`** (gitignored): Staging + **PR preview** deploys (`STAGE=staging` or `STAGE=pr-<n>`). Use **`bun run setup:staging`**.
+- **`.env.production`** (gitignored): Production deploys (`STAGE=prod`). Use **`bun run setup:prod`**.
 
 The D1 schema source of truth is **`packages/db/src/schema.ts`**. Do not manually create or edit Drizzle migration SQL, **`drizzle/meta/_journal.json`**, or snapshot JSON. Change the schema, then run **`bun run db:generate`** so generated SQL/meta lands in **`packages/db/drizzle/`**.
 
-The **`cf-starter-db`** **workspace package** owns **`D1Database`** in **`packages/db/alchemy.run.ts`** (**`migrationsDir`** → **`packages/db/drizzle`**). **`apps/web/alchemy.run.ts`** imports **`mainDb`** from **`cf-starter-db/alchemy`**. Remote migrations run when you deploy the **alchemy app** **`cf-starter-database`** (**`alchemy deploy --app cf-starter-database`**, included in **`bun run deploy`** via Turbo **`^deploy`**). **`d1:migrate:local`** prints the dev flow; **`d1:migrate:remote`** runs the same **`cf-starter-db`** **`deploy`** script. Do not add runtime `CREATE TABLE` fallbacks in loaders/actions; if local dev reports `no such table`, check that **`db:generate`** produced a migration, restart dev, and reset local Alchemy/D1 state only as a troubleshooting step.
+The **`cf-starter-db`** **workspace package** owns **`D1Database`** in **`packages/db/alchemy.run.ts`** (**`migrationsDir`** → **`packages/db/drizzle`**). **`apps/web/alchemy.run.ts`** imports **`mainDb`** from **`cf-starter-db/alchemy`**. Remote migrations run when you deploy the **alchemy app** **`cf-starter-database`** (via **`bun run deploy:prod`**, **`deploy:staging`**, or **`deploy:preview`**). Staging and **each PR preview** get **their own D1** physical resources because Alchemy scopes by **`STAGE`**. **`d1:migrate:local`** prints the dev flow; **`d1:migrate:remote`** runs **`cf-starter-db`** **`deploy:prod`**. Do not add runtime `CREATE TABLE` fallbacks in loaders/actions; if local dev reports `no such table`, check that **`db:generate`** produced a migration, restart dev, and reset local Alchemy/D1 state only as a troubleshooting step.
 
 ## Continuous integration
 
-[`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs on pushes and PRs to **`main`**:
-
-1. **Lint**: `bun run lint` (Biome)
-2. **Typecheck**: `bun run typegen` then `bun run typecheck`
-3. **Build**: `bun run build`
-
-Uses Bun with a frozen lockfile and Turborepo for parallel/cached tasks.
+[`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs on pushes and PRs to **`main`**: lint, typegen + typecheck, and build. **Deploy workflows** (**`deploy-staging.yml`**, **`deploy-production.yml`**, **`deploy-pr-preview.yml`**) are separate; they **no-op successfully** on fresh forks until **`CF_STARTER_DEPLOY_ENABLED=true`** is set on the GitHub Environment (see [Deploy from your machine](#deploy-from-your-machine)).
 
 ## Deployment
 
-See **[Quick start → Production deploy](#production-deploy)** for the **`bun run deploy`** invocation. **Summary:** **`turbo run deploy --filter=cf-starter-web`** fans out **`alchemy deploy --app …`** with ids from **`PRODUCT_PREFIX`** / **`CF_STARTER_APPS`** ([Naming](#naming-your-product)). **Auth:** **`bun alchemy configure`** / **`bun alchemy login`** or **`CLOUDFLARE_API_TOKEN`** / **`CLOUDFLARE_ACCOUNT_ID`** ([Alchemy Cloudflare guide](https://alchemy.run/guides/cloudflare/)). Use one stable **`ALCHEMY_PASSWORD`** per deploy stage everywhere deploy runs (local **and** CI); **`CHATROOM_INTERNAL_SECRET`** must match web + chatroom. **GitHub Actions secret sync:** **`bun run github:secrets:sync`** runs **`stacks/admin.ts`** locally to manage the environment-scoped **`ALCHEMY_PASSWORD`** secret via [GitHubSecret](https://alchemy.run/providers/github/secret/); do not run that admin stack from normal CI/deploy. More workflow + CI: **[cf-starter-workflow](agents/skills/cf-starter-workflow/SKILL.md)**, [Alchemy State](https://alchemy.run/concepts/state/).
+**Summary:** Set **`STAGE`** (via **`cross-env`** in package scripts or in CI). Root commands **`bun run deploy:prod`**, **`deploy:staging`**, **`deploy:preview`** run the full monorepo graph so **`cf-starter-database`** migrates **before** the web worker.
+
+**Auth:** **`CLOUDFLARE_API_TOKEN`** / **`CLOUDFLARE_ACCOUNT_ID`** plus **`ALCHEMY_PASSWORD`** and **`CHATROOM_INTERNAL_SECRET`** (see [`.env.example`](.env.example)).
+
+**CI onboarding:** **`bun run github:setup`** · **`bun run github:sync:staging`** · **`bun run github:sync:prod`**. More: **[cf-starter-workflow](agents/skills/cf-starter-workflow/SKILL.md)**, [Alchemy State](https://alchemy.run/concepts/state/).
 
 ## Scripts
 
@@ -279,12 +300,14 @@ See **[Quick start → Production deploy](#production-deploy)** for the **`bun r
 - `bun run typegen:prod`: Prod env inputs for web `typegen:prod`
 - `bun run lint`: **`turbo lint`** → each package runs Biome (**`biome check --write`** where defined)
 - `bun run d1:migrate:local`: Prints how local D1 migrations apply during **`bun run dev`**
-- `bun run d1:migrate:remote`: **`alchemy deploy --app cf-starter-database`** (remote D1 + migrations)
+- `bun run d1:migrate:remote`: **`cf-starter-db`** package script — **`STAGE=prod`**, **`.env.production`**, **`alchemy deploy --app cf-starter-database`**
 
-### Deployment
-- `bun run deploy`: `turbo run deploy --filter=cf-starter-web` (web app + `^deploy` graph)
-- `bun run destroy`: `turbo run destroy`
-- `bun run github:secrets:sync`: Local/admin-only Alchemy stack (`stacks/admin.ts`) that syncs the production `ALCHEMY_PASSWORD` to GitHub Actions (uses `gh auth token` / `gh repo view`, or explicit `GITHUB_TOKEN`, `GITHUB_REPOSITORY`, optional `GITHUB_ENVIRONMENT`)
+### Deployment / CI
+- `bun run deploy:prod` / `deploy:staging` / `deploy:preview`: full Turbo **`deploy:*`** graph (D1 + workers + web)
+- `bun run destroy:prod` / `destroy:staging` / `destroy:preview`: matching destroy order (web before dependents)
+- `bun run deploy:preflight:*`: optional local check; GitHub Actions runs this before deploy with **`CF_STARTER_DEPLOY_ENABLED`**
+- `bun run github:setup` · `github:setup:staging` · `github:setup:prod`: guided enablement notes
+- `bun run github:sync:staging` / `github:sync:prod`: local/admin **`stacks/admin.ts`** → GitHub Environment **secrets** + **variables** (incl. **`CF_STARTER_DEPLOY_ENABLED`**)
 
 ### Dependency management
 - `bun run outdated`: Outdated deps across workspaces (includes **Wrangler** via the workspace catalog where packages still use it)

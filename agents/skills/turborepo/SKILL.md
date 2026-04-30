@@ -46,9 +46,9 @@ Turbo: resolves package order, parallelizes, caches. **Turbo `inputs`** (per-pac
 
 **Durable Object packages (e.g. `chatroom-do`):** do **not** set **`typegen`** to depend on **`^typecheck:local`** (cycle risk). Use **`^typegen:local`** for upstreams (e.g. **`cf-starter-chat-contract`**) instead.
 
-**D1 / migrations:** **`packages/db/alchemy.run.ts`** defines **`D1Database`** (**alchemy app **`cf-starter-database`**, npm workspace **`cf-starter-db`**). The web app imports **`mainDb`** from **`cf-starter-db/alchemy`**. **`d1:migrate:remote`** runs **`alchemy deploy --app cf-starter-database`**; **`d1:migrate:local`** documents the dev flow.
+**D1 / migrations:** **`packages/db/alchemy.run.ts`** defines **`D1Database`** (**alchemy app **`cf-starter-database`**, npm workspace **`cf-starter-db`**). The web app imports **`mainDb`** from **`cf-starter-db/alchemy`**. **`d1:migrate:remote`** runs the **`cf-starter-db`** script: **`STAGE=prod`**, **`.env.production`**, **`alchemy deploy --app cf-starter-database`**; **`d1:migrate:local`** documents the dev flow.
 
-**Package Alchemy apps:** Each deployable package owns **`alchemy.run.ts`** and package **`dev` / `deploy` / `destroy`** use **`alchemy dev|deploy|destroy --app <package-id>`** (see [Alchemy Turborepo](https://alchemy.run/guides/turborepo/)). Root **`bun run dev`** filters Turbo to web + **`cf-starter-db`** + worker apps. **`deploy`** uses **`cache: false`** so Turbo always runs Alchemy deploy (state/limitation: cached hits can skip needed work); **`destroy`** is also **`cache: false`**.
+**Package Alchemy apps:** Each deployable package owns **`alchemy.run.ts`** and package **`dev` / `deploy:*` / `destroy:*`** use **`alchemy dev|deploy|destroy --app <package-id>`** with **`STAGE`** from **`cross-env`** or CI (see [Alchemy Turborepo](https://alchemy.run/guides/turborepo/)). Root **`bun run dev`** filters Turbo to web + **`cf-starter-db`** + worker apps. **`deploy:*`** uses **`cache: false`** so Turbo always runs Alchemy deploy; **`destroy:*`** is also **`cache: false`**.
 
 ### 1. Task Dependencies Should Use Outputs, Not Inputs
 
@@ -142,7 +142,7 @@ Prefix a task with `^` to depend on the **same task name** in every package list
 }
 ```
 
-This runs `typecheck:local` in `chatroom-do`, `cf-starter-db`, and other workspace deps before the web app’s `typegen:local`. Deploy is **`bun run deploy`** → **`turbo run deploy --filter=cf-starter-web`**, which runs **`^deploy`** (including **`cf-starter-db`**) before the web **`alchemy deploy`**.
+This runs `typecheck:local` in `chatroom-do`, `cf-starter-db`, and other workspace deps before the web app’s `typegen:local`. Deploy is stage-specific at the root — e.g. **`bun run deploy:prod`** runs **`turbo run deploy:prod`**, which runs **`^deploy:prod`** (including **`cf-starter-db#deploy:prod`**) before the web **`alchemy deploy`** for that stage.
 
 **Limits:** `^` only follows **declared** workspace deps. Packages that are not dependencies (e.g. sibling workers with only Wrangler `script_name` links) still need explicit `other-pkg#task` in their own `turbo.json`. Verify with:
 
@@ -298,7 +298,7 @@ Tasks are defined in three places:
 ```
 
 ### What stays uncached
-**`dev`** (persistent) and **`clean`** and **`destroy`** (destructive) use **`cache: false`** in this repo. **`d1:migrate:*`** in **`packages/db`** and **`deploy`** (Alchemy) also. Run **`turbo run <task> --force`** to bypass cache when other tasks look stale.
+**`dev`** (persistent) and **`clean`** and **`destroy:*`** (destructive) use **`cache: false`** in this repo. **`d1:migrate:*`** in **`packages/db`** and **`deploy:*`** (Alchemy) also. Run **`turbo run <task> --force`** to bypass cache when other tasks look stale.
 
 ```json
 "dev": {
@@ -405,9 +405,9 @@ bun run build --verbose
 
 ### Root turbo.json
 - Global settings: `globalDependencies`, `ui`, task defaults
-- Tasks: `build`, `build:local`, `build:prod`, `typecheck`, `typegen`, `rr-typegen`, `dev`, `lint`, `clean`, `db:generate`, `d1:migrate:local`, `d1:migrate:remote` (output log defaults; **`d1:migrate:remote`** runs **`alchemy deploy --app cf-starter-database`** for the **`cf-starter-db`** workspace package)
+- Tasks: `build`, `build:local`, `build:prod`, `typecheck`, `typegen`, `rr-typegen`, `dev`, `lint`, `clean`, `db:generate`, `d1:migrate:local`, `d1:migrate:remote`, `deploy:*`, `destroy:*` (output log defaults; **`d1:migrate:remote`** is **`cf-starter-db`** **`STAGE=prod`** **`alchemy deploy --app cf-starter-database`**)
 
-- `globalEnv`: `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, `CI`, `ALCHEMY_PASSWORD`, `CHATROOM_INTERNAL_SECRET`, `STAGE`
+- `globalEnv`: `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, `CI`, `ALCHEMY_PASSWORD`, `CHATROOM_INTERNAL_SECRET`, `STAGE`, `CF_STARTER_DEPLOY_ENABLED`
 
 ### apps/web/turbo.json
 - **`typegen:local` / `typegen:prod`** — `dependsOn`: `^typecheck`, **`rr-typegen`**; **inputs** include app sources, Vite / React Router config, package **`alchemy.run.ts`**, **`env.d.ts`**
@@ -418,12 +418,12 @@ bun run build --verbose
 
 ### packages/db/turbo.json
 - `db:generate` — Drizzle SQL from `src/`
-- `dev` / `deploy` / `destroy` — **`alchemy … --app cf-starter-database`** (see **`package.json`** scripts)
+- `dev` / `deploy:*` / `destroy:*` — **`alchemy … --app cf-starter-database`** (see **`package.json`** scripts; stage via **`STAGE`** + dotfile)
 - `typegen` / `typecheck` — `tsgo` chain for `cf-starter-db`
-- `d1:migrate:local` / `d1:migrate:remote` — **`cache: false`**; remote runs **`alchemy deploy --app cf-starter-database`**, local script documents dev
+- `d1:migrate:local` / `d1:migrate:remote` — **`cache: false`**; remote is prod-shaped D1-only deploy, local script documents dev
 
 ### Durable objects (e.g. `chatroom-do`)
-- `turbo.json` with `typegen` / `typecheck` / `lint` / **`deploy`** (and **`dev`** → **`alchemy dev --app …`** in **`package.json`**); no **`generate-wrangler`**
+- `turbo.json` with `typegen` / `typecheck` / `lint` / **`deploy:*`** / **`destroy:*`** (and **`dev`** → **`alchemy dev --app …`** in **`package.json`**); no **`generate-wrangler`**
 
 ### Key Dependency Chains (simplified)
 

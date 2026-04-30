@@ -22,21 +22,21 @@ description: Add or change a Durable Object worker package under durable-objects
 
 5. **Hono** — In `workers/app.ts`: `import type { CloudflareEnv } from "../env"`, `const app = new Hono<{ Bindings: CloudflareEnv }>()` (same as [durable-objects/other-worker/workers/app.ts](durable-objects/other-worker/workers/app.ts)).
 
-6. **Scripts** — Prefer `alchemy dev --app <kebab-id>` in `package.json` `dev` (not raw `wrangler dev` for this monorepo’s flow). Align `deploy` / `destroy` with `--app` id. SQLite packages should also expose package-local `db:generate`.
+6. **Scripts** — Prefer `cross-env STAGE=local … alchemy dev --app <kebab-id>` in `package.json` `dev` (not raw `wrangler dev` for this monorepo’s flow). Expose **`deploy:prod` / `deploy:staging` / `deploy:preview`** and **`destroy:*`** aligned with **`--app`** id. SQLite packages should also expose package-local `db:generate`.
 
 7. **After edits** — From repo root: `bun run typegen` and `bun run typecheck` (or package-local `typecheck:local`). If schema changed, run package-local `db:generate` first.
 
 ## Next (outside this skill)
 
 - Wire the web app: [cf-web-alchemy-bindings](../cf-web-alchemy-bindings/SKILL.md).
-- `workers/rpc.ts`, `WorkerRef`, root `dev` / `destroy`: [cf-worker-rpc-turbo](../cf-worker-rpc-turbo/SKILL.md).
+- `workers/rpc.ts`, `WorkerRef`, root `dev` / `destroy:*`: [cf-worker-rpc-turbo](../cf-worker-rpc-turbo/SKILL.md).
 
 ## Optional web / WebSocket checklist
 
 If this new DO should be reachable from the web app, complete these follow-up edits:
 
 1. Root `package.json` `dev`: add `--filter=<your-package>`.
-2. Root `turbo.json`: add `<your-package>#destroy` depending on `cf-starter-web#destroy`.
+2. Root `turbo.json`: add `<your-package>#destroy:prod`, `#destroy:staging`, and `#destroy:preview` depending on the matching **`cf-starter-web#destroy:*`**.
 3. `apps/web/package.json`: add `"<your-package>": "workspace:*"` and run `bun install`.
 4. `apps/web/alchemy.run.ts`: import from `"<your-package>/alchemy"` and bind the namespace/worker into `ReactRouter`.
 5. **WebSocket / Socka:** handle the worker upgrade path in `apps/web/workers/app.ts` before React Router, keep the client URL prefix and worker handler prefix identical, avoid Vite HMR paths, and forward to the DO path `/websocket`. If using **`@firtoz/socka`**, align with [cf-socka-realtime/SKILL.md](../cf-socka-realtime/SKILL.md) (contract package, `SockaWebSocketDO`, `useSockaSession`, route-safe `wss://` from `window` in client-only code).

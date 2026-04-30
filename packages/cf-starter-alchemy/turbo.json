@@ -3,25 +3,47 @@
 	"extends": ["//"],
 	"tasks": {
 		"typegen:local": {
-			"inputs": ["password.ts", "tsconfig.json", "package.json", "$TURBO_ROOT$/tsconfig.base.json"],
+			"inputs": ["password.ts", "deployment-stage.ts", "tsconfig.json", "package.json", "$TURBO_ROOT$/tsconfig.base.json"],
 			"outputs": []
 		},
 		"typegen:prod": {
-			"inputs": ["password.ts", "tsconfig.json", "package.json", "$TURBO_ROOT$/tsconfig.base.json"],
+			"inputs": ["password.ts", "deployment-stage.ts", "tsconfig.json", "package.json", "$TURBO_ROOT$/tsconfig.base.json"],
 			"outputs": []
 		},
 		"typecheck:local": {
 			"dependsOn": ["typegen:local"],
-			"inputs": ["password.ts", "tsconfig.json", "package.json", "$TURBO_ROOT$/tsconfig.base.json"],
+			"inputs": ["password.ts", "deployment-stage.ts", "tsconfig.json", "package.json", "$TURBO_ROOT$/tsconfig.base.json"],
 			"outputs": []
 		},
 		"typecheck:prod": {
 			"dependsOn": ["typegen:prod"],
-			"inputs": ["password.ts", "tsconfig.json", "package.json", "$TURBO_ROOT$/tsconfig.base.json"],
+			"inputs": ["password.ts", "deployment-stage.ts", "tsconfig.json", "package.json", "$TURBO_ROOT$/tsconfig.base.json"],
 			"outputs": []
 		},
-		"deploy": {
+		"deploy:prod": {
 			"dependsOn": ["typecheck:prod"],
+			"cache": false,
+			"outputs": []
+		},
+		"deploy:staging": {
+			"dependsOn": ["typecheck:prod"],
+			"cache": false,
+			"outputs": []
+		},
+		"deploy:preview": {
+			"dependsOn": ["typecheck:prod"],
+			"cache": false,
+			"outputs": []
+		},
+		"destroy:prod": {
+			"cache": false,
+			"outputs": []
+		},
+		"destroy:staging": {
+			"cache": false,
+			"outputs": []
+		},
+		"destroy:preview": {
 			"cache": false,
 			"outputs": []
 		}

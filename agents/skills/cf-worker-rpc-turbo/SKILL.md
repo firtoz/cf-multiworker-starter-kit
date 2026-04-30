@@ -10,7 +10,7 @@ description: workers/rpc.ts for WorkerRef or DO RPC types, package exports, cros
 - Typing `WorkerRef<Rpc>`, `WorkerStub<Rpc>`, or `DurableObjectNamespace<DoRpc>`.
 - Adding [durable-objects/*/workers/rpc.ts](durable-objects/ping-do/workers/rpc.ts) (or equivalent).
 - Turbo reports **circular package dependency** between two worker packages.
-- A new `durable-objects/*` or worker package does not start with `bun run dev` from root, or `turbo run destroy` order is wrong.
+- A new `durable-objects/*` or worker package does not start with `bun run dev` from root, or `turbo run destroy:*` order is wrong.
 
 ## `workers/rpc.ts` rules
 
@@ -36,7 +36,7 @@ When two worker packages **`WorkerRef`** / **`WorkerStub`** each other to avoid 
 
 ## Destroy order
 
-- In [turbo.json](turbo.json), new worker apps that depend on the web should have `<pkg>#destroy` with `dependsOn: ["cf-starter-web#destroy"]` so the web is destroyed first (match existing `ping-do#destroy`, `other-worker#destroy`, etc.).
+- In [turbo.json](turbo.json), new worker apps that depend on the web should have `<pkg>#destroy:prod`, `#destroy:staging`, and `#destroy:preview` each with `dependsOn` on the matching **`cf-starter-web#destroy:*`** so the web is destroyed first (match existing **`ping-do#destroy:*`**, **`other-worker#destroy:*`**, etc.).
 
 ## See also
 

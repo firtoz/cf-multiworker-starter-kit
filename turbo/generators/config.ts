@@ -105,7 +105,7 @@ export default function generator(plop: PlopTypes.NodePlopAPI): void {
 				const notes = [
 					`Next steps for durable-objects/${kebabName}:`,
 					`- Root package.json dev: add --filter=${kebabName} if it should run with bun run dev.`,
-					`- Root turbo.json: add "${kebabName}#destroy" with dependsOn ["cf-starter-web#destroy"] if web binds to it.`,
+					`- Root turbo.json: add "${kebabName}#destroy:prod", "#destroy:staging", and "#destroy:preview" with dependsOn ["cf-starter-web#destroy:prod"] (etc.) if web binds to it.`,
 				];
 				if (data.usesSqlite) {
 					notes.push(

@@ -135,7 +135,7 @@ WebSocket URL helpers may use `window.location`, but only call them from `useEff
 
 ### 7. Add environment variables
 
-**Development:** Run root **`bun run setup`** once (creates **`.env.local`** with **`ALCHEMY_PASSWORD`** and **`CHATROOM_INTERNAL_SECRET`** if missing), or add values to repo-root **`.env.local`** (or optional per-package **`.env.local`**), not a plain **`.env`** — see [agents/skills/cf-workers-env-local/SKILL.md](../../agents/skills/cf-workers-env-local/SKILL.md) and root **[AGENTS.md](../../AGENTS.md)** (index):
+**Development:** Run root **`bun run setup`** / **`setup:local`** once (interactive **variable browser** in a TTY, or **`-- --yes`** / **`CI=true`** for auto-generated Alchemy + chatroom secrets only), or add values to repo-root **`.env.local`** (or optional per-package **`.env.local`**), not a plain **`.env`** — see [agents/skills/cf-workers-env-local/SKILL.md](../../agents/skills/cf-workers-env-local/SKILL.md) and root **[AGENTS.md](../../AGENTS.md)** (index):
 ```bash
 MY_SECRET=dev-value
 ```
@@ -174,10 +174,12 @@ bun run rr-typegen  # React Router typegen
 
 ## Deploy
 
-From the **repo root**:
+From the **repo root**, use stage-specific graphs (full monorepo — web + D1 + workers):
 
 ```bash
-bun run deploy
+bun run deploy:prod      # .env.production, STAGE=prod
+bun run deploy:staging   # .env.staging, STAGE=staging
+# Preview: CI sets STAGE=pr-<n> and runs deploy:preview
 ```
 
-This runs the Turbo deploy graph; each deployable package runs **`alchemy deploy --app <package-id>`**. See [agents/skills/cf-starter-workflow/SKILL.md](../../agents/skills/cf-starter-workflow/SKILL.md), root **`AGENTS.md`**, and root **`README.md`**.
+Each deployable package runs **`alchemy deploy --app <package-id>`** with the same **`STAGE`**. See [agents/skills/cf-starter-workflow/SKILL.md](../../agents/skills/cf-starter-workflow/SKILL.md), root **`AGENTS.md`**, and root **`README.md`**.

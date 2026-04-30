@@ -20,8 +20,30 @@
 			"inputs": ["src/**/*.ts", "tsconfig.json", "package.json", "$TURBO_ROOT$/tsconfig.base.json"],
 			"outputs": []
 		},
-		"deploy": {
+		"deploy:prod": {
 			"dependsOn": ["typecheck:prod"],
+			"cache": false,
+			"outputs": []
+		},
+		"deploy:staging": {
+			"dependsOn": ["typecheck:prod"],
+			"cache": false,
+			"outputs": []
+		},
+		"deploy:preview": {
+			"dependsOn": ["typecheck:prod"],
+			"cache": false,
+			"outputs": []
+		},
+		"destroy:prod": {
+			"cache": false,
+			"outputs": []
+		},
+		"destroy:staging": {
+			"cache": false,
+			"outputs": []
+		},
+		"destroy:preview": {
 			"cache": false,
 			"outputs": []
 		}

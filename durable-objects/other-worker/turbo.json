@@ -51,13 +51,33 @@
 			"inputs": ["workers/**/*.ts", "$TURBO_ROOT$/.env.production", "package.json", "env.d.ts"],
 			"outputs": []
 		},
-		"deploy": {
+		"deploy:prod": {
 			"dependsOn": ["typecheck:prod", "ping-do#typecheck:prod"],
 			"cache": false,
 			"inputs": ["alchemy.run.ts", "workers/**/*.ts", "package.json", "tsconfig.json", "env.d.ts"],
 			"outputs": []
 		},
-		"destroy": {
+		"deploy:staging": {
+			"dependsOn": ["typecheck:prod", "ping-do#typecheck:prod"],
+			"cache": false,
+			"inputs": ["alchemy.run.ts", "workers/**/*.ts", "package.json", "tsconfig.json", "env.d.ts"],
+			"outputs": []
+		},
+		"deploy:preview": {
+			"dependsOn": ["typecheck:prod", "ping-do#typecheck:prod"],
+			"cache": false,
+			"inputs": ["alchemy.run.ts", "workers/**/*.ts", "package.json", "tsconfig.json", "env.d.ts"],
+			"outputs": []
+		},
+		"destroy:prod": {
+			"cache": false,
+			"outputs": []
+		},
+		"destroy:staging": {
+			"cache": false,
+			"outputs": []
+		},
+		"destroy:preview": {
 			"cache": false,
 			"outputs": []
 		}

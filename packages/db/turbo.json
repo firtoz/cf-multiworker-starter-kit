@@ -70,7 +70,7 @@
 			],
 			"outputs": []
 		},
-		"deploy": {
+		"deploy:prod": {
 			"dependsOn": ["typecheck:prod", "db:generate"],
 			"cache": false,
 			"inputs": [
@@ -82,7 +82,39 @@
 			],
 			"outputs": []
 		},
-		"destroy": {
+		"deploy:staging": {
+			"dependsOn": ["typecheck:prod", "db:generate"],
+			"cache": false,
+			"inputs": [
+				"alchemy.run.ts",
+				"drizzle.config.ts",
+				"drizzle/**",
+				"src/**/*.ts",
+				"package.json"
+			],
+			"outputs": []
+		},
+		"deploy:preview": {
+			"dependsOn": ["typecheck:prod", "db:generate"],
+			"cache": false,
+			"inputs": [
+				"alchemy.run.ts",
+				"drizzle.config.ts",
+				"drizzle/**",
+				"src/**/*.ts",
+				"package.json"
+			],
+			"outputs": []
+		},
+		"destroy:prod": {
+			"cache": false,
+			"outputs": []
+		},
+		"destroy:staging": {
+			"cache": false,
+			"outputs": []
+		},
+		"destroy:preview": {
 			"cache": false,
 			"outputs": []
 		},

@@ -1,12 +1,15 @@
 import alchemy from "alchemy";
 import { DurableObjectNamespace, Worker } from "alchemy/cloudflare";
 import { requireAlchemyPassword, requireEnv } from "cf-starter-alchemy";
+import { resolveStageFromEnv } from "cf-starter-alchemy/deployment-stage";
 import {
 	CF_STARTER_APPS,
 	DEFAULT_WORKER_RESOURCE_ID,
 } from "cf-starter-alchemy/worker-peer-scripts";
 
-const app = await alchemy(CF_STARTER_APPS.chatroom);
+const app = await alchemy(CF_STARTER_APPS.chatroom, {
+	stage: resolveStageFromEnv(),
+});
 requireAlchemyPassword(app);
 const chatroomInternalSecretRaw = requireEnv(
 	"CHATROOM_INTERNAL_SECRET",

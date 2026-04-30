@@ -65,7 +65,7 @@ bun add <package>@latest --cwd apps/web
 
 - **`^task`** in a package’s `turbo.json` runs `task` in **workspace dependencies**; prefer that over listing every `other-pkg#…` by hand.
 - **Per-package `inputs`** — only that package’s files; use `^` + workspace deps to invalidate, not other packages’ source trees. [turborepo/SKILL.md](../turborepo/SKILL.md).
-- **Cache** — at root, `dev`, `dev:preflight`, `deploy`, `destroy`, and `clean` are `cache: false` (`deploy` so Alchemy always runs; see [turborepo/SKILL.md](../turborepo/SKILL.md)). Use `turbo run <task> --force` to bypass cache for other tasks when needed.
+- **Cache** — at root, `dev`, `dev:preflight`, `deploy:*`, `destroy:*`, and `clean` are `cache: false` (`deploy:*` so Alchemy always runs; see [turborepo/SKILL.md](../turborepo/SKILL.md)). Use `turbo run <task> --force` to bypass cache for other tasks when needed.
 
 ## D1 and Alchemy migrations
 
@@ -74,10 +74,10 @@ The root D1 schema source of truth is `packages/db/src/schema.ts`. Do not add ru
 After D1 schema changes:
 
 1. Run `bun run db:generate`.
-2. Run `bun run dev` or `bun run deploy`.
+2. Run `bun run dev` or the right stage deploy, e.g. `bun run deploy:prod` / `deploy:staging` (preview: `deploy:preview` with `STAGE=pr-<n>` from CI).
 3. Turbo/Alchemy applies migrations through `packages/db/alchemy.run.ts` (`D1Database.migrationsDir` → `packages/db/drizzle`). The web app binds `mainDb` from `cf-starter-db/alchemy`.
 
-`bun run d1:migrate:local` explains the dev flow. `bun run d1:migrate:remote` runs `alchemy deploy --app cf-starter-database` (same as that package’s `deploy`).
+`bun run d1:migrate:local` explains the dev flow. `bun run d1:migrate:remote` runs the **`cf-starter-db`** package script: `STAGE=prod`, `.env.production`, `alchemy deploy --app cf-starter-database` (D1-only; full stack uses `bun run deploy:prod`).
 
 If local dev still reports `no such table`:
 
@@ -89,22 +89,22 @@ If local dev still reports `no such table`:
 ## Alchemy in this monorepo (summary)
 
 - **Source of truth** — Each deployable package owns an `alchemy.run.ts` and, when consumed elsewhere, exports via `"./alchemy"` (see [Alchemy Turborepo](https://alchemy.run/guides/turborepo/), [type-safe bindings](https://alchemy.run/concepts/bindings/#type-safe-bindings)).
-- **Root** — `bun run dev` / `deploy` / `destroy` call Turbo; package scripts use `alchemy dev|deploy|destroy --app <package-id>`.
+- **Root** — `bun run dev` and stage-specific `deploy:*` / `destroy:*` call Turbo; package scripts use `alchemy dev|deploy|destroy --app <package-id>`.
 - **Cross-package** — Provider packages export from `./alchemy`; consumers use `providerWorker.bindings.YourResource` in their `alchemy.run.ts` for cross-script DOs. Details: [cf-web-alchemy-bindings/SKILL.md](../cf-web-alchemy-bindings/SKILL.md), [cf-durable-object-package/SKILL.md](../cf-durable-object-package/SKILL.md).
 
 ## Adding another Durable Object (quick path)
 
 1. `bunx turbo gen durable-object` (or copy `durable-objects/ping-do/`).
-2. Export DO/worker from `./alchemy`; wire [apps/web/alchemy.run.ts](../../../apps/web/alchemy.run.ts) and root `dev` / `destroy` (see [cf-starter-gotchas](../cf-starter-gotchas/SKILL.md) #14, [cf-worker-rpc-turbo/SKILL.md](../cf-worker-rpc-turbo/SKILL.md)).
+2. Export DO/worker from `./alchemy`; wire [apps/web/alchemy.run.ts](../../../apps/web/alchemy.run.ts) and root `dev` / `destroy:*` (see [cf-starter-gotchas](../cf-starter-gotchas/SKILL.md) #15, [cf-worker-rpc-turbo/SKILL.md](../cf-worker-rpc-turbo/SKILL.md)).
 3. `bun run dev`, exercise bindings, confirm existing DOs still work.
 
 ## Environment variables and secrets
 
-Real keys: **`.env.local`** (dev), **`.env.production`** (prod/CI). **`.env.example`** is documentation only. Never commit secrets. Full checklist: [cf-workers-env-local/SKILL.md](../cf-workers-env-local/SKILL.md), [Alchemy Secret](https://alchemy.run/providers/cloudflare/secret/).
+Real keys: **`.env.local`** (dev), **`.env.staging`** (staging + PR preview deploys), **`.env.production`** (prod). **`.env.example`** is documentation only. Never commit secrets. Full checklist: [cf-workers-env-local/SKILL.md](../cf-workers-env-local/SKILL.md), [Alchemy Secret](https://alchemy.run/providers/cloudflare/secret/).
 
 Access in app code: `import { env } from "cloudflare:workers"` only.
 
-**Deploy / secrets:** `bun run deploy` → **`turbo run deploy --filter=cf-starter-web`** (pulls dependent worker deploys). `requireAlchemyPassword(app)` in [cf-starter-alchemy](../../../packages/cf-starter-alchemy) requires **`ALCHEMY_PASSWORD`**; the chatroom secret example requires **`CHATROOM_INTERNAL_SECRET`**. For each deploy stage, **`ALCHEMY_PASSWORD`** must match across every place you run **`alchemy deploy`** (local **and** CI)—not only “stable in prod,” but bitwise the same secret in **`.env.production`**, GitHub Actions, etc. **`bun run github:secrets:sync`** runs **`stacks/admin.ts`** as a local/admin-only Alchemy stack to sync that value to GitHub Actions via **`GitHubSecret`**; it uses **`gh auth token`** / **`gh repo view`** by default and should not run from normal CI/deploy. Run **`bun run setup`** in a terminal for a confirmation prompt, or **`bun run setup -- --yes`** / **`bun packages/scripts/setup-env.ts --yes`** in automation. [Alchemy — encryption password](https://alchemy.run/concepts/secret/#encryption-password), [GitHubSecret](https://alchemy.run/providers/github/secret/), [Getting Started](https://alchemy.run/getting-started/) for `CLOUDFLARE_API_TOKEN`.
+**Deploy / secrets:** Root **`bun run deploy:prod`** / **`deploy:staging`** / **`deploy:preview`** run the **full** Turbo **`deploy:*`** graph (D1 + workers + web), not a web-only filter. Each `alchemy.run.ts` uses **`process.env.STAGE`** (`deployment-stage.ts`). `requireAlchemyPassword(app)` in [cf-starter-alchemy](../../../packages/cf-starter-alchemy) requires **`ALCHEMY_PASSWORD`**; the chatroom secret example requires **`CHATROOM_INTERNAL_SECRET`**. For each stage, **`ALCHEMY_PASSWORD`** must match across every **`alchemy deploy`** (local **and** CI)—same value in **`.env.staging`** / **`.env.production`**, GitHub Environment **secrets**, etc. **`bun run github:sync:staging`** / **`github:sync:prod`** run **`stacks/admin.ts`** from a trusted machine to sync **secrets** (`ALCHEMY_PASSWORD`, `CHATROOM_INTERNAL_SECRET`, `CLOUDFLARE_API_TOKEN`) and **GitHub Environment variables** (`CLOUDFLARE_ACCOUNT_ID`, **`CF_STARTER_DEPLOY_ENABLED=true`** when not set in the dotfile); they use **`gh auth token`** / **`gh repo view`** by default — not from normal CI. **`bun run github:setup`** prints onboarding steps. Run **`bun run setup`** / **`setup:local`** in a terminal for the variable browser, or **`bun run setup -- --yes`** / **`bun packages/scripts/setup-env.ts --yes`** in automation (auto-generates only regeneratable keys). [Alchemy — encryption password](https://alchemy.run/concepts/secret/#encryption-password), [GitHubSecret](https://alchemy.run/providers/github/secret/), [Getting Started](https://alchemy.run/getting-started/) for `CLOUDFLARE_API_TOKEN`.
 
 - **Local dev** — `bun run dev` runs a filtered `turbo run dev` (web + **`cf-starter-db`** + worker apps), each with `alchemy dev --app …` per [Alchemy monorepo](https://alchemy.run/guides/turborepo/). When verifying setup, exercise `/`, `/visitors`, `/ping-do`, and `/chat`; this covers React Router SSR, D1, cross-script DO bindings, and chat WebSockets. If web prints `webUrl` but port 5173 is closed after a crash, remove the stale generated `.alchemy/pids/cf-starter-web.pid.json`; if you also remove `.alchemy/logs/cf-starter-web.log`, recreate it before restarting because Alchemy's idempotent log follower expects the file to exist.
 

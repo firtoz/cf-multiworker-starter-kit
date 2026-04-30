@@ -71,7 +71,7 @@
 			],
 			"outputs": []
 		},
-		"deploy": {
+		"deploy:prod": {
 			"dependsOn": ["db:generate", "typecheck:prod", "cf-starter-chat-contract#typecheck:prod"],
 			"cache": false,
 			"inputs": [
@@ -86,7 +86,45 @@
 			],
 			"outputs": []
 		},
-		"destroy": {
+		"deploy:staging": {
+			"dependsOn": ["db:generate", "typecheck:prod", "cf-starter-chat-contract#typecheck:prod"],
+			"cache": false,
+			"inputs": [
+				"alchemy.run.ts",
+				"workers/**/*.ts",
+				"src/**/*.ts",
+				"drizzle/**",
+				"drizzle.config.ts",
+				"package.json",
+				"tsconfig.json",
+				"env.d.ts"
+			],
+			"outputs": []
+		},
+		"deploy:preview": {
+			"dependsOn": ["db:generate", "typecheck:prod", "cf-starter-chat-contract#typecheck:prod"],
+			"cache": false,
+			"inputs": [
+				"alchemy.run.ts",
+				"workers/**/*.ts",
+				"src/**/*.ts",
+				"drizzle/**",
+				"drizzle.config.ts",
+				"package.json",
+				"tsconfig.json",
+				"env.d.ts"
+			],
+			"outputs": []
+		},
+		"destroy:prod": {
+			"cache": false,
+			"outputs": []
+		},
+		"destroy:staging": {
+			"cache": false,
+			"outputs": []
+		},
+		"destroy:preview": {
 			"cache": false,
 			"outputs": []
 		}

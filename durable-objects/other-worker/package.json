@@ -7,9 +7,13 @@
 		"./workers/rpc": "./workers/rpc.ts"
 	},
 	"scripts": {
-		"deploy": "bun --env-file ../../.env.production alchemy deploy --app cf-starter-other --stage prod",
-		"destroy": "bun --env-file ../../.env.production alchemy destroy --app cf-starter-other --stage prod",
-		"dev": "bun --env-file ../../.env.local alchemy dev --app cf-starter-other --stage local",
+		"deploy:prod": "cross-env STAGE=prod bun --env-file ../../.env.production alchemy deploy --app cf-starter-other",
+		"deploy:staging": "cross-env STAGE=staging bun --env-file ../../.env.staging alchemy deploy --app cf-starter-other",
+		"deploy:preview": "bun --env-file ../../.env.staging alchemy deploy --app cf-starter-other",
+		"destroy:prod": "cross-env STAGE=prod bun --env-file ../../.env.production alchemy destroy --app cf-starter-other",
+		"destroy:staging": "cross-env STAGE=staging bun --env-file ../../.env.staging alchemy destroy --app cf-starter-other",
+		"destroy:preview": "bun --env-file ../../.env.staging alchemy destroy --app cf-starter-other",
+		"dev": "cross-env STAGE=local bun --env-file ../../.env.local alchemy dev --app cf-starter-other",
 		"typegen:local": "node -e \"process.exit(0)\"",
 		"typegen:prod": "node -e \"process.exit(0)\"",
 		"typecheck:local": "tsgo --noEmit -p ./tsconfig.json",
@@ -28,6 +32,7 @@
 		"@biomejs/biome": "catalog:",
 		"@types/node": "catalog:",
 		"alchemy": "catalog:",
+		"cross-env": "catalog:",
 		"typescript": "catalog:"
 	}
 }
