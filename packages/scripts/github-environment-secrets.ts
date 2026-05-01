@@ -2,10 +2,11 @@
  * GitHub Actions **environment** configuration for deploy (CI + `github:sync:*`).
  *
  * - **Secrets** — `ALCHEMY_PASSWORD`, `ALCHEMY_STATE_TOKEN`, `CHATROOM_INTERNAL_SECRET`, `CLOUDFLARE_API_TOKEN`
- * - **Variables** (plaintext on GitHub Environment) — `CLOUDFLARE_ACCOUNT_ID`, `CF_STARTER_DEPLOY_ENABLED`
+ * - **Variables** (plaintext on GitHub Environment) — `CLOUDFLARE_ACCOUNT_ID`, `CF_STARTER_DEPLOY_ENABLED`, and optional **`WEB_*`** hostname keys synced when set in the stage dotfile (see [`alchemy-utils/web-deploy-hostnames`](../alchemy-utils/web-deploy-hostnames.ts))
  *
  * Keep in sync with `deploy-preflight.ts`, `.github/workflows/deploy-*.yml`, and `stacks/admin.ts`.
  */
+import { GITHUB_SYNC_OPTIONAL_WEB_HOSTNAME_VARIABLE_KEYS } from "alchemy-utils/web-deploy-hostnames";
 export const GITHUB_ENVIRONMENT_SECRET_KEYS = [
 	"ALCHEMY_PASSWORD",
 	"ALCHEMY_STATE_TOKEN",
@@ -66,6 +67,13 @@ export function buildGitHubVariablePayloadFromDotfile(env: Record<string, string
 		payload[CF_STARTER_DEPLOY_ENABLED_VAR] = deployFlag;
 	}
 	// Caller adds default `true` for CF_STARTER_DEPLOY_ENABLED when syncing if not in dotfile
+
+	for (const name of GITHUB_SYNC_OPTIONAL_WEB_HOSTNAME_VARIABLE_KEYS) {
+		const v = env[name]?.trim();
+		if (v) {
+			payload[name] = v;
+		}
+	}
 
 	return { payload, missing };
 }

@@ -22,6 +22,10 @@
 		"./ci-deploy-web-url": {
 			"types": "./ci-deploy-web-url.ts",
 			"default": "./ci-deploy-web-url.ts"
+		},
+		"./web-deploy-hostnames": {
+			"types": "./web-deploy-hostnames.ts",
+			"default": "./web-deploy-hostnames.ts"
 		}
 	},
 	"scripts": {

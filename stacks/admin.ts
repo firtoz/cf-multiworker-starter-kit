@@ -5,7 +5,7 @@
  * - **Staging:** `STAGE=staging`, repo-root `.env.staging`, GitHub environment **`staging`**.
  *
  * **Secrets** (GitHubSecret): `ALCHEMY_PASSWORD`, `ALCHEMY_STATE_TOKEN`, `CHATROOM_INTERNAL_SECRET`, `CLOUDFLARE_API_TOKEN`
- * **Variables** (REST): `CLOUDFLARE_ACCOUNT_ID`, `CF_STARTER_DEPLOY_ENABLED=true` — **`GitHubEnvironmentVariable`** resources in **`github-environment-variable.ts`** (shared list prefetch per env/token in-process + one tracked resource per name).
+ * **Variables** (REST): `CLOUDFLARE_ACCOUNT_ID`, `CF_STARTER_DEPLOY_ENABLED=true`, and optional plaintext **`WEB_*`** keys (`WEB_DOMAINS`, `WEB_ROUTES`, `WEB_ZONE_ID`, `WEB_DOMAIN_OVERRIDE_EXISTING_ORIGIN`) when set in the dotfile — **`GitHubEnvironmentVariable`** resources in **`github-environment-variable.ts`** (shared list prefetch per env/token in-process + one tracked resource per name).
  *
  * Run from repo root:
  * - `bun run github:sync:prod`

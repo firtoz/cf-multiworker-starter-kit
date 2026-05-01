@@ -121,6 +121,19 @@ Required deploy values are documented in [`.env.example`](.env.example):
 
 For one stage, keep `ALCHEMY_PASSWORD` stable everywhere that stage deploys: local machines, CI, and any shared deploy environment.
 
+### Custom domains (web Worker)
+
+The React Router app is deployed as the **frontend** Worker in [`apps/web/alchemy.run.ts`](apps/web/alchemy.run.ts). By default it uses Cloudflare **`workers.dev`** only.
+
+To bind your own hostnames (production or staging):
+
+1. Run `bun run setup:prod` or `bun run setup:staging` and use the **optional** entries at the bottom of the menu — or set the same keys in `.env.production` / `.env.staging` (see [`.env.example`](.env.example)).
+2. Typical: set **`WEB_DOMAINS=example.com,www.example.com`**. Use **`WEB_ROUTES`** only if you need explicit route patterns (e.g. `example.com/*`).
+3. Optional: **`WEB_ZONE_ID`** (apply one zone to every entry), **`WEB_DOMAIN_OVERRIDE_EXISTING_ORIGIN=true`** when moving a hostname from another Worker.
+4. For CI, run `bun run github:sync:prod` / `github:sync:staging` after editing the stage dotfile so GitHub Environment **variables** include the `WEB_*` keys (they are not secrets).
+
+PR preview stacks use `STAGE=pr-<n>` and stay on **`workers.dev`**: `WEB_*` values are **ignored** during preview deploys so shared GitHub Environment variables never bind your real hostnames to PR stacks.
+
 ### GitHub Actions Deploys
 
 Deploy workflows are disabled by default on fresh forks. They stay green and skip Alchemy until `CF_STARTER_DEPLOY_ENABLED=true` is set on the GitHub Environment.

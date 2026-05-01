@@ -5,7 +5,7 @@
  * - **`bun run setup:staging`** → **`.env.staging`**
  * - **`bun run setup:prod`** → **`.env.production`**
  *
- * Keys align with **`github-environment-secrets.ts`** (four GitHub secrets incl. **`ALCHEMY_STATE_TOKEN`**) plus **`CLOUDFLARE_ACCOUNT_ID`** for sync/variables).
+ * Keys align with **`github-environment-secrets.ts`** (four GitHub secrets incl. **`ALCHEMY_STATE_TOKEN`**) plus **`CLOUDFLARE_ACCOUNT_ID`** and optional **`WEB_*`** custom-hostname vars for sync/variables).
  */
 import { randomBytes } from "node:crypto";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
@@ -23,6 +23,13 @@ import {
 	text,
 } from "@clack/prompts";
 
+import {
+	GITHUB_SYNC_OPTIONAL_WEB_HOSTNAME_VARIABLE_KEYS,
+	WEB_DOMAIN_OVERRIDE_EXISTING_ORIGIN_ENV_KEY,
+	WEB_DOMAINS_ENV_KEY,
+	WEB_ROUTES_ENV_KEY,
+	WEB_ZONE_ID_ENV_KEY,
+} from "alchemy-utils/web-deploy-hostnames";
 import { setupCommandLabelForDotfileRel } from "./github-environment-secrets";
 
 const root = path.resolve(import.meta.dir, "../..");
@@ -74,14 +81,43 @@ const KEY_COPY: Readonly<Record<string, { title: string; line: string }>> = {
 		title: "Cloudflare account ID",
 		line: "Dashboard → account / Workers overview (synced as a GitHub Environment variable)",
 	},
+	[WEB_DOMAINS_ENV_KEY]: {
+		title: "Web Worker custom domains (optional)",
+		line:
+			"Comma-separated hostname(s), e.g. example.com,www.example.com · empty = workers.dev only · see README · synced as GitHub var when set",
+	},
+	[WEB_ROUTES_ENV_KEY]: {
+		title: "Web Worker routes (optional)",
+		line:
+			"Comma-separated patterns, e.g. example.com/* — use when you need route patterns instead of domains only",
+	},
+	[WEB_ZONE_ID_ENV_KEY]: {
+		title: "Cloudflare zone ID for web hostname bindings (optional)",
+		line:
+			"Applied to every WEB_DOMAINS / WEB_ROUTES entry when set · omit to let Alchemy infer from hostnames",
+	},
+	[WEB_DOMAIN_OVERRIDE_EXISTING_ORIGIN_ENV_KEY]: {
+		title: "Override existing Worker on custom domain(s) (optional)",
+		line:
+			"true / false · set true only if hostname is bound to another Worker and you intentionally want to replace it",
+	},
 };
+
+/** Optional **`WEB_*`** keys — staging/prod `.env*` only (`bun run setup:staging` / `setup:prod`). */
+const OPTIONAL_WEB_HOSTNAME_KEY_SET = new Set<string>(
+	GITHUB_SYNC_OPTIONAL_WEB_HOSTNAME_VARIABLE_KEYS,
+);
+
+function optionalWebHostnameKeys(mode: SetupMode): readonly string[] {
+	return mode === "local" ? [] : [...GITHUB_SYNC_OPTIONAL_WEB_HOSTNAME_VARIABLE_KEYS];
+}
 
 function secretKeysForMode(mode: SetupMode): readonly string[] {
 	return mode === "local" ? KEYS_LOCAL : KEYS_DEPLOY;
 }
 
 function navigableKeys(mode: SetupMode): string[] {
-	return [...secretKeysForMode(mode)];
+	return [...secretKeysForMode(mode), ...optionalWebHostnameKeys(mode)];
 }
 
 function setupCommandLabel(mode: SetupMode): string {
@@ -148,6 +184,14 @@ function truncateForList(s: string, max = 52): string {
 	return `${t.slice(0, max - 3)}…`;
 }
 
+const PLAINTEXT_LIST_KEYS_FOR_ROW = new Set<string>([
+	"CLOUDFLARE_ACCOUNT_ID",
+	WEB_DOMAINS_ENV_KEY,
+	WEB_ROUTES_ENV_KEY,
+	WEB_ZONE_ID_ENV_KEY,
+	WEB_DOMAIN_OVERRIDE_EXISTING_ORIGIN_ENV_KEY,
+]);
+
 function keyTitle(key: string): string {
 	return KEY_COPY[key]?.title ?? key;
 }
@@ -165,7 +209,7 @@ function canAutoGenerateKey(key: string): boolean {
 }
 
 function isMaskedKey(key: string): boolean {
-	return key !== "CLOUDFLARE_ACCOUNT_ID";
+	return !PLAINTEXT_LIST_KEYS_FOR_ROW.has(key);
 }
 
 function reloadFileRaw(file: string, fallback: string): string {
@@ -207,13 +251,14 @@ function rowLabelWhenSet(text: string): string {
 function rowLabel(raw: string, key: string): string {
 	const set = hasValue(raw, key);
 	const box = set ? "[x]" : "[ ]";
+	const reqWord = OPTIONAL_WEB_HOSTNAME_KEY_SET.has(key) ? "optional" : "required";
 	if (!isMaskedKey(key)) {
 		const v = captureEnvAssignmentLine(raw, key) ?? "";
 		const show = truncateForList(v || "(empty)", 42);
-		const line = `${box} ${key} · required · ${show}`;
+		const line = `${box} ${key} · ${reqWord} · ${show}`;
 		return set ? rowLabelWhenSet(line) : line;
 	}
-	const line = `${box} ${key} · required · ${set ? "set (masked)" : "unset"}`;
+	const line = `${box} ${key} · ${reqWord} · ${set ? "set (masked)" : "unset"}`;
 	return set ? rowLabelWhenSet(line) : line;
 }
 
@@ -466,6 +511,8 @@ async function interactiveMain(file: string, mode: SetupMode): Promise<void> {
 			[
 				"GitHub sync uses **secrets** for Alchemy password, **`ALCHEMY_STATE_TOKEN`** (Cloudflare-backed deploy state), chatroom secret, and Cloudflare API token.",
 				"**CLOUDFLARE_ACCOUNT_ID** is stored as a GitHub Environment **variable** (`github:sync:*`).",
+				"",
+				"Optional (**bottom** of menu): **`WEB_DOMAINS`**, **`WEB_ROUTES`**, **`WEB_ZONE_ID`**, **`WEB_DOMAIN_OVERRIDE_EXISTING_ORIGIN`** — Workers custom hostnames · see README *Custom domains*.",
 				"",
 				`When ready: \`bun run github:sync:${mode === "staging" ? "staging" : "prod"}\` (after \`gh auth login\`).`,
 			].join("\n"),
