@@ -21,7 +21,10 @@ on:
 
 concurrency:
   group: pr-preview-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: false
+  # New commits and PR close/merge events should cancel stale preview deploys.
+  # In particular, merging a PR emits `pull_request.closed`; that run destroys the preview stack and
+  # should stop any still-running deploy for the same PR instead of letting it finish afterward.
+  cancel-in-progress: true
 
 permissions:
   contents: read
