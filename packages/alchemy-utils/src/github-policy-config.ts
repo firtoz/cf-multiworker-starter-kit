@@ -50,8 +50,15 @@ export type GithubRulesetPullRequestParameters = {
 	readonly requireCodeOwnerReview: boolean;
 	readonly requireLastPushApproval: boolean;
 	readonly requiredReviewThreadResolution: boolean;
+	/**
+	 * Approving reviews (from people with **write** access) required before merge.
+	 * Default **0** so a solo maintainer can merge; set **1+** when you want teammates to review.
+	 * Override per branch with **`mainRequiredApprovingReviewCount`** / **`productionRequiredApprovingReviewCount`**.
+	 */
 	readonly sharedRequiredApprovingReviewCount: number;
+	/** Overrides **`sharedRequiredApprovingReviewCount`** for the **main** ruleset only. */
 	readonly mainRequiredApprovingReviewCount?: number;
+	/** Overrides **`sharedRequiredApprovingReviewCount`** for the **production** ruleset only. */
 	readonly productionRequiredApprovingReviewCount?: number;
 };
 
@@ -183,7 +190,7 @@ export const DEFAULT_GITHUB_POLICY: GitHubPolicyConfig = {
 					requireCodeOwnerReview: false,
 					requireLastPushApproval: false,
 					requiredReviewThreadResolution: false,
-					sharedRequiredApprovingReviewCount: 1,
+					sharedRequiredApprovingReviewCount: 0,
 				},
 			},
 		},
