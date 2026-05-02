@@ -82,7 +82,7 @@ bun run github:sync:staging
 - Requires pull requests.
 - Has no admin bypass by default.
 - Blocks force-push.
-- Requires the `Production merge source` status check, which is produced by [`restrict-production-pr-source.yml`](../.github/workflows/restrict-production-pr-source.yml).
+- Requires the `Production merge source` status check, which is produced by [`restrict-production-pr-source.yml`](../.github/workflows/restrict-production-pr-source.yml) on **normal** `pull_request` events (humans / PAT-opened PRs). **PRs opened by Actions using `GITHUB_TOKEN` do not start other workflows**, so [`deploy-staging.yml`](../.github/workflows/deploy-staging.yml) also posts that check via the Checks API after it opens or reuses the **main → production** PR.
 - That workflow only passes when the PR into `production` comes from the configured source branch, default `main`.
 
 ## Common Tweaks

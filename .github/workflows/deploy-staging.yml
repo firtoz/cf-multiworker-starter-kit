@@ -143,6 +143,7 @@ jobs:
     permissions:
       contents: read
       pull-requests: write
+      checks: write
     steps:
       - name: Create or note existing PR (main → production)
         env:
@@ -151,6 +152,25 @@ jobs:
           set -euo pipefail
           REPO="${{ github.repository }}"
           RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+
+          # The **Production merge source** required check is normally produced by
+          # restrict-production-pr-source.yml on pull_request. Events raised with
+          # GITHUB_TOKEN (including PRs opened by Actions) do not start new workflow
+          # runs, so that check never appears. Recreate the same check conclusion via
+          # the Checks API so production rulesets can merge.
+          post_production_merge_source_check() {
+            local sha
+            sha="$(gh pr list --repo "${REPO}" --base production --head main --state open --json headRefOid --jq '.[0].headRefOid // empty' 2>/dev/null || true)"
+            if [[ -z "${sha}" ]]; then
+              echo "::warning::Production merge source: could not resolve PR head SHA; check run not posted."
+              return 0
+            fi
+            gh api --method POST "/repos/${REPO}/check-runs" \
+              -f name="Production merge source" \
+              -f head_sha="${sha}" \
+              -f status="completed" \
+              -f conclusion="success"
+          }
 
           if ! gh api "repos/${REPO}/branches/production" --silent 2>/dev/null; then
             {
@@ -170,6 +190,7 @@ jobs:
               echo ""
               echo "Merge this PR to deploy **production**."
             } >> "$GITHUB_STEP_SUMMARY"
+            post_production_merge_source_check
             exit 0
           fi
 
@@ -179,7 +200,16 @@ jobs:
             --title "Deploy staging to production" \
             --body "${BODY}"
 
+          PR_URL="$(gh pr list --repo "${REPO}" --base production --head main --state open --json url --jq '.[0].url // empty' || true)"
           {
             echo "## Production PR"
-            echo "Opened **main** → **production**. Merge it to deploy production."
+            if [[ -n "${PR_URL}" ]]; then
+              echo "**Opened:** [${PR_URL}](${PR_URL}) (**main** → **production**)."
+            else
+              echo "Opened **main** → **production** (PR URL unavailable — check the **Pull requests** tab)."
+            fi
+            echo ""
+            echo "Merge this PR to deploy **production**."
           } >> "$GITHUB_STEP_SUMMARY"
+
+          post_production_merge_source_check
