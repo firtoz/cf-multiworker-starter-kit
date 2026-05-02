@@ -37,6 +37,7 @@ import path from "node:path";
 import alchemy from "alchemy";
 import { GitHubSecret, RepositoryEnvironment } from "alchemy/github";
 import { parse } from "dotenv";
+import githubPolicy from "../config/github.policy";
 import { resolveStageFromEnv } from "../packages/alchemy-utils/src/deployment-stage";
 import {
 	assertGithubPolicyConfig,
@@ -56,14 +57,13 @@ import {
 	githubActionsEnvironmentFromAlchemyStage,
 } from "./github-admin-target";
 import { GitHubEnvironmentVariable } from "./github-environment-variable";
+import { applyGitHubRepoRulesets } from "./github-repo-rulesets-sync";
 import {
 	type ExplicitRepositoryEnvironmentProtection,
 	explicitRepositoryEnvironmentProtectionFromRules,
 	stagingForkRepositoryEnvironmentProtectionFromRules,
 } from "./github-repository-environment-from-env";
-import { applyGitHubRepoRulesets } from "./github-repo-rulesets-sync";
 import { applyGitHubRepositoryPolicy } from "./github-repository-settings-sync";
-import githubPolicy from "../config/github.policy";
 
 assertGithubPolicyConfig(githubPolicy);
 
@@ -213,7 +213,11 @@ if (scope === "secrets" && githubEnvironment === "staging") {
 	});
 }
 
-if (scope === "secrets" && githubEnvironment === "staging" && shouldApplyGithubRulesets(githubPolicy)) {
+if (
+	scope === "secrets" &&
+	githubEnvironment === "staging" &&
+	shouldApplyGithubRulesets(githubPolicy)
+) {
 	await applyGitHubRepoRulesets({ policy: githubPolicy, owner, repository, token: githubToken });
 }
 
@@ -285,7 +289,9 @@ if (scope === "environment" || updateProtectionOnSecretsSync) {
 	const protection =
 		githubEnvironment === "staging"
 			? explicitRepositoryEnvironmentProtectionFromRules(githubPolicy.github.environments.staging)
-			: explicitRepositoryEnvironmentProtectionFromRules(githubPolicy.github.environments.production);
+			: explicitRepositoryEnvironmentProtectionFromRules(
+					githubPolicy.github.environments.production,
+				);
 	await RepositoryEnvironment(repositoryEnvironmentAlchemyId(githubEnvironment), {
 		owner,
 		repository,

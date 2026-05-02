@@ -9,9 +9,9 @@
  * @see https://docs.github.com/en/rest/repos/repos#update-a-repository
  */
 
+import { Octokit } from "@octokit/rest";
 import type { GitHubPolicyConfig } from "../packages/alchemy-utils/src/github-policy-config";
 import { shouldApplyGithubRepositoryRestPolicy } from "../packages/alchemy-utils/src/github-policy-config";
-import { Octokit } from "@octokit/rest";
 
 export async function applyGitHubRepositoryPolicy(opts: {
 	policy: GitHubPolicyConfig;
