@@ -6,28 +6,28 @@
 import { randomBytes } from "node:crypto";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
+import * as readline from "node:readline";
 import { styleText } from "node:util";
-import {
-	cancel,
-	confirm,
-	intro,
-	isCancel,
-	note,
-	outro,
-	password,
-	select,
-	text,
-} from "@clack/prompts";
+import { confirm, intro, isCancel, note, outro, password, select, text } from "@clack/prompts";
 
 import {
+	ENV_SETUP_CATEGORY_LABEL,
+	ENV_SETUP_CATEGORY_NAV,
+	type EnvSetupCategoryId,
+	type EnvSetupCategoryNavGroup,
 	type EnvSetupMode,
+	envFileKeyLooksSet,
+	isEnvSetupCategoryNavGroup,
 	isOptionalInSetupMode,
 	isRequiredInSetupMode,
 	requirementByKey,
-	setupNavigableKeyOrder,
+	type SetupCategoryGroup,
+	setupCategoryRequiredSatisfied,
+	setupNavigableKeysByCategory,
 } from "alchemy-utils/env-requirements";
 import { ALL_REPO_ENV_REQUIREMENTS } from "./collected-env-requirements";
 import { setupCommandLabelForDotfileRel } from "./github-environment-secrets";
+import { GITHUB_POLICY_HINT_LINES } from "./github-policy-hints";
 
 const root = path.resolve(import.meta.dir, "../../..");
 const argv = process.argv;
@@ -48,14 +48,45 @@ const REQ_BY_KEY = requirementByKey(ALL_REPO_ENV_REQUIREMENTS);
 
 const BACK = "__back__";
 const MAIN_EXIT = "__main_exit__";
+const BACK_TO_CATEGORIES = "__back_to_categories__";
+/** Picks a top-level nav row ({@link ENV_SETUP_CATEGORY_NAV}) — not a leaf category id. */
+const NAV_GROUP_PREFIX = "nav:group:";
+const NAV_LEAF_PREFIX = "nav:leaf:";
 const DOT_ENV_LOCAL = path.join(root, ".env.local");
+
+/** @clack maps Escape and Ctrl+C to the same cancel symbol — use last keypress to tell them apart (prepend listener runs before clack). */
+let lastClackKeyMeta: readline.Key | undefined;
+
+function attachClackKeyMetaCapture(): void {
+	if (!process.stdin.isTTY) {
+		return;
+	}
+	readline.emitKeypressEvents(process.stdin);
+	process.stdin.prependListener("keypress", (_s, key) => {
+		lastClackKeyMeta = key;
+	});
+}
+
+function cancelWasEscape(): boolean {
+	return lastClackKeyMeta?.name === "escape";
+}
+
+function exitSetupFinished(): never {
+	outro("Finished.");
+	process.exit(0);
+}
+
+function exitSetupInterrupted(): never {
+	outro("Interrupted.");
+	process.exit(130);
+}
 
 function requiredKeysForMode(mode: SetupMode): string[] {
 	return ALL_REPO_ENV_REQUIREMENTS.filter((r) => isRequiredInSetupMode(r, mode)).map((r) => r.key);
 }
 
-function navigableKeys(mode: SetupMode): string[] {
-	return setupNavigableKeyOrder(mode, ALL_REPO_ENV_REQUIREMENTS);
+function setupCategoryGroups(mode: SetupMode): SetupCategoryGroup[] {
+	return setupNavigableKeysByCategory(mode, ALL_REPO_ENV_REQUIREMENTS);
 }
 
 function isOptionalSetupKey(key: string, mode: SetupMode): boolean {
@@ -121,7 +152,7 @@ function gen(): string {
 }
 
 function hasValue(envText: string, key: string): boolean {
-	return new RegExp(`^\\s*${key}\\s*=\\s*\\S`, "m").test(envText);
+	return envFileKeyLooksSet(envText, key);
 }
 
 function captureEnvAssignmentLine(raw: string, key: string): string | undefined {
@@ -182,13 +213,127 @@ function rowLabelWhenSet(text: string): string {
 	return `\u001b[22m${styleText("green", text)}\u001b[0m`;
 }
 
+function rowLabelWhenIncomplete(text: string): string {
+	return `\u001b[22m${styleText("yellow", text)}\u001b[0m`;
+}
+
+function emptyKeyDisplayForSetupList(defaultIfUnset: string | undefined): string {
+	if (defaultIfUnset === undefined) {
+		return "(empty)";
+	}
+	return `(empty · default ${defaultIfUnset})`;
+}
+
+function categorySummaryLine(raw: string, group: SetupCategoryGroup, mode: SetupMode): string {
+	const { category, keys } = group;
+	const total = keys.length;
+	const set = keys.filter((k) => hasValue(raw, k)).length;
+	const requiredOk = setupCategoryRequiredSatisfied(raw, mode, ALL_REPO_ENV_REQUIREMENTS, keys);
+	const title = ENV_SETUP_CATEGORY_LABEL[category];
+	const frac = `${set}/${total}`;
+	const line = requiredOk ? `${title} · ${frac}` : `${title} · ${frac} (incomplete)`;
+	return requiredOk ? rowLabelWhenSet(line) : rowLabelWhenIncomplete(line);
+}
+
+function navGroupById(groupId: string): EnvSetupCategoryNavGroup | undefined {
+	for (const root of ENV_SETUP_CATEGORY_NAV) {
+		if (isEnvSetupCategoryNavGroup(root) && root.id === groupId) {
+			return root;
+		}
+	}
+	return undefined;
+}
+
+function navGroupSummaryLine(
+	raw: string,
+	mode: SetupMode,
+	nav: EnvSetupCategoryNavGroup,
+	nested: SetupCategoryGroup[],
+): string {
+	const allKeys = nested.flatMap((g) => g.keys);
+	const total = allKeys.length;
+	const set = allKeys.filter((k) => hasValue(raw, k)).length;
+	const requiredOk = setupCategoryRequiredSatisfied(raw, mode, ALL_REPO_ENV_REQUIREMENTS, allKeys);
+	const title = nav.label;
+	const frac = `${set}/${total}`;
+	const line = requiredOk ? `${title} · ${frac}` : `${title} · ${frac} (incomplete)`;
+	return requiredOk ? rowLabelWhenSet(line) : rowLabelWhenIncomplete(line);
+}
+
+function setupMainCategoryPicks(
+	raw: string,
+	mode: SetupMode,
+	groups: SetupCategoryGroup[],
+): { value: string; label: string }[] {
+	const byCat = new Map(groups.map((g) => [g.category, g] as const));
+	const picks: { value: string; label: string }[] = [];
+	for (const root of ENV_SETUP_CATEGORY_NAV) {
+		if (isEnvSetupCategoryNavGroup(root)) {
+			const childIds = new Set(root.children.map((c) => c.id));
+			const nested = groups.filter((g) => childIds.has(g.category));
+			if (nested.length === 0) {
+				continue;
+			}
+			picks.push({
+				value: `${NAV_GROUP_PREFIX}${root.id}`,
+				label: navGroupSummaryLine(raw, mode, root, nested),
+			});
+		} else {
+			const g = byCat.get(root.id);
+			if (!g) {
+				continue;
+			}
+			picks.push({
+				value: `${NAV_LEAF_PREFIX}${root.id}`,
+				label: categorySummaryLine(raw, g, mode),
+			});
+		}
+	}
+	return picks;
+}
+
+function setupSubCategoryPicks(
+	raw: string,
+	mode: SetupMode,
+	groups: SetupCategoryGroup[],
+	nav: EnvSetupCategoryNavGroup,
+): { value: EnvSetupCategoryId; label: string }[] {
+	const byCat = new Map(groups.map((g) => [g.category, g] as const));
+	const picks: { value: EnvSetupCategoryId; label: string }[] = [];
+	for (const child of nav.children) {
+		const g = byCat.get(child.id as EnvSetupCategoryId);
+		if (!g) {
+			continue;
+		}
+		picks.push({
+			value: child.id as EnvSetupCategoryId,
+			label: categorySummaryLine(raw, g, mode),
+		});
+	}
+	return picks;
+}
+
+function parseMainCategoryPick(
+	value: string,
+): { kind: "group"; groupId: string } | { kind: "leaf"; categoryId: EnvSetupCategoryId } | null {
+	if (value.startsWith(NAV_GROUP_PREFIX)) {
+		return { kind: "group", groupId: value.slice(NAV_GROUP_PREFIX.length) };
+	}
+	if (value.startsWith(NAV_LEAF_PREFIX)) {
+		return { kind: "leaf", categoryId: value.slice(NAV_LEAF_PREFIX.length) as EnvSetupCategoryId };
+	}
+	return null;
+}
+
 function rowLabel(raw: string, key: string, mode: SetupMode): string {
 	const set = hasValue(raw, key);
 	const box = set ? "[x]" : "[ ]";
 	const reqWord = isOptionalSetupKey(key, mode) ? "optional" : "required";
 	if (!isMaskedKey(key)) {
 		const v = captureEnvAssignmentLine(raw, key) ?? "";
-		const show = truncateForList(v || "(empty)", 42);
+		const show = set
+			? truncateForList(v, 42)
+			: truncateForList(emptyKeyDisplayForSetupList(undefined), 72);
 		const line = `${box} ${key} · ${reqWord} · ${show}`;
 		return set ? rowLabelWhenSet(line) : line;
 	}
@@ -196,36 +341,151 @@ function rowLabel(raw: string, key: string, mode: SetupMode): string {
 	return set ? rowLabelWhenSet(line) : line;
 }
 
-/** One screen: every key with state, then « Exit ». */
-async function variableBrowserLoop(file: string, mode: SetupMode, startRaw: string): Promise<void> {
+/**
+ * Nested categories (see {@link ENV_SETUP_CATEGORY_NAV}): top level, optional submenu, then keys.
+ * « Back » returns up one level; exit row leaves the browser.
+ */
+async function variableBrowserLoop(
+	file: string,
+	mode: SetupMode,
+	startRaw: string,
+	exitBrowserReturnsToModeMenu: boolean,
+): Promise<void> {
 	let raw = startRaw;
-	const keys = navigableKeys(mode);
+	const topExitLabel = exitBrowserReturnsToModeMenu ? "« Back · choose environment »" : "« Exit »";
 
 	while (true) {
 		raw = reloadFileRaw(file, raw);
-		const picks = keys.map((k) => ({
-			value: k,
-			label: rowLabel(raw, k, mode),
-		}));
+		const groups = setupCategoryGroups(mode);
+		const catPicks = setupMainCategoryPicks(raw, mode, groups);
 
-		const sel = await select<string | typeof MAIN_EXIT>({
-			message: path.basename(file),
-			options: [...picks, { value: MAIN_EXIT, label: "« Exit »" }],
+		const catSel = await select<string | typeof MAIN_EXIT>({
+			message: `${path.basename(file)} — categories`,
+			options: [...catPicks, { value: MAIN_EXIT, label: topExitLabel }],
 		});
-		if (isCancel(sel)) {
-			cancel("Setup cancelled.");
-			process.exit(0);
+		if (isCancel(catSel)) {
+			if (cancelWasEscape()) {
+				if (exitBrowserReturnsToModeMenu) {
+					return;
+				}
+				outro(existsSync(file) && readFileSync(file, "utf8").trim() ? "Done." : "Nothing saved.");
+				return;
+			}
+			exitSetupInterrupted();
 		}
-		if (sel === MAIN_EXIT) {
+		if (catSel === MAIN_EXIT) {
+			if (exitBrowserReturnsToModeMenu) {
+				return;
+			}
 			outro(existsSync(file) && readFileSync(file, "utf8").trim() ? "Done." : "Nothing saved.");
 			return;
 		}
-		if (!sel) {
+		if (!catSel) {
 			continue;
 		}
-		raw = existsSync(file) ? readFileSync(file, "utf8") : raw;
-		const updated = await editOneVariableInteractive(file, raw, mode, sel);
-		raw = reloadFileRaw(file, updated ?? raw);
+
+		const parsed = parseMainCategoryPick(catSel);
+		if (!parsed) {
+			continue;
+		}
+
+		if (parsed.kind === "leaf") {
+			const group = groups.find((g) => g.category === parsed.categoryId);
+			if (!group) {
+				continue;
+			}
+			while (true) {
+				raw = reloadFileRaw(file, raw);
+				const picks = group.keys.map((k) => ({
+					value: k,
+					label: rowLabel(raw, k, mode),
+				}));
+
+				const keySel = await select<string | typeof BACK_TO_CATEGORIES>({
+					message: ENV_SETUP_CATEGORY_LABEL[group.category],
+					options: [...picks, { value: BACK_TO_CATEGORIES, label: "« Back to categories »" }],
+				});
+				if (isCancel(keySel)) {
+					if (cancelWasEscape()) {
+						break;
+					}
+					exitSetupInterrupted();
+				}
+				if (keySel === BACK_TO_CATEGORIES) {
+					break;
+				}
+				if (!keySel) {
+					continue;
+				}
+				raw = existsSync(file) ? readFileSync(file, "utf8") : raw;
+				const updated = await editOneVariableInteractive(file, raw, mode, keySel);
+				raw = reloadFileRaw(file, updated ?? raw);
+			}
+			continue;
+		}
+
+		const nav = navGroupById(parsed.groupId);
+		if (!nav) {
+			continue;
+		}
+
+		while (true) {
+			raw = reloadFileRaw(file, raw);
+			const subPicks = setupSubCategoryPicks(raw, mode, groups, nav);
+			if (subPicks.length === 0) {
+				break;
+			}
+
+			const subSel = await select<EnvSetupCategoryId | typeof BACK_TO_CATEGORIES>({
+				message: `${path.basename(file)} — ${nav.label}`,
+				options: [...subPicks, { value: BACK_TO_CATEGORIES, label: "« Back · main categories »" }],
+			});
+			if (isCancel(subSel)) {
+				if (cancelWasEscape()) {
+					break;
+				}
+				exitSetupInterrupted();
+			}
+			if (subSel === BACK_TO_CATEGORIES) {
+				break;
+			}
+			if (!subSel) {
+				continue;
+			}
+
+			const group = groups.find((g) => g.category === subSel);
+			if (!group) {
+				continue;
+			}
+
+			while (true) {
+				raw = reloadFileRaw(file, raw);
+				const picks = group.keys.map((k) => ({
+					value: k,
+					label: rowLabel(raw, k, mode),
+				}));
+
+				const keySel = await select<string | typeof BACK_TO_CATEGORIES>({
+					message: ENV_SETUP_CATEGORY_LABEL[group.category],
+					options: [...picks, { value: BACK_TO_CATEGORIES, label: `« Back · ${nav.label} »` }],
+				});
+				if (isCancel(keySel)) {
+					if (cancelWasEscape()) {
+						break;
+					}
+					exitSetupInterrupted();
+				}
+				if (keySel === BACK_TO_CATEGORIES) {
+					break;
+				}
+				if (!keySel) {
+					continue;
+				}
+				raw = existsSync(file) ? readFileSync(file, "utf8") : raw;
+				const updated = await editOneVariableInteractive(file, raw, mode, keySel);
+				raw = reloadFileRaw(file, updated ?? raw);
+			}
+		}
 	}
 }
 
@@ -269,8 +529,14 @@ async function editOneVariableInteractive(
 			message: `${keyTitle(key)} (${key})\n${keyLine(key)}`,
 			options: ops,
 		});
-		if (isCancel(choice) || choice === BACK) {
+		if (choice === BACK) {
 			return raw;
+		}
+		if (isCancel(choice)) {
+			if (cancelWasEscape()) {
+				return raw;
+			}
+			exitSetupInterrupted();
 		}
 
 		let nextRaw = raw;
@@ -309,7 +575,10 @@ async function editOneVariableInteractive(
 					validate: (s) => (s?.trim() ? undefined : "Paste a value (or « Back »)"),
 				});
 				if (isCancel(pw)) {
-					return raw;
+					if (cancelWasEscape()) {
+						return raw;
+					}
+					exitSetupInterrupted();
 				}
 				nextRaw = upsertPlainEnvKv(raw, key, pw.trim());
 			} else {
@@ -319,7 +588,10 @@ async function editOneVariableInteractive(
 					defaultValue: cur,
 				});
 				if (isCancel(ans)) {
-					return raw;
+					if (cancelWasEscape()) {
+						return raw;
+					}
+					exitSetupInterrupted();
 				}
 				nextRaw = upsertPlainEnvKv(raw, key, ans.trim());
 			}
@@ -338,7 +610,10 @@ async function editOneVariableInteractive(
 				initialValue: false,
 			});
 			if (isCancel(okConfirm)) {
-				continue;
+				if (cancelWasEscape()) {
+					continue;
+				}
+				exitSetupInterrupted();
 			}
 			if (okConfirm) {
 				nextRaw = stripEnvKey(raw, key);
@@ -410,13 +685,24 @@ async function chooseSetupModeInteractive(): Promise<SetupMode | null> {
 		],
 		initialValue: "local",
 	});
-	if (isCancel(choice) || !choice) {
+	if (isCancel(choice)) {
+		if (cancelWasEscape()) {
+			return null;
+		}
+		exitSetupInterrupted();
+	}
+	if (!choice) {
 		return null;
 	}
 	return choice;
 }
 
-async function resolveModeAndFile(): Promise<{ mode: SetupMode; file: string } | null> {
+function isModeLockedByCliFlag(): boolean {
+	return isProd || isStaging || isLocalFlag;
+}
+
+/** Dotfile + mode when argv pins the mode, or non-interactive default local — not used for bare `bun run setup`. */
+function resolveLockedModeAndFile(): { mode: SetupMode; file: string } | null {
 	if (isProd) {
 		return { mode: "prod", file: fileForMode("prod") };
 	}
@@ -429,47 +715,102 @@ async function resolveModeAndFile(): Promise<{ mode: SetupMode; file: string } |
 	if (!useInteractivePrompt()) {
 		return { mode: "local", file: fileForMode("local") };
 	}
-	const mode = await chooseSetupModeInteractive();
-	if (mode == null) {
-		return null;
-	}
-	return { mode, file: fileForMode(mode) };
+	return null;
 }
 
-async function interactiveMain(file: string, mode: SetupMode): Promise<void> {
+async function interactiveMain(
+	file: string,
+	mode: SetupMode,
+	options?: { exitBrowserReturnsToModeMenu?: boolean },
+): Promise<void> {
 	const raw = existsSync(file) ? readFileSync(file, "utf8") : "";
 	const rel = path.relative(root, file) || path.basename(file);
 	const setupCli = setupCommandLabelForDotfileRel(rel);
 	const title = `${setupCli} — ${path.basename(file)}`;
 	intro(flagEdit ? `cf-starter · env · ${title}` : `cf-starter · env · ${title}`);
 	if (mode !== "local") {
+		const extra =
+			mode === "staging"
+				? [
+						"",
+						"**Fork PR previews** use GitHub Environment **`staging-fork`**. **`github:sync:staging`** mirrors secrets/vars there. Deployment rules for **`staging`**, **`production`**, and **`staging-fork`** are in **`config/github.policy.ts`** (not this dotfile).",
+						"",
+						...GITHUB_POLICY_HINT_LINES,
+					]
+				: ["", ...GITHUB_POLICY_HINT_LINES];
 		note(
 			[
 				"GitHub sync uses **secrets** for Alchemy password, **`ALCHEMY_STATE_TOKEN`** (Cloudflare-backed deploy state), chatroom secret, and Cloudflare API token.",
 				"**CLOUDFLARE_ACCOUNT_ID** is stored as a GitHub Environment **variable** (`github:sync:*`).",
 				"",
-				"Optional (**bottom** of menu): **`WEB_DOMAINS`**, **`WEB_ROUTES`**, **`WEB_ZONE_ID`**, **`WEB_DOMAIN_OVERRIDE_EXISTING_ORIGIN`** — Workers custom hostnames · see README *Custom domains*.",
+				"**GitHub repo policy** — merge buttons, **repository rulesets**, and Environment deployment protection — is edited in **`config/github.policy.ts`** (TypeScript). It is applied when you run **`bun run github:env:*`** or during **`github:sync:staging`** (repo + rulesets).",
+				"Optional **`GITHUB_SYNC_PUSH_SECRETS`**: omit or leave empty → **`true`** (pushes secrets/vars). Set **`false`** or use **`bun run github:sync:config`** for shells + policy only (**`GITHUB_SYNC_UPDATE_ENVIRONMENT_PROTECTION`** defaults **`false`**; only **`true`** reapplies deployment rules during sync — see **`.env.example`**).",
+				"Optional: **`WEB_DOMAINS`**, **`WEB_ROUTES`**, **`WEB_ZONE_ID`**, **`WEB_DOMAIN_OVERRIDE_EXISTING_ORIGIN`** — Workers custom hostnames · see README *Custom domains*.",
 				"Optional product analytics (**`POSTHOG_*`**) in this file sync as GitHub Environment **variables** (and **`POSTHOG_CLI_TOKEN`** as a **secret**) when you run `github:sync:staging|prod`; deploy workflows pass them into **Turbo**. Leave blank to skip or remove the block from `env.requirements.ts` if you do not want PostHog at all.",
+				...extra,
 				"",
 				`When ready: \`bun run github:sync:${mode === "staging" ? "staging" : "prod"}\` (after \`gh auth login\`).`,
 			].join("\n"),
 			"Deploy keys",
 		);
 	}
-	await variableBrowserLoop(file, mode, raw);
+	await variableBrowserLoop(file, mode, raw, options?.exitBrowserReturnsToModeMenu ?? false);
 }
 
 async function main(): Promise<void> {
-	const resolved = await resolveModeAndFile();
-	if (resolved == null) {
-		cancel("Setup cancelled.");
-		process.exit(0);
+	const interactive = useInteractivePrompt();
+	if (interactive) {
+		attachClackKeyMetaCapture();
 	}
-	const { mode, file } = resolved;
+
+	/** Bare `bun run setup`: loop env picker; exiting the variable browser returns here (no `outro`). */
+	if (interactive && !isModeLockedByCliFlag() && !flagEdit) {
+		while (true) {
+			const mode = await chooseSetupModeInteractive();
+			if (mode == null) {
+				exitSetupFinished();
+			}
+			const file = fileForMode(mode);
+			const body = existsSync(file) ? readFileSync(file, "utf8") : "";
+			const missing = requiredKeysForMode(mode).filter((k) => !hasValue(body, k));
+			if (missing.length > 0) {
+				intro("cf-starter — missing keys");
+				note(
+					[
+						`These keys are not set in ${path.basename(file)}:`,
+						"",
+						...missing.map((k) => `• ${keyTitle(k)} — \`${k}\``),
+						"",
+						"You can generate random values for Alchemy + chatroom secrets from the next screens.",
+					].join("\n"),
+					"Incomplete file",
+				);
+			}
+			await interactiveMain(file, mode, { exitBrowserReturnsToModeMenu: true });
+		}
+	}
+
+	const locked = resolveLockedModeAndFile();
+	if (locked == null) {
+		// `bun run setup --edit` (no `--local` / `--staging` / `--prod`)
+		if (!flagEdit) {
+			exitSetupFinished();
+		}
+		const mode = await chooseSetupModeInteractive();
+		if (mode == null) {
+			exitSetupFinished();
+		}
+		const file = fileForMode(mode);
+		const raw = existsSync(file) ? readFileSync(file, "utf8") : "";
+		intro("cf-starter — update env");
+		await variableBrowserLoop(file, mode, raw, false);
+		return;
+	}
+
+	const { mode, file } = locked;
 	const requiredKeys = requiredKeysForMode(mode);
 	const body = existsSync(file) ? readFileSync(file, "utf8") : "";
 	const missing = requiredKeys.filter((k) => !hasValue(body, k));
-	const interactive = useInteractivePrompt();
 
 	if (!interactive) {
 		if (missing.length > 0) {
@@ -519,7 +860,7 @@ async function main(): Promise<void> {
 	if (flagEdit) {
 		const raw = existsSync(file) ? readFileSync(file, "utf8") : "";
 		intro("cf-starter — update env");
-		await variableBrowserLoop(file, mode, raw);
+		await variableBrowserLoop(file, mode, raw, false);
 		return;
 	}
 

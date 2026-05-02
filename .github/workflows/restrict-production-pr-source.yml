@@ -1,0 +1,35 @@
+# Required (via GitHub **ruleset** → *workflows* rule) when `bun run github:sync:staging` applies the
+# **cf-starter: production** ruleset. The allowed head branch is repo variable **`CF_STARTER_PRODUCTION_PR_HEAD`**
+# (default **main**), set by the admin sync from **`github.repository.rulesets.production.sourceBranchForProductionPrs`** in **`config/github.policy.ts`**.
+
+name: Restrict production PR source
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, edited, ready_for_review]
+    branches: [production]
+
+concurrency:
+  group: restrict-prod-pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  require-expected-head:
+    name: Production merge source
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require configured head branch
+        env:
+          WANT_RAW: ${{ vars.CF_STARTER_PRODUCTION_PR_HEAD }}
+        run: |
+          set -euo pipefail
+          head="${{ github.head_ref }}"
+          want="${WANT_RAW:-}"
+          want="${want:-main}"
+          if [ "$head" != "$want" ]; then
+            echo "::error::Pull requests into \`production\` must use head branch \`$want\` (got: \`$head\`)."
+            exit 1
+          fi

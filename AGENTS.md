@@ -50,4 +50,4 @@ Setup is normally applied via `.cursor/environment.json`.
 
 ## Creating new skills
 
-When a pattern repeats or `AGENTS.md` would grow again, add a skill: [agents/skills/creating-skills/SKILL.md](agents/skills/creating-skills/SKILL.md).
+When a pattern repeats or `AGENTS.md` would grow again, add a skill: [agents/skills/creating-skills/SKILL.md](agents/skills/creating-skills/SKILL.md). **Keep each skill scoped to one kind of task**; if `SKILL.md` blows past ~350 lines or mixes unrelated workflows, split or move depth to `references/` (heuristic in that doc).

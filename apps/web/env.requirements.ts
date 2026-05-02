@@ -10,6 +10,7 @@ import {
 const webHostnameRequirements: readonly EnvRequirement[] = [
 	{
 		key: WEB_DOMAINS_ENV_KEY,
+		setupCategory: "custom-domains",
 		kind: "variable",
 		requiredIn: [],
 		optionalSetupModes: ["staging", "prod"],
@@ -21,6 +22,7 @@ const webHostnameRequirements: readonly EnvRequirement[] = [
 	},
 	{
 		key: WEB_ROUTES_ENV_KEY,
+		setupCategory: "custom-domains",
 		kind: "variable",
 		requiredIn: [],
 		optionalSetupModes: ["staging", "prod"],
@@ -32,6 +34,7 @@ const webHostnameRequirements: readonly EnvRequirement[] = [
 	},
 	{
 		key: WEB_ZONE_ID_ENV_KEY,
+		setupCategory: "custom-domains",
 		kind: "variable",
 		requiredIn: [],
 		optionalSetupModes: ["staging", "prod"],
@@ -43,6 +46,7 @@ const webHostnameRequirements: readonly EnvRequirement[] = [
 	},
 	{
 		key: WEB_DOMAIN_OVERRIDE_EXISTING_ORIGIN_ENV_KEY,
+		setupCategory: "custom-domains",
 		kind: "variable",
 		requiredIn: [],
 		optionalSetupModes: ["staging", "prod"],
@@ -61,6 +65,7 @@ const webHostnameRequirements: readonly EnvRequirement[] = [
 const posthogRequirements: readonly EnvRequirement[] = [
 	{
 		key: "POSTHOG_KEY",
+		setupCategory: "analytics",
 		kind: "variable",
 		requiredIn: [],
 		optionalSetupModes: ["local", "staging", "prod"],
@@ -72,6 +77,7 @@ const posthogRequirements: readonly EnvRequirement[] = [
 	},
 	{
 		key: "POSTHOG_HOST",
+		setupCategory: "analytics",
 		kind: "variable",
 		requiredIn: [],
 		optionalSetupModes: ["local", "staging", "prod"],
@@ -83,6 +89,7 @@ const posthogRequirements: readonly EnvRequirement[] = [
 	},
 	{
 		key: "POSTHOG_CLI_TOKEN",
+		setupCategory: "analytics",
 		kind: "secret",
 		requiredIn: [],
 		optionalSetupModes: ["local", "staging", "prod"],
@@ -93,6 +100,7 @@ const posthogRequirements: readonly EnvRequirement[] = [
 	},
 	{
 		key: "POSTHOG_CLI_ENV_ID",
+		setupCategory: "analytics",
 		kind: "variable",
 		requiredIn: [],
 		optionalSetupModes: ["local", "staging", "prod"],
@@ -104,6 +112,7 @@ const posthogRequirements: readonly EnvRequirement[] = [
 	},
 	{
 		key: "POSTHOG_CLI_HOST",
+		setupCategory: "analytics",
 		kind: "variable",
 		requiredIn: [],
 		optionalSetupModes: ["local", "staging", "prod"],

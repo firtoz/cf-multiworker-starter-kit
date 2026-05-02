@@ -9,9 +9,18 @@ Use this skill when someone is building **their** app on top of this starter kit
 
 **Guard:** If `git remote get-url origin` contains `firtoz/cf-multiworker-starter-kit`, do **not** run this flow unless the user explicitly requests renaming or templating work.
 
-**Note:** Infra naming is **code-first** ([`packages/alchemy-utils/src/worker-peer-scripts.ts`](../../packages/alchemy-utils/src/worker-peer-scripts.ts)): set **`PRODUCT_PREFIX`** once (**`CF_STARTER_APPS`** derives Alchemy **`appId`** values). Package **`deploy`/`destroy`/`dev`** scripts call [`alchemy-cli.ts`](../../packages/alchemy-utils/src/alchemy-cli.ts) with those keys so you do not duplicate **`--app`** strings; keep **`alchemy("…")`** literals in **`alchemy.run.ts`** in sync, then rerun **`bun run typegen`**. No env vars for Worker branding — edit **TypeScript** consistently. Also read [cf-starter-workflow](../cf-starter-workflow/SKILL.md) and [cf-starter-gotchas](../cf-starter-gotchas/SKILL.md).
+**Note — infra naming is code-first**
 
-**Adding** a new Durable Object package or binding workers (after or alongside fork setup): use the focused skills (short checklists, not a single mega-doc)—[cf-durable-object-package](../cf-durable-object-package/SKILL.md) (Alchemy + Hono in `durable-objects/`), [cf-web-alchemy-bindings](../cf-web-alchemy-bindings/SKILL.md) (`cf-starter-web` **`alchemy.run.ts`** and workspace deps), [cf-worker-rpc-turbo](../cf-worker-rpc-turbo/SKILL.md) (`workers/rpc`, Turbo `dev`/`destroy:*`, cyclic **`WorkerStub`/`WorkerRef`** + **`alchemy-utils/worker-peer-scripts`** helpers).
+- Set **`PRODUCT_PREFIX`** once in **[`worker-peer-scripts.ts`](../../packages/alchemy-utils/src/worker-peer-scripts.ts)** (**`CF_STARTER_APPS`** derives each Alchemy **`appId`**).
+- **`deploy` / `destroy` / `dev`** scripts use **[`alchemy-cli.ts`](../../packages/alchemy-utils/src/alchemy-cli.ts)** with those keys — don’t duplicate **`--app`** strings by hand.
+- Keep **`await alchemy("…")`** literals in each **`alchemy.run.ts`** aligned with that table, then **`bun run typegen`**.
+- Worker branding lives in **TypeScript**, not env vars. See [cf-starter-workflow](../cf-starter-workflow/SKILL.md) and [cf-starter-gotchas](../cf-starter-gotchas/SKILL.md).
+
+**Adding** a DO package or worker binding after fork setup — use the small focused skills, not one giant doc:
+
+- [cf-durable-object-package](../cf-durable-object-package/SKILL.md) — **`durable-objects/*`**, Alchemy + Hono.
+- [cf-web-alchemy-bindings](../cf-web-alchemy-bindings/SKILL.md) — web **`alchemy.run.ts`**, workspace deps.
+- [cf-worker-rpc-turbo](../cf-worker-rpc-turbo/SKILL.md) — **`workers/rpc`**, Turbo **`dev` / `destroy:*`**, cyclic **`WorkerStub` / `WorkerRef`**.
 
 ## 1. Gather information
 
@@ -25,7 +34,9 @@ Ask the user (or infer from context):
 
 ## 2. Code-first Alchemy ids and Workers
 
-Every deployable **`alchemy.run.ts`** owns one **`await alchemy(<appId>, { … })`** from **`STAGE`** in **`package.json`** scripts (**`dotenv-cli -v STAGE=…`** or CI). **`alchemy("…")`** must match **`CF_STARTER_APPS`** for that package (**`CF_STARTER_APPS.frontend`**, **`chatroom`**, …); **`package.json`** resolves **`alchemy dev|deploy|destroy --app …`** via **`alchemy-cli.ts`** with the same keys (no separate **`--app`** literals to drift).
+- Each deployable **`alchemy.run.ts`** has one **`await alchemy(<appId>, { … })`**; **`STAGE`** comes from **`package.json`** scripts (**`dotenv-cli -v STAGE=…`** or CI).
+- **`alchemy("…")`** must match **`CF_STARTER_APPS`** for that package (**`frontend`**, **`chatroom`**, …).
+- **`alchemy-cli.ts`** resolves **`alchemy dev|deploy|destroy --app …`** from the **same** keys — avoid extra hard-coded **`--app`** strings that can drift.
 
 ### Where **`PRODUCT_PREFIX`** drives ids
 

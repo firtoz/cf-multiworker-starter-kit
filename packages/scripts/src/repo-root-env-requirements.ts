@@ -3,11 +3,15 @@ import type { EnvRequirement } from "alchemy-utils/env-requirements";
 /**
  * Repo-wide env (not owned by a single app package). See `apps/web/env.requirements.ts` for web-only keys.
  *
+ * **GitHub repo policy** (Environment rules, rulesets, merge settings) lives in
+ * **`config/github.policy.ts`** — not here.
+ *
  * `CF_STARTER_DEPLOY_ENABLED` is handled specially in `github-environment-secrets.ts` (optional in dotfile; sync defaults to `"true"`).
  */
 export const REPO_ROOT_ENV_REQUIREMENTS: readonly EnvRequirement[] = [
 	{
 		key: "ALCHEMY_PASSWORD",
+		setupCategory: "alchemy-chatroom",
 		kind: "secret",
 		requiredIn: ["local", "staging", "prod"],
 		githubSync: "required",
@@ -18,6 +22,7 @@ export const REPO_ROOT_ENV_REQUIREMENTS: readonly EnvRequirement[] = [
 	},
 	{
 		key: "ALCHEMY_STATE_TOKEN",
+		setupCategory: "alchemy-chatroom",
 		kind: "secret",
 		requiredIn: ["staging", "prod"],
 		optionalSetupModes: [],
@@ -29,6 +34,7 @@ export const REPO_ROOT_ENV_REQUIREMENTS: readonly EnvRequirement[] = [
 	},
 	{
 		key: "CHATROOM_INTERNAL_SECRET",
+		setupCategory: "alchemy-chatroom",
 		kind: "secret",
 		requiredIn: ["local", "staging", "prod"],
 		githubSync: "required",
@@ -38,6 +44,7 @@ export const REPO_ROOT_ENV_REQUIREMENTS: readonly EnvRequirement[] = [
 	},
 	{
 		key: "CLOUDFLARE_API_TOKEN",
+		setupCategory: "cloudflare",
 		kind: "secret",
 		requiredIn: ["staging", "prod"],
 		optionalSetupModes: [],
@@ -47,12 +54,25 @@ export const REPO_ROOT_ENV_REQUIREMENTS: readonly EnvRequirement[] = [
 	},
 	{
 		key: "CLOUDFLARE_ACCOUNT_ID",
+		setupCategory: "cloudflare",
 		kind: "variable",
 		requiredIn: ["staging", "prod"],
 		optionalSetupModes: [],
 		githubSync: "required",
 		title: "Cloudflare account ID",
 		description: "Dashboard → account / Workers overview (synced as a GitHub Environment variable)",
+		plaintextInSetup: true,
+	},
+	{
+		key: "GITHUB_SYNC_PUSH_SECRETS",
+		setupCategory: "github-sync-cli",
+		kind: "variable",
+		requiredIn: [],
+		optionalSetupModes: ["staging", "prod"],
+		githubSync: "never",
+		title: "GitHub sync — push secrets & Environment variables",
+		description:
+			"**Optional.** **`true`** / **`false`**. **Default when unset, empty, or whitespace:** **`true`** (same as omitting the key)—**`github:sync:*`** uploads GitHub **secrets** and Environment **variables** and requires a complete stage dotfile. Accepted truthy strings (case-insensitive): **`true`**, **`1`**, **`yes`**, **`on`**. Falsy: **`false`**, **`0`**, **`no`**, **`off`**—then sync still updates **RepositoryEnvironment** shells and staging repo / ruleset policy from **`config/github.policy.ts`** but **does not** upload secrets or variables; dotfile optional. Other values error. Prefer **`bun run github:sync:config`** / **`github:sync:config:*`** (same as **`false`** without relying on this key).",
 		plaintextInSetup: true,
 	},
 ];

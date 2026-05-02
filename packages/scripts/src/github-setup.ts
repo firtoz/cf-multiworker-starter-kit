@@ -4,6 +4,8 @@
  */
 import { cancel, intro, isCancel, note, outro, select } from "@clack/prompts";
 
+import { GITHUB_POLICY_HINT_LINES } from "./github-policy-hints";
+
 const argv = process.argv;
 const stagingOnly = argv.includes("--staging");
 const prodOnly = argv.includes("--prod");
@@ -16,15 +18,22 @@ async function main() {
 			[
 				"**Staging / PR previews** use GitHub Environment `staging` and repo-root `.env.staging`.",
 				"",
-				"1. `gh auth login` (repo scope).",
-				"2. `bun run setup:staging` — fill Alchemy, chatroom, and Cloudflare keys.",
-				"3. `bun run github:sync:staging` — creates/updates the environment; upserts **secrets** + **variables** (incl. `CF_STARTER_DEPLOY_ENABLED`, default `true`).",
+				"1. Create a Cloudflare **API token** + copy **Account ID** (see README **Cloudflare credentials (manual)**).",
+				"2. `gh auth login` (repo scope).",
+				"3. `bun run onboard:staging` — verifies the above, fills missing generated keys (`setup:staging --yes`), runs `github:sync:staging`.",
 				"",
+				"**Same steps without the wrapper:** `bun run setup:staging` then `bun run github:sync:staging`.",
+				"",
+				"**Deployment rules only (no new secrets/variables on GitHub):** after **`gh auth login`**, **`bun run github:env:staging`** — applies **`RepositoryEnvironment`** from **`config/github.policy.ts`** (merges **`.env.staging`** if present for other local env).",
 				"PR preview workflows reuse **staging** secrets; each preview uses `STAGE=pr-<number>` in CI only.",
+				"",
+				...GITHUB_POLICY_HINT_LINES,
 			].join("\n"),
 			"github:setup:staging",
 		);
-		outro("When `.env.staging` is ready, run `bun run github:sync:staging` from the repo root.");
+		outro(
+			"Prefer **`bun run onboard:staging`** from the repo root (rerunnable). README → **Lane B — Staging**.",
+		);
 		return;
 	}
 
@@ -33,15 +42,21 @@ async function main() {
 			[
 				"**Production** uses GitHub Environment `production` and repo-root `.env.production`.",
 				"",
-				"1. `gh auth login` (repo scope).",
-				"2. `bun run setup:prod` — fill all deploy keys.",
-				"3. `bun run github:sync:prod` — syncs **secrets** + **variables** (incl. `CF_STARTER_DEPLOY_ENABLED`) to **production**.",
+				"1. Create Cloudflare **API token** + **Account ID** for production (often the same as staging — see README).",
+				"2. `gh auth login` (repo scope).",
+				"3. `bun run onboard:prod` — `setup:prod --yes`, `github:sync:prod`, sets repo variable **`CF_STARTER_AUTO_PRODUCTION_PR=true`** for optional **main → production** PRs after successful staging deploys.",
 				"",
+				"**Same steps without the wrapper:** `bun run setup:prod` then `bun run github:sync:prod` (you can set **`CF_STARTER_AUTO_PRODUCTION_PR`** yourself with `gh variable set`).",
+				"**Deployment rules only:** `bun run github:env:prod` — same **`config/github.policy.ts`** for **`production`** (merges **`.env.production`** if present). Tune policy in your editor; run **`bun run typecheck:root`** after edits.",
 				"Production deploys run on pushes to branch `production` (see `.github/workflows/deploy-production.yml`).",
+				"",
+				...GITHUB_POLICY_HINT_LINES,
 			].join("\n"),
 			"github:setup:prod",
 		);
-		outro("When `.env.production` is ready, run `bun run github:sync:prod` from the repo root.");
+		outro(
+			"Prefer **`bun run onboard:prod`** from the repo root. README → **Lane C — Production**.",
+		);
 		return;
 	}
 
@@ -64,12 +79,16 @@ async function main() {
 	if (scope === "doc") {
 		note(
 			[
-				"**Local dev (no GitHub needed):** `bun run setup` / `setup:local` → default **.env.local**.",
+				"**Local dev:** `bun run quickstart` (or `setup:local` / `bun run dev`).",
 				"",
-				"**Staging:** `bun run setup:staging` then `bun run github:sync:staging`",
-				"**Production:** `bun run setup:prod` then `bun run github:sync:prod`",
+				"**Staging:** `bun run onboard:staging` (or `setup:staging` then `github:sync:staging`)",
+				"**Production:** `bun run onboard:prod` (or `setup:prod` then `github:sync:prod`)",
+				"**Repo + Environment shells only (no secrets/variables on GitHub):** `bun run github:sync:config` or `GITHUB_SYNC_PUSH_SECRETS=false` with `github:sync:*`",
+				"**Deployment rules only:** `bun run github:env:staging` / `github:env:prod`, or **`github:env`** — updates **`RepositoryEnvironment`** from **`config/github.policy.ts`** (stage dotfile optional). Does not push secrets or GitHub Environment variables.",
 				"",
-				"Fresh forks: deploy workflows stay **green** until you set variable `CF_STARTER_DEPLOY_ENABLED=true` on each GitHub Environment (`staging` / `production`). The admin stack sets that when you run `github:sync:*`.",
+				...GITHUB_POLICY_HINT_LINES,
+				"",
+				"Fresh forks: deploy workflows stay **green** until you set variable `CF_STARTER_DEPLOY_ENABLED=true` on each GitHub Environment (`staging` / **`staging-fork`** / `production`). The admin stack sets that when you run **`github:sync`** / **`github:sync:*`** (`staging` + **`staging-fork`** mirror from **`github:sync:staging`**).",
 			].join("\n"),
 			"Command reference",
 		);
@@ -81,7 +100,7 @@ async function main() {
 		note(
 			[
 				"**Staging** — `.env.staging` + GitHub Environment `staging`.",
-				"`bun run setup:staging` then `bun run github:sync:staging`",
+				"`bun run onboard:staging`",
 			].join("\n"),
 			"Step A",
 		);
@@ -91,7 +110,7 @@ async function main() {
 		note(
 			[
 				"**Production** — `.env.production` + GitHub Environment `production`.",
-				"`bun run setup:prod` then `bun run github:sync:prod`",
+				"`bun run onboard:prod`",
 			].join("\n"),
 			scope === "both" ? "Step B" : "Step",
 		);
@@ -107,7 +126,7 @@ async function main() {
 	}
 
 	outro(
-		"Run the `setup:*` and `github:sync:*` commands above when ready. Until then, CI quality jobs still pass.",
+		"Run **`bun run onboard:staging`** / **`onboard:prod`** when ready (or the manual `setup:*` + `github:sync:*` pairs). Until then, CI quality jobs still pass.",
 	);
 }
 

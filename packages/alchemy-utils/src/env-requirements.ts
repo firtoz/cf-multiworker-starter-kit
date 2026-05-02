@@ -5,11 +5,105 @@
 
 export type EnvSetupMode = "local" | "staging" | "prod";
 
+/** Leaf row: {@link EnvRequirement.setupCategory} matches {@link EnvSetupCategoryLeaf.id}. */
+export type EnvSetupCategoryLeaf = {
+	readonly id: string;
+	readonly label: string;
+	readonly description: string;
+};
+
+/** Non-leaf folder in the setup category browser (groups {@link EnvSetupCategoryLeaf} rows). */
+export type EnvSetupCategoryNavGroup = {
+	readonly id: string;
+	readonly label: string;
+	readonly description: string;
+	readonly children: readonly EnvSetupCategoryLeaf[];
+};
+
+/** Top-level entry in {@link ENV_SETUP_CATEGORY_NAV}: either a leaf or a folder. */
+export type EnvSetupNavRoot = EnvSetupCategoryLeaf | EnvSetupCategoryNavGroup;
+
+export function isEnvSetupCategoryNavGroup(n: EnvSetupNavRoot): n is EnvSetupCategoryNavGroup {
+	return "children" in n;
+}
+
+type LeafIdFromNav<R extends EnvSetupNavRoot> = R extends EnvSetupCategoryNavGroup
+	? R["children"][number]["id"]
+	: R extends EnvSetupCategoryLeaf
+		? R["id"]
+		: never;
+
+/**
+ * Nested `setup:*` category browser — top-level order follows this array; groups expand to submenus.
+ * Each {@link EnvRequirement.setupCategory} must match some leaf `id` (see {@link EnvSetupCategoryId}).
+ */
+export const ENV_SETUP_CATEGORY_NAV = [
+	{
+		id: "alchemy-chatroom",
+		label: "Alchemy & chatroom",
+		description:
+			"Alchemy password, cloud state token, and the chatroom durable-object internal secret.",
+	},
+	{
+		id: "cloudflare",
+		label: "Cloudflare",
+		description: "API token and account ID for Workers, D1, and related resources.",
+	},
+	{
+		id: "github-sync-cli",
+		label: "GitHub admin CLI",
+		description:
+			"Optional **`GITHUB_SYNC_PUSH_SECRETS`**: unset or empty = **`true`**. Repo + Environment policy is **`config/github.policy.ts`** (edit in your editor, not here). See **`.env.example`** / README table for all sync defaults.",
+	},
+	{
+		id: "custom-domains",
+		label: "Custom domains (`WEB_*`)",
+		description: "Optional custom hostnames, routes, and zone binding for the web worker.",
+	},
+	{
+		id: "analytics",
+		label: "PostHog & analytics",
+		description: "Optional PostHog keys and CLI settings for product analytics and source maps.",
+	},
+] as const satisfies readonly EnvSetupNavRoot[];
+
+/** Leaf category id — inferred from {@link ENV_SETUP_CATEGORY_NAV}. */
+export type EnvSetupCategoryId = LeafIdFromNav<(typeof ENV_SETUP_CATEGORY_NAV)[number]>;
+
+function flattenEnvSetupLeafRows(): EnvSetupCategoryLeaf[] {
+	const out: EnvSetupCategoryLeaf[] = [];
+	for (const root of ENV_SETUP_CATEGORY_NAV) {
+		if (isEnvSetupCategoryNavGroup(root)) {
+			out.push(...root.children);
+		} else {
+			out.push(root);
+		}
+	}
+	return out;
+}
+
+/** Top-level declaration order of leaf categories (depth-first). */
+function setupCategoryLeafIdsInOrder(): EnvSetupCategoryId[] {
+	return flattenEnvSetupLeafRows().map((r) => r.id) as EnvSetupCategoryId[];
+}
+
+/** Short titles for setup prompts (per leaf id). */
+export const ENV_SETUP_CATEGORY_LABEL = Object.fromEntries(
+	flattenEnvSetupLeafRows().map((c) => [c.id, c.label] as const),
+) as Record<EnvSetupCategoryId, string>;
+
+/** Longer blurbs for tooltips or docs (per leaf id). */
+export const ENV_SETUP_CATEGORY_DESCRIPTION = Object.fromEntries(
+	flattenEnvSetupLeafRows().map((c) => [c.id, c.description] as const),
+) as Record<EnvSetupCategoryId, string>;
+
 /** How a key is mirrored to GitHub Environments by `stacks/admin.ts`. */
 export type GitHubSyncPolicy = "required" | "optional" | "never";
 
 export type EnvRequirement = {
 	readonly key: string;
+	/** Subgroup in **`bun run setup:*`** (drives category submenus). */
+	readonly setupCategory: EnvSetupCategoryId;
 	readonly kind: "secret" | "variable";
 	/** Modes where this key must be non-empty (setup + deploy preflight where applicable). */
 	readonly requiredIn: readonly EnvSetupMode[];
@@ -64,6 +158,59 @@ export function setupNavigableKeyOrder(
 		(r) => isOptionalInSetupMode(r, mode) && !isRequiredInSetupMode(r, mode),
 	);
 	return [...required, ...optional].map((r) => r.key);
+}
+
+/** `KEY=value` line has a non-whitespace value (same rule as setup scripts). */
+export function envFileKeyLooksSet(raw: string, key: string): boolean {
+	return new RegExp(`^\\s*${key}\\s*=\\s*\\S`, "m").test(raw);
+}
+
+export type SetupCategoryGroup = { category: EnvSetupCategoryId; keys: string[] };
+
+export function setupNavigableKeysByCategory(
+	mode: EnvSetupMode,
+	requirements: readonly EnvRequirement[],
+): SetupCategoryGroup[] {
+	const orderedKeys = setupNavigableKeyOrder(mode, requirements);
+	const map = requirementByKey(requirements);
+	const byCat = new Map<EnvSetupCategoryId, string[]>();
+	for (const k of orderedKeys) {
+		const req = map.get(k);
+		if (!req) {
+			continue;
+		}
+		const cat = req.setupCategory;
+		const list = byCat.get(cat);
+		if (list) {
+			list.push(k);
+		} else {
+			byCat.set(cat, [k]);
+		}
+	}
+	return setupCategoryLeafIdsInOrder().flatMap((id) => {
+		const keys = byCat.get(id);
+		return keys?.length ? [{ category: id, keys }] : [];
+	});
+}
+
+/** True when every key in the category that is **required** for `mode` has a non-empty value in `raw`. */
+export function setupCategoryRequiredSatisfied(
+	raw: string,
+	mode: EnvSetupMode,
+	requirements: readonly EnvRequirement[],
+	categoryKeys: readonly string[],
+): boolean {
+	const map = requirementByKey(requirements);
+	for (const k of categoryKeys) {
+		const req = map.get(k);
+		if (!req || !isRequiredInSetupMode(req, mode)) {
+			continue;
+		}
+		if (!envFileKeyLooksSet(raw, k)) {
+			return false;
+		}
+	}
+	return true;
 }
 
 export function requirementByKey(

@@ -1,10 +1,14 @@
-# PR preview deploy and teardown for same-repo workflows.
+# PR preview deploy and teardown.
 #
 # Security notes:
 # - Workflow definitions run from default branch YAML; malicious PR edits here do not run until merged.
-# - Deploy steps checkout the PR HEAD and execute `bun install` etc., so compromised PR branches can run
-#   arbitrary code once an approved collaborator enables deploy. Preview/staging secrets should stay
-#   narrowly scoped Cloudflare tokens. Enable reviewers on GitHub Environment "staging" for extra friction.
+# - Deploy steps checkout the PR HEAD and execute `bun install` etc., so untrusted code runs only after a
+#   maintainer approves the **`staging-fork`** environment deployment when the PR is from a fork.
+# - **Same-repo** PRs (branch on this repository) use **`staging`** so you can leave that environment open for
+#   fast previews; **fork** PRs use **`staging-fork`** — **`github:sync:staging`** applies **required reviewers** there
+#   per **`github.environments.stagingFork`** in **`config/github.policy.ts`** (see `stacks/github-repository-environment-from-env.ts`).
+#   `github:sync:staging` mirrors secrets/vars to both (`packages/scripts/src/github-pr-preview-fork-policy.ts`).
+# - Preview secrets should stay narrowly scoped Cloudflare tokens.
 
 name: PR preview
 
@@ -23,94 +27,12 @@ permissions:
   issues: write
 
 jobs:
-  # Runs before any staging secrets — requires an APPROVED review from a collaborator with push access
-  # who is not the PR author (latest submission per reviewer).
-  preview_approval_gate:
-    name: PR preview approval gate
-    if: github.event.action != 'closed'
-    runs-on: ubuntu-latest
-    steps:
-      - name: Require collaborator approval from non-author
-        uses: actions/github-script@v7
-        env:
-          PR_AUTHOR_LOGIN: ${{ github.event.pull_request.user.login }}
-          PR_AUTHOR_ID: ${{ github.event.pull_request.user.id }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-        with:
-          script: |
-            const prNumber = Number(process.env.PR_NUMBER);
-            const authorLogin = process.env.PR_AUTHOR_LOGIN.trim();
-            const authorId = Number(process.env.PR_AUTHOR_ID);
-            const owner = context.repo.owner;
-            const repo = context.repo.repo;
-
-            /** @typedef {{ user: import("@octokit/types").components["schemas"]["simple-user"]; state: string; submitted_at?: string|null; id?: number }} Review */
-            const all = [];
-            for (let page = 1; ; page++) {
-              const { data } = await github.rest.pulls.listReviews({
-                owner,
-                repo,
-                pull_number: prNumber,
-                per_page: 100,
-                page,
-              });
-              if (data.length === 0) break;
-              all.push(...data);
-              if (data.length < 100) break;
-            }
-
-            const latestPerUserId = new Map();
-            /** @type {Review[]} */
-            const sorted = all.slice().sort((a, b) => (a.id ?? 0) - (b.id ?? 0));
-            for (const r of sorted) {
-              latestPerUserId.set(r.user.id, r);
-            }
-
-            /** @returns {Promise<"pull"|"maintain"|"admin"|"triage"|"none"|"unknown">} */
-            async function effectivePermission(login) {
-              const perm = (
-                await github.rest.repos.getCollaboratorPermissionLevel({
-                  owner,
-                  repo,
-                  username: login,
-                })
-              ).data.permission;
-              return perm ?? "unknown";
-            }
-
-            for (const r of latestPerUserId.values()) {
-              if (r.state !== "APPROVED" || !r.user) continue;
-              if (r.user.id === authorId) continue;
-              if (["bot", "Bot"].includes(r.user.type ?? "")) continue;
-
-              let permLevel;
-              try {
-                permLevel = await effectivePermission(r.user.login);
-              } catch (_) {
-                continue;
-              }
-
-              const ok =
-                permLevel === "admin" ||
-                permLevel === "maintain" ||
-                permLevel === "push"; // collaborator with write maps to GitHub REST "push"
-              if (!ok) continue;
-
-              core.info(
-                `Preview deploy allowed — approved by ${r.user.login} (${permLevel}); author ${authorLogin} excluded.`,
-              );
-              return;
-            }
-
-            core.setFailed(
-              "PR preview deploy is blocked until a repo collaborator with write access (who is not the PR author) approves this PR in a review.",
-            );
-
   destroy_preview:
     name: Destroy PR preview
     if: github.event.action == 'closed'
     runs-on: ubuntu-latest
-    environment: staging
+    # Same-repo branch PRs → `staging`; fork PRs → `staging-fork` (see github-pr-preview-fork-policy.ts).
+    environment: ${{ github.event.pull_request.head.repo.full_name == github.repository && 'staging' || 'staging-fork' }}
     steps:
       # Use base branch HEAD so teardown does not run package.json/scripts from an untrusted PR branch.
       - uses: actions/checkout@v6
@@ -182,10 +104,9 @@ jobs:
 
   deploy_preview:
     name: Deploy PR preview
-    needs: preview_approval_gate
     if: github.event.action != 'closed'
     runs-on: ubuntu-latest
-    environment: staging
+    environment: ${{ github.event.pull_request.head.repo.full_name == github.repository && 'staging' || 'staging-fork' }}
 
     outputs:
       web_url: ${{ steps.preview_outputs.outputs.web_url }}
@@ -327,12 +248,10 @@ jobs:
 
   post_preview_comment:
     name: PR preview bot comment
-    needs: [preview_approval_gate, deploy_preview]
+    needs: [deploy_preview]
     if: >-
       always()
       && github.event.action != 'closed'
-      && needs.preview_approval_gate.result == 'success'
-      && github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     steps:
       - name: Upsert preview comment on PR
