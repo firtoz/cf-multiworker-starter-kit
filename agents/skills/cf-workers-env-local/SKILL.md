@@ -32,7 +32,7 @@ description: Alchemy + env files — repo-root `.env.local` (dev), `.env.staging
 
 Verify **Account ID** against **Workers & Pages** in the dashboard (account-level details / URL context) when creating the token, and restrict the token to **that** account under **Account Resources**. Keep **`.env.staging`** / **`.env.production`**, **GitHub Environment** values, and **local** dotfiles **pair-wise** consistent for each stage.
 
-**GitHub Actions:** store **`CLOUDFLARE_ACCOUNT_ID`** as an Environment **variable** (plaintext), not a Secret — it is account metadata, not an auth credential. **`CLOUDFLARE_API_TOKEN`** stays a Secret. **`github:sync`** / **`github:sync:*`** already upserts the account id as a variable.
+**GitHub Actions:** store **`CLOUDFLARE_ACCOUNT_ID`** as an Environment **variable** (plaintext), not a Secret — it is account metadata, not an auth credential. **`CLOUDFLARE_API_TOKEN`** stays a Secret. **`github:sync`** / **`github:sync:*`** already upserts the account id as a variable. **Fork PR previews** stay off unless the **repository** Actions variable **`CF_STARTER_ALLOW_PREVIEW_FOR_FORK_PRS=true`** is set (see README security table).
 
 ## Typical layout
 

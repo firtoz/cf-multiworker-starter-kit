@@ -47,6 +47,7 @@ The generator and post-steps (root `dev` filter, web bindings, `turbo` destroy, 
 - **`bun run github:sync`** — Runs **`github:sync:staging`** then **`github:sync:prod`** (both dotfiles must exist).
 - **`bun run github:env:staging`** / **`github:env:prod`** — Same **`stacks/admin.ts`** with **`GITHUB_SYNC_SCOPE=environment`**: **only** **`RepositoryEnvironment`** (no dotfile, no secrets, no variables). Requires **`GITHUB_SYNC_ENVIRONMENT_ONLY_CONFIRM=true`** and every **`GITHUB_ENV_*`** key.
 - **`bun run github:env`** — Runs **`github:env:staging`** then **`github:env:prod`** (same **`GITHUB_ENV_*`** / confirm for both GitHub environments).
+- **PR preview** (`.github/workflows/deploy-pr-preview.yml`): fork PRs skip deploy/destroy preview unless **repository** variable **`CF_STARTER_ALLOW_PREVIEW_FOR_FORK_PRS=true`** (Actions → Variables). Same-repo PRs use **`staging`** deployment approval as today.
 - **`bun run destroy:prod`** / **`destroy:staging`** / **`destroy:preview`** — Matching Turbo **`destroy:*`** graphs; order follows package config (web before dependents where set).
 
 ## Pull requests

@@ -3,8 +3,9 @@
 # Security notes:
 # - Workflow definitions run from default branch YAML; malicious PR edits here do not run until merged.
 # - Deploy steps checkout the PR HEAD and execute `bun install` etc., so compromised PR branches can run
-#   arbitrary code once an approved collaborator enables deploy. Preview/staging secrets should stay
-#   narrowly scoped Cloudflare tokens. Enable reviewers on GitHub Environment "staging" for extra friction.
+#   arbitrary code once a maintainer approves the **staging** environment deployment in Actions.
+# - Fork PRs are blocked unless repository variable `CF_STARTER_ALLOW_PREVIEW_FOR_FORK_PRS=true` (default off).
+# - Preview/staging secrets should stay narrowly scoped Cloudflare tokens.
 
 name: PR preview
 
@@ -23,88 +24,31 @@ permissions:
   issues: write
 
 jobs:
-  # Runs before any staging secrets — requires an APPROVED review from a collaborator with push access
-  # who is not the PR author (latest submission per reviewer).
-  preview_approval_gate:
-    name: PR preview approval gate
+  # Same-repo PRs always pass. Fork PRs require repo variable CF_STARTER_ALLOW_PREVIEW_FOR_FORK_PRS=true
+  # (repository Actions variables — not the staging Environment) so untrusted branches do not deploy by default.
+  preview_policy_gate:
+    name: PR preview policy (fork gate)
     if: github.event.action != 'closed'
     runs-on: ubuntu-latest
     steps:
-      - name: Require collaborator approval from non-author
-        uses: actions/github-script@v7
+      - name: Enforce fork PR preview policy
         env:
-          PR_AUTHOR_LOGIN: ${{ github.event.pull_request.user.login }}
-          PR_AUTHOR_ID: ${{ github.event.pull_request.user.id }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-        with:
-          script: |
-            const prNumber = Number(process.env.PR_NUMBER);
-            const authorLogin = process.env.PR_AUTHOR_LOGIN.trim();
-            const authorId = Number(process.env.PR_AUTHOR_ID);
-            const owner = context.repo.owner;
-            const repo = context.repo.repo;
-
-            /** @typedef {{ user: import("@octokit/types").components["schemas"]["simple-user"]; state: string; submitted_at?: string|null; id?: number }} Review */
-            const all = [];
-            for (let page = 1; ; page++) {
-              const { data } = await github.rest.pulls.listReviews({
-                owner,
-                repo,
-                pull_number: prNumber,
-                per_page: 100,
-                page,
-              });
-              if (data.length === 0) break;
-              all.push(...data);
-              if (data.length < 100) break;
-            }
-
-            const latestPerUserId = new Map();
-            /** @type {Review[]} */
-            const sorted = all.slice().sort((a, b) => (a.id ?? 0) - (b.id ?? 0));
-            for (const r of sorted) {
-              latestPerUserId.set(r.user.id, r);
-            }
-
-            /** @returns {Promise<"pull"|"maintain"|"admin"|"triage"|"none"|"unknown">} */
-            async function effectivePermission(login) {
-              const perm = (
-                await github.rest.repos.getCollaboratorPermissionLevel({
-                  owner,
-                  repo,
-                  username: login,
-                })
-              ).data.permission;
-              return perm ?? "unknown";
-            }
-
-            for (const r of latestPerUserId.values()) {
-              if (r.state !== "APPROVED" || !r.user) continue;
-              if (r.user.id === authorId) continue;
-              if (["bot", "Bot"].includes(r.user.type ?? "")) continue;
-
-              let permLevel;
-              try {
-                permLevel = await effectivePermission(r.user.login);
-              } catch (_) {
-                continue;
-              }
-
-              const ok =
-                permLevel === "admin" ||
-                permLevel === "maintain" ||
-                permLevel === "push"; // collaborator with write maps to GitHub REST "push"
-              if (!ok) continue;
-
-              core.info(
-                `Preview deploy allowed — approved by ${r.user.login} (${permLevel}); author ${authorLogin} excluded.`,
-              );
-              return;
-            }
-
-            core.setFailed(
-              "PR preview deploy is blocked until a repo collaborator with write access (who is not the PR author) approves this PR in a review.",
-            );
+          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          BASE_REPO: ${{ github.repository }}
+          FORK_PREVIEW_ALLOWED: ${{ vars.CF_STARTER_ALLOW_PREVIEW_FOR_FORK_PRS }}
+        run: |
+          set -euo pipefail
+          if [[ "$HEAD_REPO" == "$BASE_REPO" ]]; then
+            echo "Same-repo PR — fork policy satisfied."
+            exit 0
+          fi
+          v=$(echo "${FORK_PREVIEW_ALLOWED:-}" | tr '[:upper:]' '[:lower:]')
+          if [[ "$v" == "true" ]]; then
+            echo "Fork PR preview allowed (repository variable CF_STARTER_ALLOW_PREVIEW_FOR_FORK_PRS=true)."
+            exit 0
+          fi
+          echo '::error::PR preview deploy is disabled for fork PRs (untrusted code on pull_request). A maintainer can set repository Actions variable CF_STARTER_ALLOW_PREVIEW_FOR_FORK_PRS=true to opt in, or open the PR from a branch on this repository.'
+          exit 1
 
   destroy_preview:
     name: Destroy PR preview
@@ -182,7 +126,7 @@ jobs:
 
   deploy_preview:
     name: Deploy PR preview
-    needs: preview_approval_gate
+    needs: preview_policy_gate
     if: github.event.action != 'closed'
     runs-on: ubuntu-latest
     environment: staging
@@ -327,12 +271,11 @@ jobs:
 
   post_preview_comment:
     name: PR preview bot comment
-    needs: [preview_approval_gate, deploy_preview]
+    needs: [preview_policy_gate, deploy_preview]
     if: >-
       always()
       && github.event.action != 'closed'
-      && needs.preview_approval_gate.result == 'success'
-      && github.event.pull_request.head.repo.full_name == github.repository
+      && needs.preview_policy_gate.result == 'success'
     runs-on: ubuntu-latest
     steps:
       - name: Upsert preview comment on PR

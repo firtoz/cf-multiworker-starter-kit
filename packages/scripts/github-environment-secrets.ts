@@ -2,11 +2,12 @@
  * GitHub Actions **environment** configuration for deploy (CI + `github:sync:*`).
  *
  * - **Secrets** — `ALCHEMY_PASSWORD`, `ALCHEMY_STATE_TOKEN`, `CHATROOM_INTERNAL_SECRET`, `CLOUDFLARE_API_TOKEN`
- * - **Variables** (plaintext on GitHub Environment) — `CLOUDFLARE_ACCOUNT_ID`, `CF_STARTER_DEPLOY_ENABLED`, and optional **`WEB_*`** hostname keys synced when set in the stage dotfile (see [`alchemy-utils/web-deploy-hostnames`](../alchemy-utils/web-deploy-hostnames.ts))
+ * - **Variables** (plaintext on GitHub Environment) — `CLOUDFLARE_ACCOUNT_ID`, `CF_STARTER_DEPLOY_ENABLED`, and optional **`WEB_*`** hostname keys synced when set in the stage dotfile (see [`alchemy-utils/web-deploy-hostnames`](../alchemy-utils/web-deploy-hostnames.ts)). **Fork PR previews** are blocked unless a **repository** Actions variable **`CF_STARTER_ALLOW_PREVIEW_FOR_FORK_PRS=true`** is set (Settings → Secrets and variables → Actions → Variables — not the `staging` Environment; jobs without `environment:` cannot read Environment vars).
  *
  * Keep in sync with `deploy-preflight.ts`, `.github/workflows/deploy-*.yml`, and `stacks/admin.ts`.
  */
 import { GITHUB_SYNC_OPTIONAL_WEB_HOSTNAME_VARIABLE_KEYS } from "alchemy-utils/web-deploy-hostnames";
+
 export const GITHUB_ENVIRONMENT_SECRET_KEYS = [
 	"ALCHEMY_PASSWORD",
 	"ALCHEMY_STATE_TOKEN",

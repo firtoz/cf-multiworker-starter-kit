@@ -175,7 +175,7 @@ What runs in CI:
 - **Quality checks** run on pushes and PRs to `main`: generated-artifact guard, typecheck, lint, seeded `.env.local`, and build.
 - **Staging deploys** run after Quality checks pass on a push to `main`.
 - **Production deploys** run from the `production` branch or manually from the Actions UI.
-- **PR previews** deploy for PRs into `main` and tear down when the PR closes.
+- **PR previews** run for PRs into `main` from **this repo**; fork PR previews stay off unless **`CF_STARTER_ALLOW_PREVIEW_FOR_FORK_PRS=true`** is set as a **repository** Actions variable.
 
 After a successful deploy, the Actions Summary shows the deployed `workers.dev` URL.
 
@@ -301,7 +301,7 @@ This kit ships with real infra and demos. Treat security as layering: tighten wh
 | Area | Behavior |
 | ---- | -------- |
 | **GitHub Actions** | Workflows declare least-privilege `permissions` where it matters (`contents: read`, `pull-requests: read`, `issues: write` for PR preview comments). **`pull_request` runs the workflow YAML from `main`**—fork PRs cannot silently replace Actions logic until their branch is merged. |
-| **PR preview deploy** | **Deploy** and **destroy preview** jobs use GitHub Environment **`staging`**. Add **required deployment reviewers** (approve the **workflow deployment** in Actions, not the PR) via **Settings → Environments → staging**, or run **`bun run github:env:staging`** with **`GITHUB_SYNC_ENVIRONMENT_ONLY_CONFIRM=true`** and the full **`GITHUB_ENV_*`** set (**`stacks/github-repository-environment-from-env.ts`**). Teardown checks out the **`base` branch** so **`bun install` does not execute untrusted `package.json` scripts** during destroy. The bot upserts one PR comment (no deploy secrets attached). |
+| **PR preview deploy** | **Deploy** / **destroy preview** use GitHub Environment **`staging`** — approve the **workflow deployment** in Actions (not a PR review). **Recommended:** required reviewers who are **admins** (or a small trusted team). **Fork PRs:** preview jobs are **skipped** unless the **repository** Actions variable **`CF_STARTER_ALLOW_PREVIEW_FOR_FORK_PRS=true`** is set (Settings → Secrets and variables → Actions → Variables). Configure rules via **`bun run github:env:*`** + **`GITHUB_SYNC_ENVIRONMENT_ONLY_CONFIRM`** and **`GITHUB_ENV_*`** (**`stacks/github-repository-environment-from-env.ts`**). Teardown checks out the **`base` branch** so **`bun install` does not execute untrusted `package.json` scripts** during destroy. |
 | **Production manual deploy** | `workflow_dispatch` is rejected unless **`GITHUB_REF` is `refs/heads/production`** so Operators cannot accidentally run prod deploy against an arbitrary branch. |
 | **`/api/worker-services`** | Demo probe is **GET-only** and returns **health metadata only**—not full downstream Worker response bodies (reduces leakage and scraper value). |
 | **Demo chat** | Socka contract caps **display name length** (including **`?name=` on the WebSocket URL**) and **message body length**. History responses clamp legacy DB rows so oversized rows do not break the wire contract. |

@@ -31,6 +31,7 @@ import {
 	WEB_ZONE_ID_ENV_KEY,
 } from "alchemy-utils/web-deploy-hostnames";
 import { setupCommandLabelForDotfileRel } from "./github-environment-secrets";
+import { GITHUB_ENV_PROTECTION_HINT_LINES } from "./github-env-protection-hints";
 
 const root = path.resolve(import.meta.dir, "../..");
 const argv = process.argv;
@@ -507,12 +508,22 @@ async function interactiveMain(file: string, mode: SetupMode): Promise<void> {
 	const title = `${setupCli} — ${path.basename(file)}`;
 	intro(flagEdit ? `cf-starter · env · ${title}` : `cf-starter · env · ${title}`);
 	if (mode !== "local") {
+		const extra =
+			mode === "staging"
+				? [
+						"",
+						"**Fork PR previews:** off by default. To allow them, set **repository** Actions variable **`CF_STARTER_ALLOW_PREVIEW_FOR_FORK_PRS=true`** (Settings → Secrets and variables → Actions → Variables).",
+						"",
+						...GITHUB_ENV_PROTECTION_HINT_LINES,
+					]
+				: ["", ...GITHUB_ENV_PROTECTION_HINT_LINES];
 		note(
 			[
 				"GitHub sync uses **secrets** for Alchemy password, **`ALCHEMY_STATE_TOKEN`** (Cloudflare-backed deploy state), chatroom secret, and Cloudflare API token.",
 				"**CLOUDFLARE_ACCOUNT_ID** is stored as a GitHub Environment **variable** (`github:sync:*`).",
 				"",
 				"Optional (**bottom** of menu): **`WEB_DOMAINS`**, **`WEB_ROUTES`**, **`WEB_ZONE_ID`**, **`WEB_DOMAIN_OVERRIDE_EXISTING_ORIGIN`** — Workers custom hostnames · see README *Custom domains*.",
+				...extra,
 				"",
 				`When ready: \`bun run github:sync:${mode === "staging" ? "staging" : "prod"}\` (after \`gh auth login\`).`,
 			].join("\n"),

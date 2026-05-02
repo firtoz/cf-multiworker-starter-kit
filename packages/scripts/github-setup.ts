@@ -4,6 +4,8 @@
  */
 import { cancel, intro, isCancel, note, outro, select } from "@clack/prompts";
 
+import { GITHUB_ENV_PROTECTION_HINT_LINES } from "./github-env-protection-hints";
+
 const argv = process.argv;
 const stagingOnly = argv.includes("--staging");
 const prodOnly = argv.includes("--prod");
@@ -22,6 +24,8 @@ async function main() {
 				"",
 				"**Environment config only (no dotfile, no secrets):** `bun run github:env:staging` — same **`stacks/admin.ts`** with **`GITHUB_SYNC_SCOPE=environment`**. Requires **`GITHUB_SYNC_ENVIRONMENT_ONLY_CONFIRM=true`** and **every** **`GITHUB_ENV_*`** key (see **`stacks/github-repository-environment-from-env.ts`**).",
 				"PR preview workflows reuse **staging** secrets; each preview uses `STAGE=pr-<number>` in CI only.",
+				"",
+				...GITHUB_ENV_PROTECTION_HINT_LINES,
 			].join("\n"),
 			"github:setup:staging",
 		);
@@ -40,6 +44,8 @@ async function main() {
 				"",
 				"**Environment config only:** `bun run github:env:prod` — same **`stacks/admin.ts`**, **`GITHUB_SYNC_SCOPE=environment`**, confirm + full **`GITHUB_ENV_*`** set (see **`stacks/github-repository-environment-from-env.ts`**).",
 				"Production deploys run on pushes to branch `production` (see `.github/workflows/deploy-production.yml`).",
+				"",
+				...GITHUB_ENV_PROTECTION_HINT_LINES,
 			].join("\n"),
 			"github:setup:prod",
 		);
@@ -71,6 +77,8 @@ async function main() {
 				"**Staging:** `bun run setup:staging` then `bun run github:sync:staging`",
 				"**Production:** `bun run setup:prod` then `bun run github:sync:prod`",
 				"**Environment only (no dotfile):** `bun run github:env:staging` / `github:env:prod`, or **`bun run github:env`** for both — **`stacks/admin.ts`** + **`GITHUB_SYNC_ENVIRONMENT_ONLY_CONFIRM=true`** + all **`GITHUB_ENV_*`** (see **`github-repository-environment-from-env.ts`**).",
+				"",
+				...GITHUB_ENV_PROTECTION_HINT_LINES,
 				"",
 				"Fresh forks: deploy workflows stay **green** until you set variable `CF_STARTER_DEPLOY_ENABLED=true` on each GitHub Environment (`staging` / `production`). The admin stack sets that when you run **`github:sync`** / **`github:sync:*`**.",
 			].join("\n"),
