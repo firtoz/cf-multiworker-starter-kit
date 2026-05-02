@@ -70,9 +70,9 @@ async function main() {
 				"",
 				"**Staging:** `bun run setup:staging` then `bun run github:sync:staging`",
 				"**Production:** `bun run setup:prod` then `bun run github:sync:prod`",
-				"**Environment only (no dotfile):** `bun run github:env:staging` / `github:env:prod` — **`stacks/admin.ts`** + **`GITHUB_SYNC_ENVIRONMENT_ONLY_CONFIRM=true`** + all **`GITHUB_ENV_*`** (see **`github-repository-environment-from-env.ts`**).",
+				"**Environment only (no dotfile):** `bun run github:env:staging` / `github:env:prod`, or **`bun run github:env`** for both — **`stacks/admin.ts`** + **`GITHUB_SYNC_ENVIRONMENT_ONLY_CONFIRM=true`** + all **`GITHUB_ENV_*`** (see **`github-repository-environment-from-env.ts`**).",
 				"",
-				"Fresh forks: deploy workflows stay **green** until you set variable `CF_STARTER_DEPLOY_ENABLED=true` on each GitHub Environment (`staging` / `production`). The admin stack sets that when you run `github:sync:*`.",
+				"Fresh forks: deploy workflows stay **green** until you set variable `CF_STARTER_DEPLOY_ENABLED=true` on each GitHub Environment (`staging` / `production`). The admin stack sets that when you run **`github:sync`** / **`github:sync:*`**.",
 			].join("\n"),
 			"Command reference",
 		);
@@ -109,7 +109,7 @@ async function main() {
 		);
 	}
 
-	outro("Run the `setup:*` and `github:sync:*` commands above when ready. Until then, CI quality jobs still pass.");
+	outro("Run the `setup:*` and `github:sync` / `github:sync:*` commands above when ready. Until then, CI quality jobs still pass.");
 }
 
 await main();

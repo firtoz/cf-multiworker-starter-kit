@@ -57,7 +57,7 @@ export function getGitHubToken(): string {
 	);
 }
 
-/** Maps `STAGE` from dotenv-cli for **`github:sync:*`** / **`github:env:*`** to the GitHub Actions environment name. */
+/** Maps `STAGE` from dotenv-cli for **`github:sync`** / **`github:sync:*`** / **`github:env`** / **`github:env:*`** to the GitHub Actions environment name. */
 export function githubActionsEnvironmentFromAlchemyStage(stage: string): "production" | "staging" {
 	const s = stage.trim().toLowerCase();
 	if (s === "prod" || s === "production") {

@@ -14,7 +14,9 @@
  * For **`GITHUB_ENV_*`** every listed variable must be set (use `""` for “none”); see **`github-repository-environment-from-env.ts`**.
  *
  * Run from repo root:
+ * - `bun run github:sync` — **`github:sync:staging`** then **`github:sync:prod`** (both dotfiles must exist)
  * - `bun run github:sync:prod` / `github:sync:staging` — scope **`secrets`** + stage dotfile
+ * - `bun run github:env` — **`github:env:staging`** then **`github:env:prod`** (same **`GITHUB_ENV_*`** / confirm for both)
  * - `bun run github:env:prod` / `github:env:staging` — scope **`environment`** + confirm (no `-e` dotfile)
  */
 import { existsSync, readFileSync } from "node:fs";

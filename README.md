@@ -130,7 +130,7 @@ To bind your own hostnames (production or staging):
 1. Run `bun run setup:prod` or `bun run setup:staging` and use the **optional** entries at the bottom of the menu — or set the same keys in `.env.production` / `.env.staging` (see [`.env.example`](.env.example)).
 2. Typical: set **`WEB_DOMAINS=example.com,www.example.com`**. Use **`WEB_ROUTES`** only if you need explicit route patterns (e.g. `example.com/*`).
 3. Optional: **`WEB_ZONE_ID`** (apply one zone to every entry), **`WEB_DOMAIN_OVERRIDE_EXISTING_ORIGIN=true`** when moving a hostname from another Worker.
-4. For CI, run `bun run github:sync:prod` / `github:sync:staging` after editing the stage dotfile so GitHub Environment **variables** include the `WEB_*` keys (they are not secrets).
+4. For CI, run `bun run github:sync:staging` / `github:sync:prod` (or **`bun run github:sync`** to run both in order) after editing the stage dotfiles so GitHub Environment **variables** include the `WEB_*` keys (they are not secrets).
 
 PR preview stacks use `STAGE=pr-<n>` and stay on **`workers.dev`**: `WEB_*` values are **ignored** during preview deploys so shared GitHub Environment variables never bind your real hostnames to PR stacks.
 
@@ -148,6 +148,8 @@ bun run setup:prod
 gh auth login
 bun run github:sync:staging
 bun run github:sync:prod
+# or both in one go (requires .env.staging and .env.production):
+# bun run github:sync
 ```
 
 To create or update **only** the GitHub Environment **deployment protection** (Alchemy **`RepositoryEnvironment`**) — **no** `.env.*`, **no** secrets, **no** variables — set **`GITHUB_SYNC_SCOPE=environment`** (the **`github:env:*`** scripts do this), **`GITHUB_SYNC_ENVIRONMENT_ONLY_CONFIRM=true`**, and **every** **`GITHUB_ENV_*`** key listed in **`stacks/github-repository-environment-from-env.ts`** (use `""` for empty lists):
@@ -162,9 +164,11 @@ export GITHUB_ENV_DEPLOYMENT_REVIEWER_USERS=alice,bob
 export GITHUB_ENV_DEPLOYMENT_REVIEWER_TEAMS=
 export GITHUB_ENV_DEPLOYMENT_BRANCH_CUSTOM_PATTERNS=
 bun run github:env:staging
+# or both GitHub environments in one go (same GITHUB_ENV_* + confirm apply to each):
+# bun run github:env
 ```
 
-Full secret + variable sync remains **`github:sync:*`** (`GITHUB_SYNC_SCOPE=secrets`, set by those npm scripts). To **also** apply the same **`GITHUB_ENV_*`** block on a secrets sync, set **`GITHUB_SYNC_UPDATE_ENVIRONMENT_PROTECTION=true`** for that run.
+Full secret + variable sync remains **`github:sync:*`** or **`github:sync`** (`GITHUB_SYNC_SCOPE=secrets`, set by those npm scripts). To **also** apply the same **`GITHUB_ENV_*`** block on a secrets sync, set **`GITHUB_SYNC_UPDATE_ENVIRONMENT_PROTECTION=true`** for that run.
 
 What runs in CI:
 
@@ -264,7 +268,9 @@ For the detailed checklist, use [agents/skills/cf-durable-object-package/SKILL.m
 - `bun run deploy:preflight:*`: check whether deploys are enabled and configured.
 - `bun run github:setup`: print GitHub Actions onboarding steps.
 - `bun run github:sync:staging` / `github:sync:prod`: sync GitHub Environment secrets and variables from the stage dotfile (`GITHUB_SYNC_SCOPE=secrets` is set by the script).
+- `bun run github:sync`: run **`github:sync:staging`** then **`github:sync:prod`** (fails if either dotfile is missing).
 - `bun run github:env:staging` / `github:env:prod`: same **`stacks/admin.ts`** entry with **`GITHUB_SYNC_SCOPE=environment`** — GitHub Environment config only; requires **`GITHUB_SYNC_ENVIRONMENT_ONLY_CONFIRM=true`** and all **`GITHUB_ENV_*`** keys (see **`stacks/github-repository-environment-from-env.ts`**).
+- `bun run github:env`: run **`github:env:staging`** then **`github:env:prod`** (same env vars apply to both runs).
 
 ### Codegen And Dependencies
 
