@@ -21,6 +21,8 @@ async function main() {
 				"3. `bun run github:sync:staging` — creates/updates the environment; upserts **secrets** + **variables** (incl. `CF_STARTER_DEPLOY_ENABLED`, default `true`).",
 				"",
 				"PR preview workflows reuse **staging** secrets; each preview uses `STAGE=pr-<number>` in CI only.",
+				"",
+				"For a human gate before preview deploy: in repo **Settings → Environments → staging**, enable **Required reviewers** (workflow deployment approval). PR reviews are not used for that gate.",
 			].join("\n"),
 			"github:setup:staging",
 		);
