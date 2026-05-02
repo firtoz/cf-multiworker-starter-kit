@@ -11,6 +11,48 @@ bun run onboard:prod
 
 Use this page when you want to change how GitHub behaves after onboarding.
 
+## CI and deploy workflows
+
+- **Fresh forks:** deploy jobs **no-op** until **`CF_STARTER_DEPLOY_ENABLED=true`** exists on each GitHub Environment that runs deploys (**`staging`**, **`staging-fork`** for fork PRs, **`production`**). Running **`bun run onboard:staging`** / **`onboard:prod`** (or **`github:sync:*`**) syncs secrets/variables and typically sets this.
+- **Quality checks** (`.github/workflows/ci.yml`): runs on **push** and **pull_request** to **`main`** — Drizzle generated-artifact guard, typecheck, lint, **`bun run setup -- --yes`** (seed `.env.local`), build.
+- **Staging deploy** (`.github/workflows/deploy-staging.yml`): runs after **Quality checks** complete **successfully** on a **push** to **`main`** (same **`head_sha`** — not on PR-only Quality runs). Uses Environment **`staging`**.
+- **Production deploy** (`.github/workflows/deploy-production.yml`): **push** to **`production`** or **workflow_dispatch** when the selected ref is **`production`**.
+- **PR previews** (`.github/workflows/deploy-pr-preview.yml`): **same-repo** PR branches use Environment **`staging`**; **fork** PRs use **`staging-fork`** (deployment protection / reviewers from **`config/github.policy.ts`** → **`github.environments.stagingFork`**). Preview stacks use **`STAGE=pr-<n>`**. Teardown on PR **close** checks out the **base** branch so destroy does not run untrusted PR scripts.
+- **Comments on PRs** with preview URLs come from **`pr-preview-comment.yml`** (**`workflow_run`**) so fork code never runs with a token that writes PR comments.
+
+Use **`bun run github:setup`** for a step-by-step printout.
+
+Onboarding wrappers (trusted machine, **`gh`** authenticated):
+
+```bash
+bun run github:setup
+bun run onboard:staging
+bun run onboard:prod
+```
+
+**`onboard:prod`** also sets repo variable **`CF_STARTER_AUTO_PRODUCTION_PR=true`**, after which a successful **staging** deploy may **open or reuse** a PR **`main` → `production`**. You still **merge** that PR to ship production (and remote **`production`** must exist).
+
+**Default repo policy** (see [`config/github.policy.ts`](../config/github.policy.ts)): **`main`** — PRs for writers, admins may bypass; **`production`** — PR from **`main`**, no admin bypass by default; approving review count defaults to **0** for solo maintainers.
+
+## Custom domains (web Worker)
+
+The React Router app is the **frontend** Worker in [`apps/web/alchemy.run.ts`](../apps/web/alchemy.run.ts). Default deploys use **`workers.dev`** only.
+
+1. Run **`bun run setup:prod`** or **`bun run setup:staging`** and use the **optional** menu entries at the bottom — or set the same keys in **`.env.production`** / **`.env.staging`** (see [`.env.example`](../.env.example)).
+2. Typical: **`WEB_DOMAINS=example.com,www.example.com`**. Use **`WEB_ROUTES`** only if you need explicit patterns (e.g. `example.com/*`).
+3. Optional: **`WEB_ZONE_ID`** (one zone for every entry), **`WEB_DOMAIN_OVERRIDE_EXISTING_ORIGIN=true`** when moving a hostname already bound elsewhere.
+4. After editing dotfiles, run **`bun run github:sync:staging`** / **`github:sync:prod`** (or **`bun run github:sync`** if both exist) so GitHub Environment **variables** include **`WEB_*`** (plaintext vars — not secrets).
+
+**PR previews** (`STAGE=pr-<n>`) stay on **`workers.dev`**: **`WEB_*`** values are **ignored** on preview deploys so preview stacks never steal production hostnames from shared Environment variables.
+
+## Cloudflare credentials (manual)
+
+Create tokens in the Cloudflare dashboard — **this repo does not create tokens** (no OAuth or scripted token creation).
+
+1. **Account ID** — [Cloudflare dashboard](https://dash.cloudflare.com/) → your account → **Workers & Pages** or account overview → **Account ID**.
+2. **API token** — [My Profile → API Tokens](https://dash.cloudflare.com/profile/api-tokens) → **Create Token**. Quick path: **Edit Cloudflare Workers** template scoped to that account. Add **D1** if you use tighter scopes — [API tokens](https://developers.cloudflare.com/fundamentals/api/get-started/create-token/).
+3. Put **`CLOUDFLARE_API_TOKEN`** and **`CLOUDFLARE_ACCOUNT_ID`** in **`.env.staging`** / **`.env.production`** (or run **`bun run setup:staging`** / **`setup:prod`**). They must be the **same** Cloudflare account.
+
 ## Source Of Truth
 
 - Stage secrets and variables live in `.env.staging` and `.env.production`.

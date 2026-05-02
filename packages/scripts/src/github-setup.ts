@@ -18,7 +18,7 @@ async function main() {
 			[
 				"**Staging / PR previews** use GitHub Environment `staging` and repo-root `.env.staging`.",
 				"",
-				"1. Create a Cloudflare **API token** + copy **Account ID** (see README **Cloudflare credentials (manual)**).",
+				"1. Create a Cloudflare **API token** + copy **Account ID** (see repo **docs/github-admin.md** — **Cloudflare credentials (manual)**).",
 				"2. `gh auth login` (repo scope).",
 				"3. `bun run onboard:staging` — verifies the above, fills missing generated keys (`setup:staging --yes`), runs `github:sync:staging`.",
 				"",
@@ -32,7 +32,7 @@ async function main() {
 			"github:setup:staging",
 		);
 		outro(
-			"Prefer **`bun run onboard:staging`** from the repo root (rerunnable). README → **Lane B — Staging**.",
+			"Prefer **`bun run onboard:staging`** from the repo root (rerunnable). README → **Deploy with GitHub Actions (optional)**.",
 		);
 		return;
 	}
@@ -55,7 +55,7 @@ async function main() {
 			"github:setup:prod",
 		);
 		outro(
-			"Prefer **`bun run onboard:prod`** from the repo root. README → **Lane C — Production**.",
+			"Prefer **`bun run onboard:prod`** from the repo root. README → **Deploy with GitHub Actions (optional)**.",
 		);
 		return;
 	}

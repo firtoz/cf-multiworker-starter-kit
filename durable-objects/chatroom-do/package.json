@@ -21,7 +21,7 @@
 		"lint": "biome check --write .",
 		"lint:format": "biome format --write ."
 	},
-	"packageManager": "bun@1.3.0",
+	"packageManager": "bun@1.3.13",
 	"dependencies": {
 		"@firtoz/socka": "catalog:",
 		"@firtoz/websocket-do": "^13.0.2",

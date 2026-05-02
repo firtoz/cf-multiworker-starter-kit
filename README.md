@@ -14,9 +14,7 @@
 
 ![Cloudflare Multi-worker Starter Kit: Monorepo for full-stack Cloudflare Workers & Durable Objects, type safety, ready to ship](docs/branding/banner.jpg)
 
-A production-minded starter for full-stack Cloudflare apps: React Router on Workers, Durable Objects, D1, Drizzle, Hono, typed bindings, Turborepo, and Alchemy deploys.
-
-It is meant to be copied, renamed, and shipped. The sample app includes enough real pieces to prove the stack works: SSR, D1, service bindings, Durable Objects, and WebSockets.
+A production-minded starter for full-stack Cloudflare apps: React Router on Workers, Durable Objects, D1, Drizzle, Hono, typed bindings, Turborepo, and Alchemy deploys. Copy it, rename it, ship it. The demo covers SSR, D1, service bindings, Durable Objects, and WebSockets.
 
 <p align="center">
   <a href="https://peerlist.io/firtoz/project/cloudflare-multiworker-starter-kit" target="_blank" rel="noreferrer">
@@ -28,21 +26,30 @@ It is meant to be copied, renamed, and shipped. The sample app includes enough r
   </a>
 </p>
 
-## What You Get
+## What you get
 
-- **React Router 7 on Cloudflare Workers** with streaming SSR, Tailwind, typed loaders/actions, form actions, and 103 Early Hints.
-- **Durable Object examples** for Hono RPC-style access, service bindings, and realtime WebSockets with `@firtoz/socka`.
-- **D1 + Drizzle** with generated migrations and a working `/visitors` route.
-- **Typed infrastructure bindings** from package-local `alchemy.run.ts` files into Worker `env.d.ts` types.
-- **Monorepo deploys** with Turborepo and Alchemy, including staging, production, and PR preview stacks.
-- **A generator** for adding more `durable-objects/*` packages.
-- **Optional PostHog-oriented analytics** — env keys and client helpers only; disabled until you set `POSTHOG_*` / wire the UI. Remove entirely if you do not want product analytics (same as ripping out any other demo feature).
+- **React Router 7 on Workers** — streaming SSR, Tailwind, typed loaders/actions, form actions.
+- **Durable Object examples** — Hono RPC-style access, service bindings, Socka WebSockets (`/chat`).
+- **D1 + Drizzle** — generated migrations and a `/visitors` route.
+- **Typed bindings** — package-local `alchemy.run.ts` → Worker `env` types.
+- **Deploy story** — Turbo + Alchemy, staging/production, PR previews (details below only when you need them).
 
-## Quick Start (three lanes)
+## When you need more
 
-This repo separates **local dev**, **staging on GitHub Actions**, and **production**. Pick one path at a time.
+| Goal | Where |
+|------|--------|
+| Web routes, SSR, bindings, forms | [`apps/web/README.md`](apps/web/README.md) |
+| GitHub Environments, rulesets, what runs in CI, custom domains | [`docs/github-admin.md`](docs/github-admin.md) |
+| `.env.local` / staging / prod secrets | [`.env.example`](.env.example) · [`agents/skills/cf-workers-env-local/SKILL.md`](agents/skills/cf-workers-env-local/SKILL.md) |
+| Full rebrand (package names, UI copy) | [`agents/skills/project-init/SKILL.md`](agents/skills/project-init/SKILL.md) |
+| Typegen cadence, Turbo deploy order, generated artifacts | [`agents/skills/cf-starter-workflow/SKILL.md`](agents/skills/cf-starter-workflow/SKILL.md) |
+| Cursor / IDE rules look wrong after clone | `bun run agents:link` · [`agents/README.md`](agents/README.md) |
 
-**Prerequisites:** [Bun](https://bun.sh/), git, and a [Cloudflare](https://dash.cloudflare.com/) account for Alchemy local resources.
+**Bun:** use the version in root [`package.json`](package.json) → `packageManager` (CI matches it).
+
+## Quick start
+
+**Prerequisites:** [Bun](https://bun.sh/) (see `packageManager` above), git, a [Cloudflare](https://dash.cloudflare.com/) account for local Alchemy resources.
 
 Create a repo from the template:
 
@@ -51,94 +58,64 @@ gh repo create my-project --template firtoz/cf-multiworker-starter-kit --public
 cd my-project
 ```
 
-Or use **Use this template** from the [GitHub repo](https://github.com/firtoz/cf-multiworker-starter-kit).
+Or **Use this template** on the [GitHub repo](https://github.com/firtoz/cf-multiworker-starter-kit).
 
-### Lane A — Local dev
-
-One command installs if needed, fills **missing** regeneratable keys in `.env.local` (it does **not** rotate existing secrets), runs a dev preflight, then starts Turbo dev:
+### Run locally
 
 ```bash
 bun run quickstart
 ```
 
-On a fresh machine you may still need Alchemy linked to Cloudflare **once**:
+That installs dependencies if `node_modules` is missing, fills **missing** regeneratable keys in `.env.local`, runs a dev preflight, then starts the dev stack. It does **not** rotate existing secrets.
+
+On a new machine you may need Alchemy linked to Cloudflare **once**:
 
 ```bash
 bun alchemy configure
 bun alchemy login
 ```
 
-Then rerun **`bun run quickstart`** (or **`bun run dev`** directly when `.env.local` is already good).
+Then rerun **`bun run quickstart`** (or **`bun run dev`** if `.env.local` is already set).
 
-Open the URL printed by Vite/Alchemy, usually `http://localhost:5173`.
+Open the URL Vite prints (often `http://localhost:5173`). Try **`/`**, **`/visitors`**, **`/ping-do`**, **`/chat`**.
 
-Try these routes:
+### Deploy with GitHub Actions (optional)
 
-- `/` for the web app.
-- `/visitors` for D1 + Drizzle.
-- `/ping-do` for a Durable Object binding.
-- `/chat` for WebSockets through the web worker into the chatroom Durable Object.
+Before meaningful deploys, [name your product](#name-your-product) so Cloudflare/Alchemy names match your app.
 
-### Lane B — Staging (CI on `main`)
+You need a Cloudflare **API token** and **Account ID** from the dashboard (this template does not create tokens — [step-by-step](docs/github-admin.md#cloudflare-credentials-manual)). Put them in **`.env.staging`** / **`.env.production`** (or use **`bun run setup:staging`** / **`setup:prod`**). Token and account must be the **same** Cloudflare account.
 
-**Trigger:** after **Quality checks** succeed, **Deploy staging** runs on a successful **push** to **`main`** (same commit as the Quality run — not PR-only runs). Merge to `main` or push to `main` to ship staging.
-
-**Human prerequisite:** a Cloudflare **API token** and **Account ID** (see [Cloudflare credentials (manual)](#cloudflare-credentials-manual) below). This template does **not** create tokens for you.
-
-From a **trusted machine** with [`gh`](https://cli.github.com/) installed:
+With [`gh`](https://cli.github.com/) authenticated and repo admin rights, from a trusted machine:
 
 ```bash
-bun run onboard:staging
+bun run onboard:staging   # sync staging → push/merge to `main` deploys staging after CI
+bun run onboard:prod      # sync production → deploys from `production` branch (see docs)
 ```
 
-That verifies **`gh auth`**, ensures `.env.staging` has Cloudflare values, runs **`bun run setup:staging -- --yes`** (generated secrets only where missing), then **`bun run github:sync:staging`**. The command is **idempotent** — safe to rerun.
-
-Then **push or merge to `main`**; when Quality checks pass, staging deploys.
-
-### Lane C — Production (`production` branch)
-
-**Trigger:** pushes to branch **`production`** (see `.github/workflows/deploy-production.yml`). Typical flow: PR **`main` → `production`**, merge to deploy.
-
-Onboard production (same idea as staging; can **reuse** the same Cloudflare token and account ID when prod lives in the same account):
-
-```bash
-bun run onboard:prod
-```
-
-That runs **`setup:prod -- --yes`**, **`github:sync:prod`**, and sets repository variable **`CF_STARTER_AUTO_PRODUCTION_PR=true`** so that, **after a successful staging deploy**, Actions may **open or reuse** a PR from **`main`** to **`production`**. You still merge that PR to deploy production. If **`production`** does not exist on the remote yet, create it once (for example from `main`) before relying on automation.
-
-For **rulesets** and merge gates on `main` / `production`, see the [GitHub Actions deploys](#github-actions-deploys) section and [`config/github.policy.ts`](config/github.policy.ts).
-
-### Cloudflare credentials (manual)
-
-Use the dashboard — **no OAuth or scripted token creation** in this repo.
-
-1. **Account ID** — [Cloudflare dashboard](https://dash.cloudflare.com/) → your account → **Workers & Pages** (or account overview). Copy **Account ID**.
-2. **API token** — [My Profile → API Tokens](https://dash.cloudflare.com/profile/api-tokens) → **Create Token**. Fast path: **Edit Cloudflare Workers** template scoped to that account. For tighter scopes, include Workers + **D1** as your deploy needs — see [API tokens](https://developers.cloudflare.com/fundamentals/api/get-started/create-token/).
-3. Put **`CLOUDFLARE_API_TOKEN`** and **`CLOUDFLARE_ACCOUNT_ID`** in **`.env.staging`** / **`.env.production`** (or run **`bun run setup:staging`** / **`setup:prod`** and use the Cloudflare category). They must refer to the **same** account.
+**`bun run github:setup`** prints a fuller Actions checklist. Workflow behavior, **`CF_STARTER_DEPLOY_ENABLED`**, fork vs same-repo PR previews, rulesets, and **`CF_STARTER_AUTO_PRODUCTION_PR`**: [`docs/github-admin.md`](docs/github-admin.md).
 
 ### If setup fails
 
-- **`quickstart` / local:** missing Alchemy/Cloudflare auth — `bun alchemy configure`, `bun alchemy login`, optional `CLOUDFLARE_*` in `.env.local`; missing generated secrets — `bun run setup:local` or rerun **`bun run quickstart`**.
-- **`onboard:staging`:** paste Cloudflare values into `.env.staging` or run **`bun run setup:staging`**; ensure **`gh auth login`**.
-- **`onboard:prod`:** same for `.env.production`, or answer the prompt / set **`ONBOARD_PROD_COPY_CF=1`** to copy Cloudflare lines from `.env.staging`.
-- **Account mismatch:** `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` must be the same Cloudflare account.
+- **Local:** Alchemy auth — `bun alchemy configure`, `bun alchemy login`; optional `CLOUDFLARE_*` in `.env.local`. Missing generated secrets — `bun run setup:local` or rerun **`quickstart`**.
+- **`onboard:staging`:** Cloudflare lines in `.env.staging` or **`setup:staging`**; **`gh auth login`**.
+- **`onboard:prod`:** same for `.env.production`, or **`ONBOARD_PROD_COPY_CF=1`** to copy token/account from `.env.staging` (non-interactive).
+- **Wrong account:** token and Account ID must match the same Cloudflare account.
 
-## Name Your Product
+## Name your product
 
-Before meaningful deploys, rename the starter so Cloudflare dashboards and Alchemy app names match your app.
+### Code-first infra names
 
-Fast path:
+**Alchemy app ids** (e.g. `skybook-frontend`, `skybook-database`) come from one place:
 
-1. Change `PRODUCT_PREFIX` in `packages/alchemy-utils/src/worker-peer-scripts.ts` from `cf-starter` to your slug, for example `skybook`.
-2. Run `bun run typegen`.
-3. Update visible product copy when you are ready.
+1. Set **`PRODUCT_PREFIX`** in [`packages/alchemy-utils/src/worker-peer-scripts.ts`](packages/alchemy-utils/src/worker-peer-scripts.ts) (default `cf-starter` → your slug).
+2. Run **`bun run typegen`**.
+3. Adjust visible product copy when you want.
 
-That prefix drives Alchemy app names such as `skybook-frontend`, `skybook-database`, and `skybook-chatroom`. Workspace package names and Turbo filters are separate; see [agents/skills/project-init/SKILL.md](agents/skills/project-init/SKILL.md) for the full rebrand checklist.
+**Workspace package names** and Turbo **`--filter`** values (e.g. `cf-starter-web`) are separate from those ids. Full checklist: [`agents/skills/project-init/SKILL.md`](agents/skills/project-init/SKILL.md).
 
 ## Deploy
 
-Local deploy commands use gitignored stage env files:
+Use gitignored stage files from the repo root:
 
 ```bash
 bun run setup:staging
@@ -148,101 +125,38 @@ bun run setup:prod
 bun run deploy:prod
 ```
 
-Each deploy runs the full Turbo graph, not just the web app. In order, it prepares shared Alchemy state, deploys D1 and migrations, deploys Worker and Durable Object packages, then deploys the web app with bindings to those resources.
+Each command runs the **full** Turbo graph (shared Alchemy state, D1 + migrations, workers/DOs, then the web app with bindings). Required keys: [`.env.example`](.env.example). Keep **`ALCHEMY_PASSWORD`** the same everywhere that stage deploys (local, CI, teammates).
 
-Required deploy values are documented in [`.env.example`](.env.example):
+**Custom domains** (`WEB_*` env vars): [`docs/github-admin.md`](docs/github-admin.md#custom-domains-web-worker).
 
-- `CLOUDFLARE_API_TOKEN`
-- `CLOUDFLARE_ACCOUNT_ID`
-- `ALCHEMY_PASSWORD`
-- `ALCHEMY_STATE_TOKEN` for CI deploy state
-- `CHATROOM_INTERNAL_SECRET`
+**Optional PostHog:** leave keys empty to stay dark; wiring/removal notes: [`apps/web/README.md`](apps/web/README.md#optional-posthog).
 
-For one stage, keep `ALCHEMY_PASSWORD` stable everywhere that stage deploys: local machines, CI, and any shared deploy environment.
-
-### Custom domains (web Worker)
-
-The React Router app is deployed as the **frontend** Worker in [`apps/web/alchemy.run.ts`](apps/web/alchemy.run.ts). By default it uses Cloudflare **`workers.dev`** only.
-
-To bind your own hostnames (production or staging):
-
-1. Run `bun run setup:prod` or `bun run setup:staging` and use the **optional** entries at the bottom of the menu — or set the same keys in `.env.production` / `.env.staging` (see [`.env.example`](.env.example)).
-2. Typical: set **`WEB_DOMAINS=example.com,www.example.com`**. Use **`WEB_ROUTES`** only if you need explicit route patterns (e.g. `example.com/*`).
-3. Optional: **`WEB_ZONE_ID`** (apply one zone to every entry), **`WEB_DOMAIN_OVERRIDE_EXISTING_ORIGIN=true`** when moving a hostname from another Worker.
-4. For CI, run `bun run github:sync:staging` / `github:sync:prod` (or **`bun run github:sync`** to run both in order) after editing the stage dotfiles so GitHub Environment **variables** include the `WEB_*` keys (they are not secrets).
-
-PR preview stacks use `STAGE=pr-<n>` and stay on **`workers.dev`**: `WEB_*` values are **ignored** during preview deploys so shared GitHub Environment variables never bind your real hostnames to PR stacks.
-
-### Optional: PostHog (product analytics)
-
-This starter may include **optional** PostHog-oriented pieces: typed env keys in [`apps/web/env.requirements.ts`](apps/web/env.requirements.ts), client helpers under `apps/web/app/lib/`, and (when you wire it) Worker vars such as `POSTHOG_KEY` / `POSTHOG_HOST`. **Nothing runs until you set keys and connect the UI** — same philosophy as other sample features you might delete.
-
-- **To stay dark:** leave all `POSTHOG_*` empty in `.env.local` / staging / prod; setup and GitHub sync treat them as optional.
-- **To remove completely:** delete the `posthogRequirements` block (or the spread) in `env.requirements.ts`, remove PostHog components/helpers/scripts you are not using, strip related `binding`s from `alchemy.run.ts` if you added any, and drop `@posthog/*` / `posthog-js` from `apps/web/package.json` if present. Optional `sourcemap:upload` is only for uploading maps to PostHog.
-
-### GitHub Actions Deploys
-
-Deploy workflows are disabled on fresh forks. They skip real deploys until `CF_STARTER_DEPLOY_ENABLED=true` exists on the GitHub Environment.
-
-Use the onboarding commands from a trusted machine:
-
-```bash
-bun run github:setup
-
-bun run onboard:staging
-bun run onboard:prod
-```
-
-Those commands fill missing generated secrets, sync GitHub Environment secrets/variables, and apply the default repo policy from [`config/github.policy.ts`](config/github.policy.ts).
-
-Default policy in plain English:
-
-- `main`: contributors use PRs; repo admins can push directly.
-- `production`: use a PR from `main`; no admin bypass by default.
-- Required approvals default to `0`, so a solo maintainer can merge.
-
-For the knobs behind this, see [GitHub admin sync reference](docs/github-admin.md).
-
-What runs in CI:
-
-- **Quality checks** run on pushes and PRs to `main`: generated-artifact guard, typecheck, lint, seeded `.env.local`, and build.
-- **Staging deploys** run after Quality checks pass on a push to `main`.
-- **Production deploys** run from the `production` branch or manually from the Actions UI.
-- **PR previews** (into `main`): **same-repo** PRs use GitHub Environment **`staging`**; **fork** PRs use **`staging-fork`**. Run **`github:sync:staging`** so both get the same secrets/vars and **`staging-fork`** gets **required reviewers** by default per **`github.environments.stagingFork`** in **`config/github.policy.ts`** (empty reviewer lists + **`reviewerFallbackToActor`** → current **`gh`** login or **`GITHUB_ACTOR`**). Leave **`staging`** open if you want internal branch PRs to preview without that gate.
-
-After a successful deploy, the Actions Summary shows the deployed `workers.dev` URL.
-
-## Project Layout
+## Project layout
 
 ```text
 ├── apps/
-│   └── web/                    # React Router app and Cloudflare Worker entry
+│   └── web/                    # React Router app + Worker entry
 ├── durable-objects/
-│   ├── chatroom-do/            # Socka WebSocket Durable Object
-│   ├── ping-do/                # Hono Durable Object example
-│   └── other-worker/           # Plain Worker service-binding example
+│   ├── chatroom-do/
+│   ├── ping-do/
+│   └── other-worker/
 ├── packages/
-│   ├── alchemy-utils/          # Product prefix, app ids, deploy helpers
-│   ├── chat-contract/          # Shared chat protocol types
-│   ├── db/                     # D1 schema and Drizzle migrations
-│   ├── scripts/                # Setup and maintenance scripts
-│   └── state-hub/              # Shared CI Alchemy state bootstrap
-├── agents/                     # AI rules and stack-specific playbooks
-├── .cursor/                    # Cursor symlinks and environment setup
-└── .claude/                    # Optional Claude Code symlinks
+│   ├── alchemy-utils/          # PRODUCT_PREFIX, app ids, alchemy-cli
+│   ├── chat-contract/
+│   ├── db/                     # D1 schema + Drizzle migrations
+│   ├── scripts/                # quickstart, setup, onboard, GitHub sync helpers
+│   └── state-hub/              # shared CI Alchemy state
+├── stacks/                     # admin / GitHub sync (Alchemy)
+├── agents/                     # AI rules + skills (human playbooks too)
+├── .cursor/                    # Cursor env + symlinks to agents/
+└── .claude/                    # optional Claude Code symlinks
 ```
 
-Important entry points:
+**Entry points:** `apps/web/alchemy.run.ts`, `apps/web/workers/app.ts`, `packages/db/src/schema.ts`, `packages/alchemy-utils/src/worker-peer-scripts.ts`.
 
-- `apps/web/alchemy.run.ts` wires the web worker and imported bindings.
-- `apps/web/workers/app.ts` is the web Worker entry.
-- `packages/db/src/schema.ts` is the D1 schema source of truth.
-- `packages/alchemy-utils/src/worker-peer-scripts.ts` owns product/app naming.
-- `agents/skills/` contains detailed project playbooks.
+## Working in the repo
 
-## Working In The Repo
-
-Run common checks from the repo root:
+From the repo root:
 
 ```bash
 bun run typegen
@@ -251,100 +165,53 @@ bun run lint
 bun run build
 ```
 
-Use `bun run typegen` after changing routes, `alchemy.run.ts`, bindings, or env types.
+Run **`typegen`** after routes, `alchemy.run.ts`, or binding/env changes. Run **`bun run db:generate`** after editing `packages/db/src/schema.ts`. Do not hand-edit Drizzle SQL/snapshots, React Router `+types`, or `.alchemy/`.
 
-Use `bun run db:generate` after changing `packages/db/src/schema.ts`. Do not hand-edit Drizzle SQL, Drizzle snapshot JSON, React Router `+types`, lockfiles, or `.alchemy/` state.
-
-For app code that reads Worker bindings, use the Workers virtual module:
+Bindings in app code:
 
 ```typescript
 import { env } from "cloudflare:workers";
 ```
 
-Do not read bindings from React Router loader/action context in this project.
+Do not read Worker bindings from React Router loader/action `context` in this repo.
 
-## Adding More Workers
-
-Generate a new Durable Object package:
+## Adding workers
 
 ```bash
 bunx turbo gen durable-object
 ```
 
-Then wire it into the monorepo:
+Then: add the package to root **`dev`** filters if it should run locally; fix **`turbo.json`** deploy/destroy order as needed; add a workspace dep from **`apps/web`** if the web app uses it; import its **`./alchemy`** from **`apps/web/alchemy.run.ts`**; run **`bun run typegen`** and **`bun run typecheck`**.
 
-1. Add the package to the root `dev` filters if it should run locally.
-2. Add deploy/destroy ordering where needed in `turbo.json`.
-3. Add a workspace dependency from `apps/web` if the web app consumes it.
-4. Import its `./alchemy` export from `apps/web/alchemy.run.ts`.
-5. Run `bun run typegen` and `bun run typecheck`.
+Details: [`agents/skills/cf-durable-object-package/SKILL.md`](agents/skills/cf-durable-object-package/SKILL.md), [`agents/skills/cf-web-alchemy-bindings/SKILL.md`](agents/skills/cf-web-alchemy-bindings/SKILL.md), [`agents/skills/cf-worker-rpc-turbo/SKILL.md`](agents/skills/cf-worker-rpc-turbo/SKILL.md).
 
-For the detailed checklist, use [agents/skills/cf-durable-object-package/SKILL.md](agents/skills/cf-durable-object-package/SKILL.md), [agents/skills/cf-web-alchemy-bindings/SKILL.md](agents/skills/cf-web-alchemy-bindings/SKILL.md), and [agents/skills/cf-worker-rpc-turbo/SKILL.md](agents/skills/cf-worker-rpc-turbo/SKILL.md).
+## Common scripts
 
-## Scripts
+| Area | Commands |
+|------|----------|
+| Dev | `dev`, `quickstart`, `build`, `typegen`, `typecheck`, `lint`, `clean` |
+| Deploy | `deploy:staging`, `deploy:prod`, `deploy:preview`, `destroy:*`, `deploy:preflight:*` |
+| GitHub Environments | `github:setup`, `github:sync:staging`, `github:sync:prod`, `github:sync`, `github:env:*`, `github:sync:config` |
+| DB | `db:generate`, `check:drizzle-generated` |
 
-### Development
+More context: [`agents/skills/cf-starter-workflow/SKILL.md`](agents/skills/cf-starter-workflow/SKILL.md), [`docs/github-admin.md`](docs/github-admin.md).
 
-- `bun run dev`: run the local web app, D1 package, and Worker/Durable Object packages through Turbo.
-- `bun run build`: build local targets.
-- `bun run typegen`: generate React Router and Worker binding types.
-- `bun run typecheck`: typecheck packages.
-- `bun run lint`: run Biome through Turbo.
-- `bun run clean`: remove `node_modules` and build artifacts.
+## Deeper docs
 
-### Deploy
-
-- `bun run deploy:staging`: deploy staging with `.env.staging`.
-- `bun run deploy:prod`: deploy production with `.env.production`.
-- `bun run deploy:preview`: deploy a preview stack. CI normally provides `STAGE=pr-<number>`.
-- `bun run destroy:staging` / `destroy:prod` / `destroy:preview`: destroy matching stacks.
-- `bun run deploy:preflight:*`: check whether deploys are enabled and configured.
-- `bun run github:setup`: print GitHub Actions onboarding steps.
-- `bun run github:sync:staging` / `github:sync:prod`: sync GitHub Environment secrets and variables from the stage dotfile (`GITHUB_SYNC_SCOPE=secrets` is set by the script).
-- `bun run github:sync`: run **`github:sync:staging`** then **`github:sync:prod`** (fails if either dotfile is missing).
-- `bun run github:env:staging` / `github:env:prod`: same **`stacks/admin.ts`** with **`GITHUB_SYNC_SCOPE=environment`** — updates GitHub Environment deployment rules only from **`config/github.policy.ts`**; merges the stage dotfile when present for local env only.
-- `bun run github:env`: run **`github:env:staging`** then **`github:env:prod`**.
-
-### Codegen And Dependencies
-
-- `bun run db:generate`: regenerate D1 Drizzle migrations from `packages/db/src/schema.ts`.
-- `bun run check:drizzle-generated`: check generated Drizzle artifacts in CI.
-- `bun run outdated`: show outdated workspace dependencies.
-- `bun run update:interactive`: interactive dependency updates.
-
-## Deeper Docs
-
-- [docs/github-admin.md](docs/github-admin.md): GitHub Environment sync, rulesets, and repo policy knobs.
-- [apps/web/README.md](apps/web/README.md): web app routes, SSR, and frontend patterns.
-- [AGENTS.md](AGENTS.md): short index for AI agents and project playbooks.
-- [agents/skills/cf-starter-workflow/SKILL.md](agents/skills/cf-starter-workflow/SKILL.md): repo commands, typegen, deploy order, and generated artifacts.
-- [agents/skills/cf-workers-env-local/SKILL.md](agents/skills/cf-workers-env-local/SKILL.md): `.env.local`, `.env.staging`, `.env.production`, and secrets.
-- [agents/skills/cf-socka-realtime/SKILL.md](agents/skills/cf-socka-realtime/SKILL.md): WebSockets and realtime Durable Object patterns.
-- [CONTRIBUTING.md](CONTRIBUTING.md): contribution expectations.
+- [`CONTRIBUTING.md`](CONTRIBUTING.md) — PRs and checks.
+- [`AGENTS.md`](AGENTS.md) — index for AI assistants; **`agents/skills/`** are deep playbooks (optional for humans).
 
 ## Stack
 
 [Cloudflare Workers](https://workers.cloudflare.com/) + [Durable Objects](https://developers.cloudflare.com/durable-objects/) + [React Router 7](https://reactrouter.com/) + [Hono](https://hono.dev/) + [D1](https://developers.cloudflare.com/d1/) + [Drizzle](https://orm.drizzle.team/) + [Turborepo](https://turbo.build/repo) + [Alchemy](https://alchemy.run/) + [Biome](https://biomejs.dev/) + [Bun](https://bun.sh/) + [Zod](https://zod.dev/).
 
-## Security posture (for template users)
+## Security posture
 
-This kit ships real infra plus public demos. It starts reasonably locked down, but it is still a starter.
-
-Built-in guardrails:
-
-- PR preview deploys from forks use the protected `staging-fork` Environment.
-- PR preview comments are posted by a separate trusted `workflow_run` workflow, not by fork code with a write token.
-- Production deploys run from the `production` branch.
-- Demo probes return health metadata, not full downstream Worker responses.
-- Basic browser headers are enabled.
-
-Still add your product’s security work before launch: authentication, authorization, moderation, CSP, logging, rate limits, token rotation, and tighter Cloudflare/GitHub permissions.
-
-See [docs/github-admin.md](docs/github-admin.md) for GitHub policy knobs and [agents/skills/cf-workers-env-local/SKILL.md](agents/skills/cf-workers-env-local/SKILL.md) for env and secret hygiene.
+Real infra + demo routes: treat as a starting point. This template uses a protected Environment for **fork** PR previews, production deploys from **`production`**, and separate workflows for untrusted PR comment posting. Add your own auth, CSP, rate limits, and least-privilege tokens before launch. See [`docs/github-admin.md`](docs/github-admin.md) and [`agents/skills/cf-workers-env-local/SKILL.md`](agents/skills/cf-workers-env-local/SKILL.md).
 
 ## Contributing
 
-Bug reports, doc fixes, and improvements that keep the template honest for day-to-day use are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md).
+See [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
 ## License
 

@@ -7,7 +7,7 @@ description: Repo-root commands, typegen and typecheck cadence, lint, deploy, ad
 
 ## Run from repo root
 
-**New fork?** README **Quick Start (three lanes)** — **`bun run quickstart`**, **`onboard:staging`**, **`onboard:prod`**. Env files: [cf-workers-env-local/SKILL.md](../cf-workers-env-local/SKILL.md).
+**New fork?** README **Quick start** — **`bun run quickstart`**, **`onboard:staging`**, **`onboard:prod`**. Env files: [cf-workers-env-local/SKILL.md](../cf-workers-env-local/SKILL.md).
 
 Build, typecheck, lint, and typegen from the **workspace root** so Turbo can order work across packages.
 
@@ -124,7 +124,7 @@ Access in app code: `import { env } from "cloudflare:workers"` only.
 - **`github:sync:*` (trusted machine only)** — **`bun run github:sync:staging`** / **`github:sync:prod`** run **[`stacks/admin.ts`](../../../stacks/admin.ts)** to push GitHub **secrets** (Alchemy password, chatroom secret, **`CLOUDFLARE_API_TOKEN`**) and **variables** (**`CLOUDFLARE_ACCOUNT_ID`**, **`CF_STARTER_DEPLOY_ENABLED=true`** when omitted in the dotfile). Defaults to **`gh auth token`** / **`gh repo view`** — do **not** run this from routine CI.
 - **Repo policy (not dotenv)** — Merge toggles, rulesets (`main`: PR-only for writers by default with **Repository admin** bypass; **`allowRepositoryAdminBypassOnMain`** / **`requirePullRequestBeforeMerge`** in **[`config/github.policy.ts`](../../../config/github.policy.ts)**), and Environment deployment rules live under **`github.sync.*`** and **`github.environments.*`**. Staging sync can apply REST + rulesets; see README *GitHub admin sync reference*, [`github-repository-settings-sync.ts`](../../../stacks/github-repository-settings-sync.ts), [`github-repo-rulesets-sync.ts`](../../../stacks/github-repo-rulesets-sync.ts).
 - **`github:env:*`** — Updates **only** GitHub **`RepositoryEnvironment`** deployment protection from the policy file ([`github-repository-environment-from-env.ts`](../../../stacks/github-repository-environment-from-env.ts)); stage dotfile is merged when present for local process env only.
-- **Interactive setup** — **`bun run quickstart`** (local) and **`bun run onboard:staging`** / **`onboard:prod`** (CI bootstrap — README *Quick Start*). **`bun run github:setup`** prints an Actions overview. **`bun run setup`** / **`setup:local`** opens the variable browser; **`bun run setup -- --yes`** (or **`bun packages/scripts/src/setup-env.ts --yes`**) is for automation and only auto-fills regeneratable keys.
+- **Interactive setup** — **`bun run quickstart`** (local) and **`bun run onboard:staging`** / **`onboard:prod`** (CI bootstrap — README *Quick start*). **`bun run github:setup`** prints an Actions overview. **`bun run setup`** / **`setup:local`** opens the variable browser; **`bun run setup -- --yes`** (or **`bun packages/scripts/src/setup-env.ts --yes`**) is for automation and only auto-fills regeneratable keys.
 - **Further reading** — [Alchemy encryption password](https://alchemy.run/concepts/secret/#encryption-password), [GitHubSecret](https://alchemy.run/providers/github/secret/), [Getting started](https://alchemy.run/getting-started/) — **`CLOUDFLARE_API_TOKEN`**.
 
 - **Local dev** — `bun run dev` runs a filtered `turbo run dev` (web + **`cf-starter-db`** + worker apps), each via **`alchemy-cli.ts dev …`** → **`alchemy dev --app …`** ([Alchemy monorepo](https://alchemy.run/guides/turborepo/)).

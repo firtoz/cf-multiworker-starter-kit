@@ -26,7 +26,7 @@ Use this skill when someone is building **their** app on top of this starter kit
 
 Ask the user (or infer from context):
 
-- **Product slug / prefix** — short literal used in **`alchemy("myslug-frontend")`** style (**not** `$VAR + "-frontend"`). Example: **`skybook`** → **`skybook-frontend`**, **`skybook-database`**, … (see README “Code-first infra names”).
+- **Product slug / prefix** — short literal used in **`alchemy("myslug-frontend")`** style (**not** `$VAR + "-frontend"`). Example: **`skybook`** → **`skybook-frontend`**, **`skybook-database`**, … (see root README — **Name your product** → **Code-first infra names**).
 - **Workspace package names (`package.json` `name`)** — often **`skybook-web`**, **`skybook-db`**, … — separate from Alchemy **`--app`** — used mainly for **`turbo run … --filter=…`**.
 - **One-line description** — README, meta tags, home hero copy.
 - **Chatroom DO** — `durable-objects/chatroom-do`; web binds **`ChatroomDo`**; internal secret **`CHATROOM_INTERNAL_SECRET`** (already in env flows).

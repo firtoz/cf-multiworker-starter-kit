@@ -14,13 +14,13 @@ description: Alchemy + env files — repo-root `.env.local` (dev), `.env.staging
 
 ## Fork onboarding (humans)
 
-After cloning or generating from the template, follow **README *Quick Start (three lanes)***:
+After cloning or generating from the template, follow **README *Quick start***:
 
 - **`bun run quickstart`** — install if needed, `.env.local` regeneratable keys, then **`bun run dev`**
 - **`bun run onboard:staging`** — **`gh`**, **`.env.staging`** Cloudflare keys, **`setup:staging --yes`**, **`github:sync:staging`**
 - **`bun run onboard:prod`** — production dotfile flow, **`github:sync:prod`**, repo variable **`CF_STARTER_AUTO_PRODUCTION_PR`**
 
-Create **Cloudflare API tokens** only in the dashboard (README *Cloudflare credentials (manual)*); this repo does not mint tokens via scripts or OAuth.
+Create **Cloudflare API tokens** only in the dashboard ([`docs/github-admin.md`](../../docs/github-admin.md#cloudflare-credentials-manual)); this repo does not mint tokens via scripts or OAuth.
 
 ## Ground rules
 

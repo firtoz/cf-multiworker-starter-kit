@@ -9,12 +9,12 @@ Thanks for helping improve this starter. This file is **contribution process and
 1. Install [Bun](https://bun.sh/) and clone the repo.
 2. From the repo root: `bun install` then `bun run setup` / `bun run setup:local` (interactive variable browser in a TTY, or `-- --yes` / `CI=true` for auto-generated Alchemy + chatroom secrets only — see README).
 3. Complete first-time Alchemy/Cloudflare steps from the README before relying on `bun run dev` or deploy.
-4. **Bun version:** match repo **`packageManager`** in root [package.json](package.json) and [`.github/workflows/ci.yml`](.github/workflows/ci.yml) (CI is the source of truth for drift).
+4. **Bun version:** match root [package.json](package.json) **`packageManager`** — CI uses the same Bun version.
 
 ## Code quality (before a PR)
 
 - **TypeScript:** strict, avoid `any`, prefer `satisfies` where it helps.
-- **Lint/format:** [Biome](https://biomejs.dev/) — `bun run lint` (repo root; may rewrite; re-run as needed). Root README describes `check --write` behavior.
+- **Lint/format:** [Biome](https://biomejs.dev/) — `bun run lint` from the repo root (may rewrite; re-run as needed). Formatting helpers: **`bun run format`** / **`lint:format`** in root [package.json](package.json).
 - **Generated artifacts:** Do not hand-author React Router `+types`, Drizzle SQL, Drizzle `meta/*.json`, Drizzle migration wrappers, lockfiles, or `.alchemy/` state. For schema changes, edit `packages/db/src/schema.ts` or a package-local `src/schema.ts`, run `bun run db:generate` or the package-local `db:generate`, then commit the generated output. CI runs `bun run check:drizzle-generated` to warn on migration-only diffs.
 - **Commits:** Conventional style is fine (`feat:`, `fix:`, `docs:`, etc.).
 
@@ -32,7 +32,7 @@ Optionally `bun run dev` to exercise the app locally.
 
 ## Adding a Durable Object or worker package
 
-The generator and post-steps (root `dev` filter, web bindings, `turbo` destroy, `bun run typegen`) are documented in the README under **“Add New Durable Objects”** and **“After `turbo gen durable-object`”**, and in [agents/skills/cf-durable-object-package/SKILL.md](agents/skills/cf-durable-object-package/SKILL.md) / [agents/skills/cf-web-alchemy-bindings/SKILL.md](agents/skills/cf-web-alchemy-bindings/SKILL.md).
+The generator and post-steps (root `dev` filter, web bindings, `turbo` destroy, `bun run typegen`) are documented in the root README (**Adding workers**) and in [agents/skills/cf-durable-object-package/SKILL.md](agents/skills/cf-durable-object-package/SKILL.md) / [agents/skills/cf-web-alchemy-bindings/SKILL.md](agents/skills/cf-web-alchemy-bindings/SKILL.md).
 
 ## Dependency changes
 
@@ -42,7 +42,7 @@ The generator and post-steps (root `dev` filter, web bindings, `turbo` destroy, 
 
 ## Deploy and destroy (contributors)
 
-- **`bun run deploy:prod`** / **`deploy:staging`** / **`deploy:preview`** — Root Turbo runs the full **`deploy:*`** graph: **`packages/state-hub`** serializes shared [Cloudflare Alchemy state](https://alchemy.run/guides/cloudflare-state-store/) first (each deploy app lists **`state-hub`** as a **`devDependency`** so Turbo **`^deploy:*`** runs hub deploy before sibling deploys), then D1 (**`CF_STARTER_APPS.database`**), workers, web — **not** a web-only filter. **`packages/alchemy-utils/src/alchemy-cli.ts`** maps **`PRODUCT_PREFIX`** / **`CF_STARTER_APPS`** keys to **`alchemy deploy|destroy|dev --app …`**. **`STAGE`** comes from **`dotenv-cli -v`** (preview: CI **`STAGE=pr-<n>`**). **`alchemy.run.ts`** literals and workspace **`package.json#name`** still follow README “Code-first infra names”. Needs matching dotfiles and a stable **`ALCHEMY_PASSWORD`** for that stage.
+- **`bun run deploy:prod`** / **`deploy:staging`** / **`deploy:preview`** — Root Turbo runs the full **`deploy:*`** graph: **`packages/state-hub`** serializes shared [Cloudflare Alchemy state](https://alchemy.run/guides/cloudflare-state-store/) first (each deploy app lists **`state-hub`** as a **`devDependency`** so Turbo **`^deploy:*`** runs hub deploy before sibling deploys), then D1 (**`CF_STARTER_APPS.database`**), workers, web — **not** a web-only filter. **`packages/alchemy-utils/src/alchemy-cli.ts`** maps **`PRODUCT_PREFIX`** / **`CF_STARTER_APPS`** keys to **`alchemy deploy|destroy|dev --app …`**. **`STAGE`** comes from **`dotenv-cli -v`** (preview: CI **`STAGE=pr-<n>`**). **`alchemy.run.ts`** literals line up with **`PRODUCT_PREFIX`** / **`CF_STARTER_APPS`** (see README **Name your product** → **Code-first infra names**); workspace **`package.json`** **`name`** fields are separate Turbo filters. Needs matching dotfiles and a stable **`ALCHEMY_PASSWORD`** for that stage.
 - **`bun run github:sync:staging`** / **`github:sync:prod`** — Local/admin-only **`stacks/admin.ts`** with **`GITHUB_SYNC_SCOPE=secrets`**: upserts **`RepositoryEnvironment`**, then GitHub Environment **secrets** and **variables** from the stage dotfile. Optional: set **`GITHUB_SYNC_UPDATE_ENVIRONMENT_PROTECTION=true`** to re-apply deployment protection from **`config/github.policy.ts`** during that run (same rules as **`github:env:*`**). Uses **`gh auth token`** / **`gh repo view`** by default. Do not run from normal CI/deploy.
 - **`bun run github:sync`** — Runs **`github:sync:staging`** then **`github:sync:prod`** (both dotfiles must exist).
 - **`bun run github:env:staging`** / **`github:env:prod`** — **`GITHUB_SYNC_SCOPE=environment`**: updates **only** the GitHub **`RepositoryEnvironment`** (deployment protection) from **`config/github.policy.ts`**; does **not** write secrets or variables. Stage dotfile is merged when present for local env only.

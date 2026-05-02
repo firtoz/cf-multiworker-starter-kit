@@ -83,7 +83,7 @@ Avoid teaching new app features to POST plain forms to index routes. Prefer a no
 
 ### 3. Wire a new DO or worker into the web app
 
-Do not duplicate the monorepo checklist here. After **`bunx turbo gen durable-object`** (or copying an existing `durable-objects/*` package), follow the root [README.md](../../README.md) section **After `turbo gen durable-object`**, then:
+Do not duplicate the monorepo checklist here. After **`bunx turbo gen durable-object`** (or copying an existing `durable-objects/*` package), follow the root [README.md](../../README.md) section **Adding workers**, then:
 
 - [agents/skills/cf-durable-object-package/SKILL.md](../../agents/skills/cf-durable-object-package/SKILL.md) — package layout and `alchemy.run.ts`
 - [agents/skills/cf-web-alchemy-bindings/SKILL.md](../../agents/skills/cf-web-alchemy-bindings/SKILL.md) — `apps/web/package.json` workspace dep, `alchemy.run.ts` bindings, `bun run typegen`
@@ -147,6 +147,13 @@ Access in code:
 import { env } from "cloudflare:workers";
 console.log(env.MY_SECRET);
 ```
+
+### Optional PostHog
+
+Typed keys live in **`env.requirements.ts`**; client/helpers are optional. **Nothing runs** until you set **`POSTHOG_*`** and wire UI/bindings.
+
+- **Stay dark:** leave **`POSTHOG_*`** unset in `.env.local` / staging / prod.
+- **Remove entirely:** drop the **`posthogRequirements`** block from **`env.requirements.ts`**, remove unused components/helpers/bindings/`@posthog/*` deps — same as stripping any other demo feature.
 
 ## Development
 
