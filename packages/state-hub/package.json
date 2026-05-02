@@ -3,12 +3,14 @@
 	"private": true,
 	"type": "module",
 	"scripts": {
-		"deploy:prod": "bunx dotenv-cli -v STAGE=prod -e ../../.env.production -- bun ../alchemy-utils/alchemy-cli.ts deploy stateHub",
-		"deploy:staging": "bunx dotenv-cli -v STAGE=staging -e ../../.env.staging -- bun ../alchemy-utils/alchemy-cli.ts deploy stateHub",
-		"deploy:preview": "bunx dotenv-cli -e ../../.env.staging -- bun ../alchemy-utils/alchemy-cli.ts deploy stateHub",
-		"destroy:prod": "bunx dotenv-cli -v STAGE=prod -e ../../.env.production -- bun ../alchemy-utils/alchemy-cli.ts destroy stateHub",
-		"destroy:staging": "bunx dotenv-cli -v STAGE=staging -e ../../.env.staging -- bun ../alchemy-utils/alchemy-cli.ts destroy stateHub",
-		"destroy:preview": "bunx dotenv-cli -e ../../.env.staging -- bun ../alchemy-utils/alchemy-cli.ts destroy stateHub",
+		"deploy:prod": "bunx dotenv-cli -v STAGE=prod -e ../../.env.production -- bun ../alchemy-utils/src/alchemy-cli.ts deploy stateHub",
+		"deploy:staging": "bunx dotenv-cli -v STAGE=staging -e ../../.env.staging -- bun ../alchemy-utils/src/alchemy-cli.ts deploy stateHub",
+		"deploy:preview": "bunx dotenv-cli -e ../../.env.staging -- bun ../alchemy-utils/src/alchemy-cli.ts deploy stateHub",
+		"destroy:prod": "bunx dotenv-cli -v STAGE=prod -e ../../.env.production -- bun ../alchemy-utils/src/alchemy-cli.ts destroy stateHub",
+		"destroy:staging": "bunx dotenv-cli -v STAGE=staging -e ../../.env.staging -- bun ../alchemy-utils/src/alchemy-cli.ts destroy stateHub",
+		"destroy:preview": "bunx dotenv-cli -e ../../.env.staging -- bun ../alchemy-utils/src/alchemy-cli.ts destroy stateHub",
+		"lint": "biome check --write .",
+		"lint:format": "biome format --write .",
 		"typegen:local": "node -e \"process.exit(0)\"",
 		"typegen:prod": "node -e \"process.exit(0)\"",
 		"typecheck:local": "tsgo --noEmit -p .",
@@ -18,6 +20,7 @@
 		"alchemy-utils": "workspace:*"
 	},
 	"devDependencies": {
+		"@biomejs/biome": "catalog:",
 		"@types/node": "catalog:",
 		"@typescript/native-preview": "catalog:",
 		"alchemy": "catalog:",

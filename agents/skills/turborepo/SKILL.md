@@ -419,7 +419,7 @@ bun run build --verbose
 
 ### packages/db/turbo.json
 - `db:generate` — Drizzle SQL from `src/`
-- `dev` / `deploy:*` / `destroy:*` — **`packages/alchemy-utils/alchemy-cli.ts`** with **`CF_STARTER_APPS.database`** (**`deploy database`**, **`dev database`**, …; see **`package.json`** scripts; stage via **`STAGE`** + dotfile)
+- `dev` / `deploy:*` / `destroy:*` — **`packages/alchemy-utils/src/alchemy-cli.ts`** with **`CF_STARTER_APPS.database`** (**`deploy database`**, **`dev database`**, …; see **`package.json`** scripts; stage via **`STAGE`** + dotfile)
 - `typegen` / `typecheck` — `tsgo` chain for `cf-starter-db`
 
 ### Durable objects (e.g. `chatroom-do`)

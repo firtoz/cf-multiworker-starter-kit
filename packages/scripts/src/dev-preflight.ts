@@ -2,7 +2,7 @@ import { resolve } from "node:path";
 
 import { runAlchemyStatePasswordPreflight } from "./alchemy-state-password-preflight.js";
 
-const root = resolve(import.meta.dir, "../..");
+const root = resolve(import.meta.dir, "../../..");
 
 async function main() {
 	try {

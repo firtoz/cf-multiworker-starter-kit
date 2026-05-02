@@ -5,8 +5,8 @@
  * Contains no Workers/DO/D1 — **`finalize`** immediately after the CI state store attaches.
  */
 import alchemy from "alchemy";
-import { alchemyCiCloudStateStoreOptions } from "alchemy-utils/alchemy-cloud-state-store";
 import { requireAlchemyPassword } from "alchemy-utils";
+import { alchemyCiCloudStateStoreOptions } from "alchemy-utils/alchemy-cloud-state-store";
 import { resolveStageFromEnv } from "alchemy-utils/deployment-stage";
 import { CF_STARTER_APPS } from "alchemy-utils/worker-peer-scripts";
 

@@ -1,9 +1,12 @@
 import alchemy from "alchemy";
 import { D1Database } from "alchemy/cloudflare";
-import { alchemyCiCloudStateStoreOptions } from "alchemy-utils/alchemy-cloud-state-store";
 import { requireAlchemyPassword } from "alchemy-utils";
+import { alchemyCiCloudStateStoreOptions } from "alchemy-utils/alchemy-cloud-state-store";
 import { resolveStageFromEnv } from "alchemy-utils/deployment-stage";
-import { CF_STARTER_APPS, DEFAULT_D1_DATABASE_RESOURCE_ID } from "alchemy-utils/worker-peer-scripts";
+import {
+	CF_STARTER_APPS,
+	DEFAULT_D1_DATABASE_RESOURCE_ID,
+} from "alchemy-utils/worker-peer-scripts";
 
 const stage = resolveStageFromEnv();
 const app = await alchemy(CF_STARTER_APPS.database, {

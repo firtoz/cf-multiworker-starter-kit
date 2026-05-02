@@ -13,7 +13,9 @@ function listChangedFiles(): string[] {
 		git(["rev-parse", "--verify", baseRef]);
 	} catch {
 		if (process.env["GITHUB_ACTIONS"] === "true") {
-			console.log(`::warning::Could not resolve ${baseRef}; skipping Drizzle generated-artifact check.`);
+			console.log(
+				`::warning::Could not resolve ${baseRef}; skipping Drizzle generated-artifact check.`,
+			);
 		} else {
 			console.warn(`Could not resolve ${baseRef}; skipping Drizzle generated-artifact check.`);
 		}
@@ -45,7 +47,9 @@ function isSchemaOrGeneratorInput(file: string, root: string): boolean {
 
 const changedFiles = listChangedFiles();
 const generatedFiles = changedFiles.filter(isGeneratedDrizzle);
-const roots = new Set(generatedFiles.map(packageRoot).filter((root): root is string => root !== null));
+const roots = new Set(
+	generatedFiles.map(packageRoot).filter((root): root is string => root !== null),
+);
 
 for (const root of roots) {
 	const generatedInRoot = generatedFiles.filter((file) => file.startsWith(`${root}/`));

@@ -1,6 +1,7 @@
 {
 	"type": "commonjs",
 	"scripts": {
-		"lint": "biome check . --write"
+		"lint": "biome check --write .",
+		"lint:format": "biome format --write ."
 	}
 }

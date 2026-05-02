@@ -12,12 +12,22 @@
 		},
 		"typecheck:local": {
 			"dependsOn": ["typegen:local"],
-			"inputs": ["alchemy.run.ts", "package.json", "tsconfig.json", "$TURBO_ROOT$/tsconfig.base.json"],
+			"inputs": [
+				"alchemy.run.ts",
+				"package.json",
+				"tsconfig.json",
+				"$TURBO_ROOT$/tsconfig.base.json"
+			],
 			"outputs": []
 		},
 		"typecheck:prod": {
 			"dependsOn": ["typegen:prod"],
-			"inputs": ["alchemy.run.ts", "package.json", "tsconfig.json", "$TURBO_ROOT$/tsconfig.base.json"],
+			"inputs": [
+				"alchemy.run.ts",
+				"package.json",
+				"tsconfig.json",
+				"$TURBO_ROOT$/tsconfig.base.json"
+			],
 			"outputs": []
 		},
 		"deploy:prod": {

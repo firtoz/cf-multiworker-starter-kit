@@ -5,21 +5,24 @@
 	"scripts": {
 		"build": "node -e \"process.exit(0)\"",
 		"build:local": "node -e \"process.exit(0)\"",
-		"dev:preflight": "bun ./dev-preflight.ts",
-		"dev:preflight:interactive": "ALCHEMY_STATE_PASSWORD_INTERACTIVE=1 bun ./dev-preflight.ts",
-		"check:drizzle-generated": "bun ./check-drizzle-generated.ts",
-		"setup": "bun ./setup-env.ts",
-		"setup:local": "bun ./setup-env.ts --local",
-		"setup:prod": "bun ./setup-env.ts --prod",
-		"setup:staging": "bun ./setup-env.ts --staging",
-		"github:setup": "bun ./github-setup.ts",
-		"github:setup:staging": "bun ./github-setup.ts --staging",
-		"github:setup:prod": "bun ./github-setup.ts --prod",
-		"deploy:preflight:prod": "bunx dotenv-cli -v STAGE=prod -- bun ./deploy-preflight.ts prod",
-		"deploy:preflight:staging": "bunx dotenv-cli -v STAGE=staging -- bun ./deploy-preflight.ts staging",
-		"deploy:preflight:preview": "bun ./deploy-preflight.ts preview"
+		"dev:preflight": "bun ./src/dev-preflight.ts",
+		"dev:preflight:interactive": "ALCHEMY_STATE_PASSWORD_INTERACTIVE=1 bun ./src/dev-preflight.ts",
+		"check:drizzle-generated": "bun ./src/check-drizzle-generated.ts",
+		"setup": "bun ./src/setup-env.ts",
+		"setup:local": "bun ./src/setup-env.ts --local",
+		"setup:prod": "bun ./src/setup-env.ts --prod",
+		"setup:staging": "bun ./src/setup-env.ts --staging",
+		"github:setup": "bun ./src/github-setup.ts",
+		"github:setup:staging": "bun ./src/github-setup.ts --staging",
+		"github:setup:prod": "bun ./src/github-setup.ts --prod",
+		"deploy:preflight:prod": "bunx dotenv-cli -v STAGE=prod -- bun ./src/deploy-preflight.ts prod",
+		"deploy:preflight:staging": "bunx dotenv-cli -v STAGE=staging -- bun ./src/deploy-preflight.ts staging",
+		"deploy:preflight:preview": "bun ./src/deploy-preflight.ts preview",
+		"lint": "biome check --write .",
+		"lint:format": "biome format --write ."
 	},
 	"devDependencies": {
+		"@biomejs/biome": "catalog:",
 		"@clack/prompts": "^1.3.0"
 	},
 	"dependencies": {

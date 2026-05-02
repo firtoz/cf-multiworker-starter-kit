@@ -51,10 +51,10 @@ else
     bun install --frozen-lockfile
 fi
 
-# Seed .env.local (same as `bun run setup -- --yes`: no prompt; local devs use `bun run setup` for the interactive [Y/n]).
+# Seed .env.local (same as contributors' `bun run setup -- --yes`).
 echo ""
 echo "🔐 Ensuring repo-root .env.local (non-interactive seed)…"
-if ! bun packages/scripts/setup-env.ts --yes; then
+if ! bun run setup -- --yes; then
 	echo "⚠️  setup-env failed (read-only disk, permissions, or I/O). Set ALCHEMY_PASSWORD and CHATROOM_INTERNAL_SECRET in .env.local yourself, or: bun run setup"
 fi
 

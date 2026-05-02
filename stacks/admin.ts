@@ -16,14 +16,14 @@ import path from "node:path";
 import alchemy from "alchemy";
 import { GitHubSecret, RepositoryEnvironment } from "alchemy/github";
 import { parse } from "dotenv";
-import { resolveStageFromEnv } from "../packages/alchemy-utils/deployment-stage";
-import { CF_STARTER_APPS } from "../packages/alchemy-utils/worker-peer-scripts";
+import { resolveStageFromEnv } from "../packages/alchemy-utils/src/deployment-stage";
+import { CF_STARTER_APPS } from "../packages/alchemy-utils/src/worker-peer-scripts";
 import {
 	buildGitHubSecretPayload,
 	buildGitHubVariablePayloadFromDotfile,
 	CF_STARTER_DEPLOY_ENABLED_VAR,
 	setupCommandLabelForDotfileRel,
-} from "../packages/scripts/github-environment-secrets";
+} from "../packages/scripts/src/github-environment-secrets";
 import { GitHubEnvironmentVariable } from "./github-environment-variable";
 
 const REPO_ROOT = path.resolve(import.meta.dir, "..");

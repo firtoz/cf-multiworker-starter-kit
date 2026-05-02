@@ -1,11 +1,7 @@
 /**
  * Local / staging / prod gitignored env bootstrap (ja-ti-style variable browser).
  *
- * - **`bun run setup`** or **`bun run setup:local`** → **`.env.local`** (default non-interactive).
- * - **`bun run setup:staging`** → **`.env.staging`**
- * - **`bun run setup:prod`** → **`.env.production`**
- *
- * Keys align with **`github-environment-secrets.ts`** (four GitHub secrets incl. **`ALCHEMY_STATE_TOKEN`**) plus **`CLOUDFLARE_ACCOUNT_ID`** and optional **`WEB_*`** custom-hostname vars for sync/variables).
+ * Keys come from **`collected-env-requirements.ts`** (repo root + package sidecars). GitHub sync uses the same model via **`github-environment-secrets.ts`**.
  */
 import { randomBytes } from "node:crypto";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
@@ -24,15 +20,16 @@ import {
 } from "@clack/prompts";
 
 import {
-	GITHUB_SYNC_OPTIONAL_WEB_HOSTNAME_VARIABLE_KEYS,
-	WEB_DOMAIN_OVERRIDE_EXISTING_ORIGIN_ENV_KEY,
-	WEB_DOMAINS_ENV_KEY,
-	WEB_ROUTES_ENV_KEY,
-	WEB_ZONE_ID_ENV_KEY,
-} from "alchemy-utils/web-deploy-hostnames";
+	type EnvSetupMode,
+	isOptionalInSetupMode,
+	isRequiredInSetupMode,
+	requirementByKey,
+	setupNavigableKeyOrder,
+} from "alchemy-utils/env-requirements";
+import { ALL_REPO_ENV_REQUIREMENTS } from "./collected-env-requirements";
 import { setupCommandLabelForDotfileRel } from "./github-environment-secrets";
 
-const root = path.resolve(import.meta.dir, "../..");
+const root = path.resolve(import.meta.dir, "../../..");
 const argv = process.argv;
 const isProd = argv.includes("--prod");
 const isStaging = argv.includes("--staging");
@@ -45,79 +42,44 @@ if ((isProd ? 1 : 0) + (isStaging ? 1 : 0) + (isLocalFlag ? 1 : 0) > 1) {
 const flagEdit = argv.includes("--edit");
 const forceNonInteractive = argv.includes("--yes") || argv.includes("-y");
 
-type SetupMode = "local" | "staging" | "prod";
+type SetupMode = EnvSetupMode;
 
-const KEYS_LOCAL = ["ALCHEMY_PASSWORD", "CHATROOM_INTERNAL_SECRET"] as const;
-const KEYS_DEPLOY = [
-	"ALCHEMY_PASSWORD",
-	"ALCHEMY_STATE_TOKEN",
-	"CHATROOM_INTERNAL_SECRET",
-	"CLOUDFLARE_API_TOKEN",
-	"CLOUDFLARE_ACCOUNT_ID",
-] as const;
+const REQ_BY_KEY = requirementByKey(ALL_REPO_ENV_REQUIREMENTS);
 
 const BACK = "__back__";
 const MAIN_EXIT = "__main_exit__";
 const DOT_ENV_LOCAL = path.join(root, ".env.local");
 
-const KEY_COPY: Readonly<Record<string, { title: string; line: string }>> = {
-	ALCHEMY_PASSWORD: {
-		title: "Alchemy password",
-		line: "Encrypts Alchemy state on disk / in CI (see https://alchemy.run/concepts/secret/#encryption-password).",
-	},
-	ALCHEMY_STATE_TOKEN: {
-		title: "Alchemy Cloud state token",
-		line: "One stable token per Cloudflare account for CI state (see https://alchemy.run/guides/cloudflare-state-store/); same value in staging + prod github:sync secrets",
-	},
-	CHATROOM_INTERNAL_SECRET: {
-		title: "Chatroom internal secret",
-		line: "Authorizes the web worker when it forwards WebSocket upgrades to the chatroom DO",
-	},
-	CLOUDFLARE_API_TOKEN: {
-		title: "Cloudflare API token",
-		line: "Workers + D1 — e.g. Edit Cloudflare Workers template",
-	},
-	CLOUDFLARE_ACCOUNT_ID: {
-		title: "Cloudflare account ID",
-		line: "Dashboard → account / Workers overview (synced as a GitHub Environment variable)",
-	},
-	[WEB_DOMAINS_ENV_KEY]: {
-		title: "Web Worker custom domains (optional)",
-		line:
-			"Comma-separated hostname(s), e.g. example.com,www.example.com · empty = workers.dev only · see README · synced as GitHub var when set",
-	},
-	[WEB_ROUTES_ENV_KEY]: {
-		title: "Web Worker routes (optional)",
-		line:
-			"Comma-separated patterns, e.g. example.com/* — use when you need route patterns instead of domains only",
-	},
-	[WEB_ZONE_ID_ENV_KEY]: {
-		title: "Cloudflare zone ID for web hostname bindings (optional)",
-		line:
-			"Applied to every WEB_DOMAINS / WEB_ROUTES entry when set · omit to let Alchemy infer from hostnames",
-	},
-	[WEB_DOMAIN_OVERRIDE_EXISTING_ORIGIN_ENV_KEY]: {
-		title: "Override existing Worker on custom domain(s) (optional)",
-		line:
-			"true / false · set true only if hostname is bound to another Worker and you intentionally want to replace it",
-	},
-};
-
-/** Optional **`WEB_*`** keys — staging/prod `.env*` only (`bun run setup:staging` / `setup:prod`). */
-const OPTIONAL_WEB_HOSTNAME_KEY_SET = new Set<string>(
-	GITHUB_SYNC_OPTIONAL_WEB_HOSTNAME_VARIABLE_KEYS,
-);
-
-function optionalWebHostnameKeys(mode: SetupMode): readonly string[] {
-	return mode === "local" ? [] : [...GITHUB_SYNC_OPTIONAL_WEB_HOSTNAME_VARIABLE_KEYS];
-}
-
-function secretKeysForMode(mode: SetupMode): readonly string[] {
-	return mode === "local" ? KEYS_LOCAL : KEYS_DEPLOY;
+function requiredKeysForMode(mode: SetupMode): string[] {
+	return ALL_REPO_ENV_REQUIREMENTS.filter((r) => isRequiredInSetupMode(r, mode)).map((r) => r.key);
 }
 
 function navigableKeys(mode: SetupMode): string[] {
-	return [...secretKeysForMode(mode), ...optionalWebHostnameKeys(mode)];
+	return setupNavigableKeyOrder(mode, ALL_REPO_ENV_REQUIREMENTS);
+}
+
+function isOptionalSetupKey(key: string, mode: SetupMode): boolean {
+	const r = REQ_BY_KEY.get(key);
+	if (!r) {
+		return false;
+	}
+	return isOptionalInSetupMode(r, mode) && !isRequiredInSetupMode(r, mode);
+}
+
+function keyTitle(key: string): string {
+	return REQ_BY_KEY.get(key)?.title ?? key;
+}
+
+function keyLine(key: string): string {
+	return REQ_BY_KEY.get(key)?.description ?? `Set \`${key}\` (see .env.example).`;
+}
+
+function canAutoGenerateKey(key: string): boolean {
+	return REQ_BY_KEY.get(key)?.canAutoGenerate === true;
+}
+
+function isMaskedKey(key: string): boolean {
+	return !REQ_BY_KEY.get(key)?.plaintextInSetup;
 }
 
 function setupCommandLabel(mode: SetupMode): string {
@@ -184,34 +146,6 @@ function truncateForList(s: string, max = 52): string {
 	return `${t.slice(0, max - 3)}…`;
 }
 
-const PLAINTEXT_LIST_KEYS_FOR_ROW = new Set<string>([
-	"CLOUDFLARE_ACCOUNT_ID",
-	WEB_DOMAINS_ENV_KEY,
-	WEB_ROUTES_ENV_KEY,
-	WEB_ZONE_ID_ENV_KEY,
-	WEB_DOMAIN_OVERRIDE_EXISTING_ORIGIN_ENV_KEY,
-]);
-
-function keyTitle(key: string): string {
-	return KEY_COPY[key]?.title ?? key;
-}
-
-function keyLine(key: string): string {
-	return KEY_COPY[key]?.line ?? `Set \`${key}\` (see .env.example).`;
-}
-
-function canAutoGenerateKey(key: string): boolean {
-	return (
-		key === "ALCHEMY_PASSWORD" ||
-		key === "ALCHEMY_STATE_TOKEN" ||
-		key === "CHATROOM_INTERNAL_SECRET"
-	);
-}
-
-function isMaskedKey(key: string): boolean {
-	return !PLAINTEXT_LIST_KEYS_FOR_ROW.has(key);
-}
-
 function reloadFileRaw(file: string, fallback: string): string {
 	return existsSync(file) ? readFileSync(file, "utf8") : fallback;
 }
@@ -248,10 +182,10 @@ function rowLabelWhenSet(text: string): string {
 	return `\u001b[22m${styleText("green", text)}\u001b[0m`;
 }
 
-function rowLabel(raw: string, key: string): string {
+function rowLabel(raw: string, key: string, mode: SetupMode): string {
 	const set = hasValue(raw, key);
 	const box = set ? "[x]" : "[ ]";
-	const reqWord = OPTIONAL_WEB_HOSTNAME_KEY_SET.has(key) ? "optional" : "required";
+	const reqWord = isOptionalSetupKey(key, mode) ? "optional" : "required";
 	if (!isMaskedKey(key)) {
 		const v = captureEnvAssignmentLine(raw, key) ?? "";
 		const show = truncateForList(v || "(empty)", 42);
@@ -271,7 +205,7 @@ async function variableBrowserLoop(file: string, mode: SetupMode, startRaw: stri
 		raw = reloadFileRaw(file, raw);
 		const picks = keys.map((k) => ({
 			value: k,
-			label: rowLabel(raw, k),
+			label: rowLabel(raw, k, mode),
 		}));
 
 		const sel = await select<string | typeof MAIN_EXIT>({
@@ -398,7 +332,9 @@ async function editOneVariableInteractive(
 
 		if (choice === "clear") {
 			const okConfirm = await confirm({
-				message: `Remove ${key} from ${path.basename(file)}? Required for deploy / GitHub sync.`,
+				message: isOptionalSetupKey(key, mode)
+					? `Remove ${key} from ${path.basename(file)}? This is optional — set again if you still need it.`
+					: `Remove ${key} from ${path.basename(file)}? Required for deploy / GitHub sync.`,
 				initialValue: false,
 			});
 			if (isCancel(okConfirm)) {
@@ -513,6 +449,7 @@ async function interactiveMain(file: string, mode: SetupMode): Promise<void> {
 				"**CLOUDFLARE_ACCOUNT_ID** is stored as a GitHub Environment **variable** (`github:sync:*`).",
 				"",
 				"Optional (**bottom** of menu): **`WEB_DOMAINS`**, **`WEB_ROUTES`**, **`WEB_ZONE_ID`**, **`WEB_DOMAIN_OVERRIDE_EXISTING_ORIGIN`** — Workers custom hostnames · see README *Custom domains*.",
+				"Optional product analytics (**`POSTHOG_*`**) in this file sync as GitHub Environment **variables** (and **`POSTHOG_CLI_TOKEN`** as a **secret**) when you run `github:sync:staging|prod`; deploy workflows pass them into **Turbo**. Leave blank to skip or remove the block from `env.requirements.ts` if you do not want PostHog at all.",
 				"",
 				`When ready: \`bun run github:sync:${mode === "staging" ? "staging" : "prod"}\` (after \`gh auth login\`).`,
 			].join("\n"),
@@ -529,9 +466,9 @@ async function main(): Promise<void> {
 		process.exit(0);
 	}
 	const { mode, file } = resolved;
-	const SECRET_KEYS = secretKeysForMode(mode);
+	const requiredKeys = requiredKeysForMode(mode);
 	const body = existsSync(file) ? readFileSync(file, "utf8") : "";
-	const missing = SECRET_KEYS.filter((k) => !hasValue(body, k));
+	const missing = requiredKeys.filter((k) => !hasValue(body, k));
 	const interactive = useInteractivePrompt();
 
 	if (!interactive) {
@@ -541,18 +478,18 @@ async function main(): Promise<void> {
 				return;
 			}
 			console.error(
-				`[setup] Non-TTY: ${missing.join(", ")} missing in ${path.basename(file)}. Run in a terminal or use --yes to auto-generate Alchemy/chatroom secrets only.`,
+				`[setup] Non-TTY: ${missing.join(", ")} missing in ${path.basename(file)}. Run in a terminal or use --yes to auto-generate regeneratable keys.`,
 			);
 			process.exit(1);
 		}
 		if (flagEdit && forceNonInteractive) {
-			const rotatable = SECRET_KEYS.filter(canAutoGenerateKey);
+			const rotatable = requiredKeys.filter(canAutoGenerateKey);
 			if (rotatable.length === 0) {
 				console.error("[setup] --edit --yes: no auto-regeneratable keys — run interactively.");
 				process.exit(1);
 			}
 			const fresh = Object.fromEntries(rotatable.map((k) => [k, gen()])) as Record<string, string>;
-			const out = upsertEnvLines(body, fresh, SECRET_KEYS);
+			const out = upsertEnvLines(body, fresh, rotatable);
 			writeFileSync(file, out, "utf8");
 			console.log(
 				`[setup] --edit --yes: rotated ${rotatable.join(", ")} in ${file}.${alchemyPasswordStateHint()}`,
@@ -569,7 +506,7 @@ async function main(): Promise<void> {
 			`[setup] ${file}`,
 			`[setup] All required keys are present. Open a TTY for the variable browser, or:`,
 		];
-		for (const k of SECRET_KEYS.filter(canAutoGenerateKey)) {
+		for (const k of requiredKeys.filter(canAutoGenerateKey)) {
 			lines.push(`[setup] • ${keyTitle(k)} (${k})`);
 		}
 		lines.push(`[setup] ${setupCommandLabel(mode)} -- --edit --yes`);

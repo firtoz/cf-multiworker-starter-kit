@@ -4,28 +4,12 @@
 	"type": "module",
 	"exports": {
 		".": {
-			"types": "./password.ts",
-			"default": "./password.ts"
+			"types": "./src/password.ts",
+			"default": "./src/password.ts"
 		},
-		"./worker-peer-scripts": {
-			"types": "./worker-peer-scripts.ts",
-			"default": "./worker-peer-scripts.ts"
-		},
-		"./deployment-stage": {
-			"types": "./deployment-stage.ts",
-			"default": "./deployment-stage.ts"
-		},
-		"./alchemy-cloud-state-store": {
-			"types": "./alchemy-cloud-state-store.ts",
-			"default": "./alchemy-cloud-state-store.ts"
-		},
-		"./ci-deploy-web-url": {
-			"types": "./ci-deploy-web-url.ts",
-			"default": "./ci-deploy-web-url.ts"
-		},
-		"./web-deploy-hostnames": {
-			"types": "./web-deploy-hostnames.ts",
-			"default": "./web-deploy-hostnames.ts"
+		"./*": {
+			"types": "./src/*.ts",
+			"default": "./src/*.ts"
 		}
 	},
 	"scripts": {
@@ -35,12 +19,15 @@
 		"destroy:prod": "node -e \"process.exit(0)\"",
 		"destroy:staging": "node -e \"process.exit(0)\"",
 		"destroy:preview": "node -e \"process.exit(0)\"",
+		"lint": "biome check --write .",
+		"lint:format": "biome format --write .",
 		"typegen:local": "tsgo --noEmit -p .",
 		"typegen:prod": "tsgo --noEmit -p .",
 		"typecheck:local": "tsgo --noEmit -p .",
 		"typecheck:prod": "tsgo --noEmit -p ."
 	},
 	"devDependencies": {
+		"@biomejs/biome": "catalog:",
 		"@types/node": "catalog:",
 		"@typescript/native-preview": "catalog:",
 		"typescript": "catalog:"

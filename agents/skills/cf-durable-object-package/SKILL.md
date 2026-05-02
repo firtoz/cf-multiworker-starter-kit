@@ -22,7 +22,7 @@ description: Add or change a Durable Object worker package under durable-objects
 
 5. **Hono** — In `workers/app.ts`: `import type { CloudflareEnv } from "../env"`, `const app = new Hono<{ Bindings: CloudflareEnv }>()` (same as [durable-objects/other-worker/workers/app.ts](durable-objects/other-worker/workers/app.ts)).
 
-6. **Scripts** — Prefer **`bunx dotenv-cli -v STAGE=local -e ../../.env.local -- bun ../../packages/alchemy-utils/alchemy-cli.ts dev <kebab-suffix>`** in **`package.json`** **`dev`** (forwards to **`alchemy dev`** with **`--app`** **`${PRODUCT_PREFIX}-<suffix>`**). Mirror staged **`deploy`/`destroy`** the same way. Add **`state-hub`**: **`workspace:*`** **`devDependency`** so **`turbo`** **`deploy:*`** **`dependsOn`** **`^deploy:*`** hits the CI state hub first (see live packages). SQLite packages should also expose **`db:generate`**.
+6. **Scripts** — Prefer **`bunx dotenv-cli -v STAGE=local -e ../../.env.local -- bun ../../packages/alchemy-utils/src/alchemy-cli.ts dev <kebab-suffix>`** in **`package.json`** **`dev`** (forwards to **`alchemy dev`** with **`--app`** **`${PRODUCT_PREFIX}-<suffix>`**). Mirror staged **`deploy`/`destroy`** the same way. Add **`state-hub`**: **`workspace:*`** **`devDependency`** so **`turbo`** **`deploy:*`** **`dependsOn`** **`^deploy:*`** hits the CI state hub first (see live packages). SQLite packages should also expose **`db:generate`**.
 
 7. **After edits** — From repo root: `bun run typegen` and `bun run typecheck` (or package-local `typecheck:local`). If schema changed, run package-local `db:generate` first.
 

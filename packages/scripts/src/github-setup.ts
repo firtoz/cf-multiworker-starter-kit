@@ -99,14 +99,16 @@ async function main() {
 
 	if (scope === "both") {
 		note(
-			["Use **different** strong values for `ALCHEMY_PASSWORD` per environment if you want isolation (recommended)."].join(
-				"\n",
-			),
+			[
+				"Use **different** strong values for `ALCHEMY_PASSWORD` per environment if you want isolation (recommended).",
+			].join("\n"),
 			"Tip",
 		);
 	}
 
-	outro("Run the `setup:*` and `github:sync:*` commands above when ready. Until then, CI quality jobs still pass.");
+	outro(
+		"Run the `setup:*` and `github:sync:*` commands above when ready. Until then, CI quality jobs still pass.",
+	);
 }
 
 await main();

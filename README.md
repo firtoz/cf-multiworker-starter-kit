@@ -36,6 +36,7 @@ It is meant to be copied, renamed, and shipped. The sample app includes enough r
 - **Typed infrastructure bindings** from package-local `alchemy.run.ts` files into Worker `env.d.ts` types.
 - **Monorepo deploys** with Turborepo and Alchemy, including staging, production, and PR preview stacks.
 - **A generator** for adding more `durable-objects/*` packages.
+- **Optional PostHog-oriented analytics** — env keys and client helpers only; disabled until you set `POSTHOG_*` / wire the UI. Remove entirely if you do not want product analytics (same as ripping out any other demo feature).
 
 ## Quick Start
 
@@ -91,7 +92,7 @@ Before meaningful deploys, rename the starter so Cloudflare dashboards and Alche
 
 Fast path:
 
-1. Change `PRODUCT_PREFIX` in `packages/alchemy-utils/worker-peer-scripts.ts` from `cf-starter` to your slug, for example `skybook`.
+1. Change `PRODUCT_PREFIX` in `packages/alchemy-utils/src/worker-peer-scripts.ts` from `cf-starter` to your slug, for example `skybook`.
 2. Run `bun run typegen`.
 3. Update visible product copy when you are ready.
 
@@ -133,6 +134,13 @@ To bind your own hostnames (production or staging):
 4. For CI, run `bun run github:sync:prod` / `github:sync:staging` after editing the stage dotfile so GitHub Environment **variables** include the `WEB_*` keys (they are not secrets).
 
 PR preview stacks use `STAGE=pr-<n>` and stay on **`workers.dev`**: `WEB_*` values are **ignored** during preview deploys so shared GitHub Environment variables never bind your real hostnames to PR stacks.
+
+### Optional: PostHog (product analytics)
+
+This starter may include **optional** PostHog-oriented pieces: typed env keys in [`apps/web/env.requirements.ts`](apps/web/env.requirements.ts), client helpers under `apps/web/app/lib/`, and (when you wire it) Worker vars such as `POSTHOG_KEY` / `POSTHOG_HOST`. **Nothing runs until you set keys and connect the UI** — same philosophy as other sample features you might delete.
+
+- **To stay dark:** leave all `POSTHOG_*` empty in `.env.local` / staging / prod; setup and GitHub sync treat them as optional.
+- **To remove completely:** delete the `posthogRequirements` block (or the spread) in `env.requirements.ts`, remove PostHog components/helpers/scripts you are not using, strip related `binding`s from `alchemy.run.ts` if you added any, and drop `@posthog/*` / `posthog-js` from `apps/web/package.json` if present. Optional `sourcemap:upload` is only for uploading maps to PostHog.
 
 ### GitHub Actions Deploys
 
@@ -184,7 +192,7 @@ Important entry points:
 - `apps/web/alchemy.run.ts` wires the web worker and imported bindings.
 - `apps/web/workers/app.ts` is the web Worker entry.
 - `packages/db/src/schema.ts` is the D1 schema source of truth.
-- `packages/alchemy-utils/worker-peer-scripts.ts` owns product/app naming.
+- `packages/alchemy-utils/src/worker-peer-scripts.ts` owns product/app naming.
 - `agents/skills/` contains detailed project playbooks.
 
 ## Working In The Repo

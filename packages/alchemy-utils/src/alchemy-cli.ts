@@ -4,11 +4,11 @@
  * when the segment is not a known key — forks only edit **`PRODUCT_PREFIX`** / **`CF_STARTER_APPS`** in **`worker-peer-scripts.ts`**.
  *
  * @example Deploy D1 package (cwd = package root)
- *   bun ../alchemy-utils/alchemy-cli.ts deploy database
+ *   bun ../alchemy-utils/src/alchemy-cli.ts deploy database
  * @example Admin stack from repo root
- *   bun packages/alchemy-utils/alchemy-cli.ts deploy admin stacks/admin.ts
+ *   bun packages/alchemy-utils/src/alchemy-cli.ts deploy admin stacks/admin.ts
  * @example Generated durable object with kebab slug `widgets`
- *   bun ../../packages/alchemy-utils/alchemy-cli.ts deploy widgets
+ *   bun ../../packages/alchemy-utils/src/alchemy-cli.ts deploy widgets
  */
 import { spawn } from "node:child_process";
 import process from "node:process";

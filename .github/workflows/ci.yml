@@ -40,7 +40,7 @@ jobs:
         run: bun run lint
 
       - name: Seed .env.local (required secrets; not committed)
-        run: bun packages/scripts/setup-env.ts --yes
+        run: bun run setup -- --yes
 
       - name: Build
         run: bun run build

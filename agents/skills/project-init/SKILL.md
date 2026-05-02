@@ -9,7 +9,7 @@ Use this skill when someone is building **their** app on top of this starter kit
 
 **Guard:** If `git remote get-url origin` contains `firtoz/cf-multiworker-starter-kit`, do **not** run this flow unless the user explicitly requests renaming or templating work.
 
-**Note:** Infra naming is **code-first** ([`packages/alchemy-utils/worker-peer-scripts.ts`](../../packages/alchemy-utils/worker-peer-scripts.ts)): set **`PRODUCT_PREFIX`** once (**`CF_STARTER_APPS`** derives Alchemy **`appId`** values). Package **`deploy`/`destroy`/`dev`** scripts call **[`alchemy-cli.ts`](../../packages/alchemy-utils/alchemy-cli.ts)** with those keys so you do not duplicate **`--app`** strings; keep **`alchemy("…")`** literals in **`alchemy.run.ts`** in sync, then rerun **`bun run typegen`**. No env vars for Worker branding — edit **TypeScript** consistently. Also read [cf-starter-workflow](../cf-starter-workflow/SKILL.md) and [cf-starter-gotchas](../cf-starter-gotchas/SKILL.md).
+**Note:** Infra naming is **code-first** ([`packages/alchemy-utils/src/worker-peer-scripts.ts`](../../packages/alchemy-utils/src/worker-peer-scripts.ts)): set **`PRODUCT_PREFIX`** once (**`CF_STARTER_APPS`** derives Alchemy **`appId`** values). Package **`deploy`/`destroy`/`dev`** scripts call [`alchemy-cli.ts`](../../packages/alchemy-utils/src/alchemy-cli.ts) with those keys so you do not duplicate **`--app`** strings; keep **`alchemy("…")`** literals in **`alchemy.run.ts`** in sync, then rerun **`bun run typegen`**. No env vars for Worker branding — edit **TypeScript** consistently. Also read [cf-starter-workflow](../cf-starter-workflow/SKILL.md) and [cf-starter-gotchas](../cf-starter-gotchas/SKILL.md).
 
 **Adding** a new Durable Object package or binding workers (after or alongside fork setup): use the focused skills (short checklists, not a single mega-doc)—[cf-durable-object-package](../cf-durable-object-package/SKILL.md) (Alchemy + Hono in `durable-objects/`), [cf-web-alchemy-bindings](../cf-web-alchemy-bindings/SKILL.md) (`cf-starter-web` **`alchemy.run.ts`** and workspace deps), [cf-worker-rpc-turbo](../cf-worker-rpc-turbo/SKILL.md) (`workers/rpc`, Turbo `dev`/`destroy:*`, cyclic **`WorkerStub`/`WorkerRef`** + **`alchemy-utils/worker-peer-scripts`** helpers).
 
@@ -29,7 +29,7 @@ Every deployable **`alchemy.run.ts`** owns one **`await alchemy(<appId>, { … }
 
 ### Where **`PRODUCT_PREFIX`** drives ids
 
-- **[**`CF_STARTER_APPS`** + **`PRODUCT_PREFIX`**](../../packages/alchemy-utils/worker-peer-scripts.ts)** — Canonical Alchemy **`appId`** strings. **`alchemy-cli.ts`** accepts these keys (**`frontend`**, **`chatroom`**, **`ping`**, **`other`**, **`database`**, **`stateHub`**, **`admin`**) plus arbitrary **suffix** segments for **`${PRODUCT_PREFIX}-<suffix>`** (generator-created DO packages). Forks change **`PRODUCT_PREFIX`** once.
+- **[**`CF_STARTER_APPS`** + **`PRODUCT_PREFIX`**](../../packages/alchemy-utils/src/worker-peer-scripts.ts)** — Canonical Alchemy **`appId`** strings. **`alchemy-cli.ts`** accepts these keys (**`frontend`**, **`chatroom`**, **`ping`**, **`other`**, **`database`**, **`stateHub`**, **`admin`**) plus arbitrary **suffix** segments for **`${PRODUCT_PREFIX}-<suffix>`** (generator-created DO packages). Forks change **`PRODUCT_PREFIX`** once.
 
 | Package folder | Typical **`appId`** (**`PRODUCT_PREFIX = cf-starter`**) | Turbo **`--filter`** uses workspace **`name`** (starter) |
 |----------------|----------------------------------------------------------|--------------------------------------------------------|
