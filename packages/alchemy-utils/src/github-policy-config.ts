@@ -44,6 +44,11 @@ export type GithubRepositoryMergeSettings = {
 	readonly allowAutoMerge: boolean;
 };
 
+export type GithubRepositoryActionsSettings = {
+	readonly defaultWorkflowPermissions: "read" | "write";
+	readonly allowGitHubActionsToCreateAndApprovePullRequests: boolean;
+};
+
 export type GithubRulesetPullRequestParameters = {
 	readonly allowedMergeMethods: readonly MergeMethod[];
 	readonly dismissStaleReviewsOnPush: boolean;
@@ -110,6 +115,7 @@ export type GitHubPolicyConfig = {
 			readonly stagingFork: GithubStagingForkDeploymentRules;
 		};
 		readonly repository: {
+			readonly actions: GithubRepositoryActionsSettings;
 			readonly merge: GithubRepositoryMergeSettings;
 			readonly rulesets: GithubRulesetsConfig;
 		};
@@ -157,6 +163,10 @@ export const DEFAULT_GITHUB_POLICY: GitHubPolicyConfig = {
 			},
 		},
 		repository: {
+			actions: {
+				defaultWorkflowPermissions: "read",
+				allowGitHubActionsToCreateAndApprovePullRequests: true,
+			},
 			merge: {
 				deleteBranchOnMerge: true,
 				allowSquashMerge: true,
