@@ -150,6 +150,14 @@ bun run github:sync:staging
 bun run github:sync:prod
 ```
 
+To create or update the **`staging`** / **`production`** GitHub Environment **without** reading `.env.staging` / `.env.production` or syncing secrets (e.g. set deployment reviewers from a machine that only has `gh`):
+
+```bash
+GITHUB_ENV_DEPLOYMENT_REVIEWER_USERS=alice,bob bun run github:env:staging
+```
+
+See **`stacks/github-environment-only.ts`** for all **`GITHUB_ENV_*`** options. Full secret + variable sync remains **`github:sync:*`**.
+
 What runs in CI:
 
 - **Quality checks** run on pushes and PRs to `main`: generated-artifact guard, typecheck, lint, seeded `.env.local`, and build.
@@ -248,6 +256,7 @@ For the detailed checklist, use [agents/skills/cf-durable-object-package/SKILL.m
 - `bun run deploy:preflight:*`: check whether deploys are enabled and configured.
 - `bun run github:setup`: print GitHub Actions onboarding steps.
 - `bun run github:sync:staging` / `github:sync:prod`: sync GitHub Environment secrets and variables from a trusted machine.
+- `bun run github:env:staging` / `github:env:prod`: create or update the GitHub Environment and deployment protection rules only (no dotfile, no secrets) — Alchemy **`RepositoryEnvironment`**; optional **`GITHUB_ENV_*`** vars (see `stacks/github-environment-only.ts`).
 
 ### Codegen And Dependencies
 
@@ -278,7 +287,7 @@ This kit ships with real infra and demos. Treat security as layering: tighten wh
 | Area | Behavior |
 | ---- | -------- |
 | **GitHub Actions** | Workflows declare least-privilege `permissions` where it matters (`contents: read`, `pull-requests: read`, `issues: write` for PR preview comments). **`pull_request` runs the workflow YAML from `main`**—fork PRs cannot silently replace Actions logic until their branch is merged. |
-| **PR preview deploy** | A **staging secret–bearing deploy** waits on an **explicit PR review APPROVED** from a collaborator with **`push`/maintain/admin** permission who **is not the PR author**. Teardown checks out the **`base` branch** so **`bun install` does not execute untrusted `package.json` scripts** during destroy. The bot upserts one PR comment (no deploy secrets attached). |
+| **PR preview deploy** | **Deploy** and **destroy preview** jobs use GitHub Environment **`staging`**. Add **required deployment reviewers** (approve the **workflow deployment** in Actions, not the PR) via **Settings → Environments → staging**, or run **`bun run github:env:staging`** with **`GITHUB_ENV_DEPLOYMENT_REVIEWER_*`** (Alchemy **`RepositoryEnvironment`** — `stacks/github-environment-only.ts`). Teardown checks out the **`base` branch** so **`bun install` does not execute untrusted `package.json` scripts** during destroy. The bot upserts one PR comment (no deploy secrets attached). |
 | **Production manual deploy** | `workflow_dispatch` is rejected unless **`GITHUB_REF` is `refs/heads/production`** so Operators cannot accidentally run prod deploy against an arbitrary branch. |
 | **`/api/worker-services`** | Demo probe is **GET-only** and returns **health metadata only**—not full downstream Worker response bodies (reduces leakage and scraper value). |
 | **Demo chat** | Socka contract caps **display name length** (including **`?name=` on the WebSocket URL**) and **message body length**. History responses clamp legacy DB rows so oversized rows do not break the wire contract. |
@@ -287,7 +296,7 @@ This kit ships with real infra and demos. Treat security as layering: tighten wh
 **What stays intentionally lightweight (demo)**
 
 - **Public demos**: `/chat`, `/visitors`, `/ping-do`, and the Socka **`clearHistory`** path are trusts-everyone examples—fine for showcases, weak for moderation or tenancy.
-- **PR preview economics**: Approved preview deploy **still checks out PR head**—`bun install` and any postinstall/run scripts can execute. Keep **narrow Cloudflare tokens** scoped to Workers/D1 previews, consider **additional GitHub Environment protection rules**, and treat preview secrets as disposable.
+- **PR preview economics**: After a human allows the environment deploy, preview **still checks out PR head**—`bun install` and any postinstall/run scripts can execute. Keep **narrow Cloudflare tokens** scoped to Workers/D1 previews, consider **additional GitHub Environment protection rules**, and treat preview secrets as disposable.
 - **No strict Content-Security-Policy yet**: SSR + React bundles need careful nonces/hashes before turning on CSP in production—plan that when you freeze third-party origins.
 
 **If you fork for production**

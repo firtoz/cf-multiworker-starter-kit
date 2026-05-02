@@ -10,6 +10,10 @@
  * Run from repo root:
  * - `bun run github:sync:prod`
  * - `bun run github:sync:staging`
+ *
+ * Optional: set **`GITHUB_ENV_*`** (see **`stacks/github-repository-environment-from-env.ts`**) so this run also
+ * updates deployment protection on **`RepositoryEnvironment`** (e.g. required reviewers). Omitting those vars
+ * leaves existing GitHub deployment rules unchanged on sync.
  */
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
@@ -24,77 +28,15 @@ import {
 	CF_STARTER_DEPLOY_ENABLED_VAR,
 	setupCommandLabelForDotfileRel,
 } from "../packages/scripts/github-environment-secrets";
+import {
+	getGitHubTarget,
+	getGitHubToken,
+	githubActionsEnvironmentFromAlchemyStage,
+} from "./github-admin-target";
+import { repositoryEnvironmentProtectionOverlayForAdminSync } from "./github-repository-environment-from-env";
 import { GitHubEnvironmentVariable } from "./github-environment-variable";
 
 const REPO_ROOT = path.resolve(import.meta.dir, "..");
-
-function runGh(args: readonly string[], hint: string) {
-	const proc = Bun.spawnSync(["gh", ...args], {
-		stderr: "pipe",
-		stdout: "pipe",
-	});
-	if (!proc.success) {
-		const stderr = proc.stderr.toString().trim();
-		throw new Error(`${hint}${stderr ? `\n\nGitHub CLI said:\n${stderr}` : ""}`);
-	}
-	const value = proc.stdout.toString().trim();
-	if (!value) {
-		throw new Error(hint);
-	}
-	return value;
-}
-
-function optionalEnv(name: string) {
-	const value = process.env[name]?.trim();
-	return value ? value : undefined;
-}
-
-function parseGitHubRepository(value: string) {
-	const [owner, repository] = value.split("/");
-	if (!owner || !repository || value.split("/").length !== 2) {
-		throw new Error(`${value} is not a valid GITHUB_REPOSITORY value. Expected owner/repo.`);
-	}
-	return { owner, repository };
-}
-
-function getGitHubTarget() {
-	const owner = optionalEnv("GITHUB_OWNER");
-	const repository = optionalEnv("GITHUB_REPOSITORY_NAME");
-	if (owner && repository) {
-		return { owner, repository };
-	}
-
-	const githubRepository =
-		optionalEnv("GITHUB_REPOSITORY") ??
-		runGh(
-			["repo", "view", "--json", "owner,name", "--jq", '.owner.login + "/" + .name'],
-			"Could not infer the GitHub repository. Run `gh auth login` from the repo checkout, or set GITHUB_REPOSITORY=owner/repo.",
-		);
-	return parseGitHubRepository(githubRepository);
-}
-
-function getGitHubToken() {
-	return (
-		optionalEnv("GITHUB_TOKEN") ??
-		runGh(
-			["auth", "token"],
-			"Could not read a GitHub token. Run `gh auth login` and, if needed, `gh auth refresh -s repo`; or set GITHUB_TOKEN.",
-		)
-	);
-}
-
-function githubActionsEnvironmentFromAlchemyStage(stage: string): "production" | "staging" {
-	const s = stage.trim().toLowerCase();
-	if (s === "prod" || s === "production") {
-		return "production";
-	}
-	if (s === "staging") {
-		return "staging";
-	}
-	throw new Error(
-		`stacks/admin.ts: STAGE must be "prod" or "staging" for GitHub sync (got ${JSON.stringify(stage)}). PR preview stages use the staging environment automatically in CI — do not run this stack for pr-*.`,
-	);
-}
 
 function dotfilePathForGithubEnvironment(environmentName: "production" | "staging"): string {
 	if (environmentName === "staging") {
@@ -172,10 +114,14 @@ if (githubActionsEnvironmentFromAlchemyStage(app.stage) !== githubEnvironment) {
 	);
 }
 
+const envProtectionOverlay = repositoryEnvironmentProtectionOverlayForAdminSync();
+
 await RepositoryEnvironment("github-actions-environment", {
 	owner,
 	repository,
 	name: githubEnvironment,
+	token: githubToken,
+	...envProtectionOverlay,
 });
 
 for (const name of Object.keys(secretPayload) as (keyof typeof secretPayload)[]) {
@@ -217,6 +163,7 @@ console.log({
 	environment: githubEnvironment,
 	secrets: Object.keys(secretPayload).sort(),
 	variables: variableNames,
+	githubEnvProtectionFromProcessEnv: Object.keys(envProtectionOverlay).length > 0 ? envProtectionOverlay : "(none)",
 });
 
 await app.finalize();

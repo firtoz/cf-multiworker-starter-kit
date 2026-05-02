@@ -38,6 +38,8 @@
 		"github:setup:prod": "bun run --cwd packages/scripts github:setup:prod",
 		"github:sync:prod": "bunx dotenv-cli -v STAGE=prod -e .env.production -- bun packages/alchemy-utils/alchemy-cli.ts deploy admin stacks/admin.ts",
 		"github:sync:staging": "bunx dotenv-cli -v STAGE=staging -e .env.staging -- bun packages/alchemy-utils/alchemy-cli.ts deploy admin stacks/admin.ts",
+		"github:env:prod": "bunx dotenv-cli -v STAGE=prod -- bun packages/alchemy-utils/alchemy-cli.ts deploy admin stacks/github-environment-only.ts",
+		"github:env:staging": "bunx dotenv-cli -v STAGE=staging -- bun packages/alchemy-utils/alchemy-cli.ts deploy admin stacks/github-environment-only.ts",
 		"deploy:preflight:prod": "bun run --cwd packages/scripts deploy:preflight:prod",
 		"deploy:preflight:staging": "bun run --cwd packages/scripts deploy:preflight:staging",
 		"deploy:preflight:preview": "bun run --cwd packages/scripts deploy:preflight:preview",
