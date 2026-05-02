@@ -21,6 +21,8 @@ permissions:
 jobs:
   deploy:
     name: Deploy to staging
+    outputs:
+      did_staging_deploy: ${{ steps.deploy_result.outputs.did_staging_deploy }}
     if:
       github.event.workflow_run.conclusion == 'success' &&
       github.event.workflow_run.event == 'push' &&
@@ -110,9 +112,74 @@ jobs:
               else
                 echo "- **workers.dev URL:** artifact missing — ${GITHUB_WORKSPACE}/.alchemy/ci/cf-starter-web-deploy-url.txt _(see apps/web/alchemy.run.ts when CI runs on GitHub Actions)._"
               fi
+              echo ""
+              echo "**Production:** after \`bun run onboard:prod\`, repo variable **\`CF_STARTER_AUTO_PRODUCTION_PR\`** can open or reuse a **\`main\` → \`production\`** PR on successful staging deploys. Until then, run **\`bun run onboard:prod\`** from a trusted machine."
             elif [[ "$DE_OUT" == "failure" ]]; then
               echo "**Status:** Turbo deploy failed — see **Turbo deploy (staging)**."
             else
               echo "**Status:** unknown — inspect [this run]($WORKFLOW_URL)."
             fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Record staging deploy outcome
+        id: deploy_result
+        if: always()
+        run: |
+          pf="${{ steps.preflight.outputs.deploy_enabled }}"
+          de="${{ steps.deploy.outcome }}"
+          if [[ "${pf:-}" == "true" && "${de:-}" == "success" ]]; then
+            echo "did_staging_deploy=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "did_staging_deploy=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  maybe_production_pr:
+    name: Open or reuse production PR
+    needs: deploy
+    if: >-
+      needs.deploy.outputs.did_staging_deploy == 'true' &&
+      vars.CF_STARTER_AUTO_PRODUCTION_PR == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Create or note existing PR (main → production)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          REPO="${{ github.repository }}"
+          RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+
+          if ! gh api "repos/${REPO}/branches/production" --silent 2>/dev/null; then
+            {
+              echo "## Production PR"
+              echo ""
+              echo "**Skipped:** remote branch \`production\` does not exist yet."
+              echo "Create it once (for example push \`main\` to \`production\`), then rerun this workflow or open a PR manually."
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          EXISTING="$(gh pr list --repo "${REPO}" --base production --head main --state open --json url --jq '.[0].url // empty' || true)"
+          if [[ -n "${EXISTING}" ]]; then
+            {
+              echo "## Production PR"
+              echo "**Already open:** [${EXISTING}](${EXISTING})"
+              echo ""
+              echo "Merge this PR to deploy **production**."
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          BODY="$(printf '%s\n\n%s' "Staging deploy succeeded: ${RUN_URL}" "Merge this PR to deploy **production** (see \`.github/workflows/deploy-production.yml\`).")"
+
+          gh pr create --repo "${REPO}" --base production --head main \
+            --title "Deploy staging to production" \
+            --body "${BODY}"
+
+          {
+            echo "## Production PR"
+            echo "Opened **main** → **production**. Merge it to deploy production."
           } >> "$GITHUB_STEP_SUMMARY"

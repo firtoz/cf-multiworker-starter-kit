@@ -36,10 +36,13 @@ It is meant to be copied, renamed, and shipped. The sample app includes enough r
 - **Typed infrastructure bindings** from package-local `alchemy.run.ts` files into Worker `env.d.ts` types.
 - **Monorepo deploys** with Turborepo and Alchemy, including staging, production, and PR preview stacks.
 - **A generator** for adding more `durable-objects/*` packages.
+- **Optional PostHog-oriented analytics** — env keys and client helpers only; disabled until you set `POSTHOG_*` / wire the UI. Remove entirely if you do not want product analytics (same as ripping out any other demo feature).
 
-## Quick Start
+## Quick Start (three lanes)
 
-Prerequisites: [Bun](https://bun.sh/), git, and a [Cloudflare](https://dash.cloudflare.com/) account for local Alchemy resources.
+This repo separates **local dev**, **staging on GitHub Actions**, and **production**. Pick one path at a time.
+
+**Prerequisites:** [Bun](https://bun.sh/), git, and a [Cloudflare](https://dash.cloudflare.com/) account for Alchemy local resources.
 
 Create a repo from the template:
 
@@ -50,25 +53,22 @@ cd my-project
 
 Or use **Use this template** from the [GitHub repo](https://github.com/firtoz/cf-multiworker-starter-kit).
 
-Install dependencies and create local secrets:
+### Lane A — Local dev
+
+One command installs if needed, fills **missing** regeneratable keys in `.env.local` (it does **not** rotate existing secrets), runs a dev preflight, then starts Turbo dev:
 
 ```bash
-bun install
-bun run setup
+bun run quickstart
 ```
 
-Connect Alchemy to Cloudflare on each new machine:
+On a fresh machine you may still need Alchemy linked to Cloudflare **once**:
 
 ```bash
 bun alchemy configure
 bun alchemy login
 ```
 
-Then start the full local stack:
-
-```bash
-bun run dev
-```
+Then rerun **`bun run quickstart`** (or **`bun run dev`** directly when `.env.local` is already good).
 
 Open the URL printed by Vite/Alchemy, usually `http://localhost:5173`.
 
@@ -79,11 +79,50 @@ Try these routes:
 - `/ping-do` for a Durable Object binding.
 - `/chat` for WebSockets through the web worker into the chatroom Durable Object.
 
-### If Setup Fails
+### Lane B — Staging (CI on `main`)
 
-- Missing Cloudflare credentials: run `bun alchemy configure` and `bun alchemy login`, or add `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` to `.env.local`.
-- Missing secrets: rerun `bun run setup`, or set `ALCHEMY_PASSWORD` and `CHATROOM_INTERNAL_SECRET` in `.env.local`.
-- Cloudflare account errors: make sure `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` belong to the same account.
+**Trigger:** after **Quality checks** succeed, **Deploy staging** runs on a successful **push** to **`main`** (same commit as the Quality run — not PR-only runs). Merge to `main` or push to `main` to ship staging.
+
+**Human prerequisite:** a Cloudflare **API token** and **Account ID** (see [Cloudflare credentials (manual)](#cloudflare-credentials-manual) below). This template does **not** create tokens for you.
+
+From a **trusted machine** with [`gh`](https://cli.github.com/) installed:
+
+```bash
+bun run onboard:staging
+```
+
+That verifies **`gh auth`**, ensures `.env.staging` has Cloudflare values, runs **`bun run setup:staging -- --yes`** (generated secrets only where missing), then **`bun run github:sync:staging`**. The command is **idempotent** — safe to rerun.
+
+Then **push or merge to `main`**; when Quality checks pass, staging deploys.
+
+### Lane C — Production (`production` branch)
+
+**Trigger:** pushes to branch **`production`** (see `.github/workflows/deploy-production.yml`). Typical flow: PR **`main` → `production`**, merge to deploy.
+
+Onboard production (same idea as staging; can **reuse** the same Cloudflare token and account ID when prod lives in the same account):
+
+```bash
+bun run onboard:prod
+```
+
+That runs **`setup:prod -- --yes`**, **`github:sync:prod`**, and sets repository variable **`CF_STARTER_AUTO_PRODUCTION_PR=true`** so that, **after a successful staging deploy**, Actions may **open or reuse** a PR from **`main`** to **`production`**. You still merge that PR to deploy production. If **`production`** does not exist on the remote yet, create it once (for example from `main`) before relying on automation.
+
+For **rulesets** and merge gates on `main` / `production`, see the [GitHub Actions deploys](#github-actions-deploys) section and [`config/github.policy.ts`](config/github.policy.ts).
+
+### Cloudflare credentials (manual)
+
+Use the dashboard — **no OAuth or scripted token creation** in this repo.
+
+1. **Account ID** — [Cloudflare dashboard](https://dash.cloudflare.com/) → your account → **Workers & Pages** (or account overview). Copy **Account ID**.
+2. **API token** — [My Profile → API Tokens](https://dash.cloudflare.com/profile/api-tokens) → **Create Token**. Fast path: **Edit Cloudflare Workers** template scoped to that account. For tighter scopes, include Workers + **D1** as your deploy needs — see [API tokens](https://developers.cloudflare.com/fundamentals/api/get-started/create-token/).
+3. Put **`CLOUDFLARE_API_TOKEN`** and **`CLOUDFLARE_ACCOUNT_ID`** in **`.env.staging`** / **`.env.production`** (or run **`bun run setup:staging`** / **`setup:prod`** and use the Cloudflare category). They must refer to the **same** account.
+
+### If setup fails
+
+- **`quickstart` / local:** missing Alchemy/Cloudflare auth — `bun alchemy configure`, `bun alchemy login`, optional `CLOUDFLARE_*` in `.env.local`; missing generated secrets — `bun run setup:local` or rerun **`bun run quickstart`**.
+- **`onboard:staging`:** paste Cloudflare values into `.env.staging` or run **`bun run setup:staging`**; ensure **`gh auth login`**.
+- **`onboard:prod`:** same for `.env.production`, or answer the prompt / set **`ONBOARD_PROD_COPY_CF=1`** to copy Cloudflare lines from `.env.staging`.
+- **Account mismatch:** `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` must be the same Cloudflare account.
 
 ## Name Your Product
 
@@ -91,7 +130,7 @@ Before meaningful deploys, rename the starter so Cloudflare dashboards and Alche
 
 Fast path:
 
-1. Change `PRODUCT_PREFIX` in `packages/alchemy-utils/worker-peer-scripts.ts` from `cf-starter` to your slug, for example `skybook`.
+1. Change `PRODUCT_PREFIX` in `packages/alchemy-utils/src/worker-peer-scripts.ts` from `cf-starter` to your slug, for example `skybook`.
 2. Run `bun run typegen`.
 3. Update visible product copy when you are ready.
 
@@ -130,32 +169,79 @@ To bind your own hostnames (production or staging):
 1. Run `bun run setup:prod` or `bun run setup:staging` and use the **optional** entries at the bottom of the menu — or set the same keys in `.env.production` / `.env.staging` (see [`.env.example`](.env.example)).
 2. Typical: set **`WEB_DOMAINS=example.com,www.example.com`**. Use **`WEB_ROUTES`** only if you need explicit route patterns (e.g. `example.com/*`).
 3. Optional: **`WEB_ZONE_ID`** (apply one zone to every entry), **`WEB_DOMAIN_OVERRIDE_EXISTING_ORIGIN=true`** when moving a hostname from another Worker.
-4. For CI, run `bun run github:sync:prod` / `github:sync:staging` after editing the stage dotfile so GitHub Environment **variables** include the `WEB_*` keys (they are not secrets).
+4. For CI, run `bun run github:sync:staging` / `github:sync:prod` (or **`bun run github:sync`** to run both in order) after editing the stage dotfiles so GitHub Environment **variables** include the `WEB_*` keys (they are not secrets).
 
 PR preview stacks use `STAGE=pr-<n>` and stay on **`workers.dev`**: `WEB_*` values are **ignored** during preview deploys so shared GitHub Environment variables never bind your real hostnames to PR stacks.
+
+### Optional: PostHog (product analytics)
+
+This starter may include **optional** PostHog-oriented pieces: typed env keys in [`apps/web/env.requirements.ts`](apps/web/env.requirements.ts), client helpers under `apps/web/app/lib/`, and (when you wire it) Worker vars such as `POSTHOG_KEY` / `POSTHOG_HOST`. **Nothing runs until you set keys and connect the UI** — same philosophy as other sample features you might delete.
+
+- **To stay dark:** leave all `POSTHOG_*` empty in `.env.local` / staging / prod; setup and GitHub sync treat them as optional.
+- **To remove completely:** delete the `posthogRequirements` block (or the spread) in `env.requirements.ts`, remove PostHog components/helpers/scripts you are not using, strip related `binding`s from `alchemy.run.ts` if you added any, and drop `@posthog/*` / `posthog-js` from `apps/web/package.json` if present. Optional `sourcemap:upload` is only for uploading maps to PostHog.
 
 ### GitHub Actions Deploys
 
 Deploy workflows are disabled by default on fresh forks. They stay green and skip Alchemy until `CF_STARTER_DEPLOY_ENABLED=true` is set on the GitHub Environment.
 
-Use the setup helpers from a trusted machine:
+Use the setup helpers from a trusted machine (see README **Quick Start** — **Lane B** / **Lane C** for the full ladder):
 
 ```bash
 bun run github:setup
+
+# Idempotent wrappers (rerunnable):
+bun run onboard:staging
+bun run onboard:prod
+
+# Manual equivalent when you already maintain the dotfiles:
+gh auth login
 bun run setup:staging
 bun run setup:prod
-
-gh auth login
 bun run github:sync:staging
 bun run github:sync:prod
+# or both in one go (requires .env.staging and .env.production):
+# bun run github:sync
 ```
+
+**`onboard:prod`** sets repository variable **`CF_STARTER_AUTO_PRODUCTION_PR=true`** after a successful **`github:sync:prod`**, allowing **Deploy staging** to open or reuse a **`main` → `production`** PR when staging deploy succeeds. Clear the variable with **`gh variable delete`** if you want to turn that off.
+
+To create or update **only** the GitHub Environment **deployment protection** (Alchemy **`RepositoryEnvironment`**) — **no** GitHub **secrets** or **Environment variables** are written — use **`github:env:*`**. Rules come from **[`config/github.policy.ts`](config/github.policy.ts)** (`github.environments.*`). Each command still loads the stage dotfile when present (for `gh` / local process env), but **policy is not driven by `GITHUB_ENV_*` keys**.
+
+```bash
+gh auth login
+bun run github:env:staging
+# or both GitHub environments (each run uses its own dotfile):
+# bun run github:env
+```
+
+Full secret + variable sync remains **`github:sync:*`** or **`github:sync`** (both stage dotfiles required). **Config-only** (repo REST + **RepositoryEnvironment** shells, **no** secret or Environment variable upload; dotfiles optional): **`bun run github:sync:config`** or set **`GITHUB_SYNC_PUSH_SECRETS=false`** for a normal sync run.
+
+To **also** re-apply **deployment protection** from **`config/github.policy.ts`** while running a secrets sync, set **`GITHUB_SYNC_UPDATE_ENVIRONMENT_PROTECTION=true`** for that run (same payload as **`github:env:*`**).
+
+**Repository rulesets (staging sync only):** when **`github.sync.applyRulesets`** is **true** in **`config/github.policy.ts`**, **`github:sync:staging`** upserts rulesets for **`main`** and **`production`**. By default **`main`** requires a pull request before merge for **Write** / **Maintain** collaborators, while **`allowRepositoryAdminBypassOnMain`** (default **true**) adds a ruleset bypass for the built-in **Repository admin** role so owners/admins can push directly; set **`requirePullRequestBeforeMerge`** to **false** for a fully open `main`. **`github.repository.rulesets.pullRequest.sharedRequiredApprovingReviewCount`** defaults to **0** (solo-friendly merges); raise it when you want mandatory approvals. Optional **status checks** via **`github.repository.rulesets.main.requiredStatusCheckContexts`**. **`production`** uses pull-request rules for **everyone** (no admin bypass in defaults), no force-push, and a **workflows** rule from [`restrict-production-pr-source.yml`](.github/workflows/restrict-production-pr-source.yml). Repo variable **`CF_STARTER_PRODUCTION_PR_HEAD`** is set from **`github.repository.rulesets.production.sourceBranchForProductionPrs`**. See [`stacks/github-repo-rulesets-sync.ts`](stacks/github-repo-rulesets-sync.ts).
+
+### GitHub admin sync reference (env vs policy)
+
+- **Secrets / stage values:** [`.env.staging`](.env.staging) / [`.env.production`](.env.production) and [`packages/scripts/src/repo-root-env-requirements.ts`](packages/scripts/src/repo-root-env-requirements.ts) — Alchemy, Cloudflare, app secrets, optional `WEB_*` / `POSTHOG_*`, and the sync switches below.
+- **Repo policy (rulesets, merge settings, Environment rules):** **[`config/github.policy.ts`](config/github.policy.ts)** — edit TypeScript, then run **`bun run typecheck:root`**. Applied during **`github:sync:staging`** (REST + rulesets + staging-side policy) and by **`github:env:*`** (deployment protection only). **`github:sync:prod`** does not repeat REST/ruleset steps.
+
+| Variable | Default if unset / empty | Purpose |
+| --- | --- | --- |
+| **`GITHUB_SYNC_SCOPE`** | *None — must be set by the script* | **`secrets`** vs **`environment`** (`package.json` sets this for each `github:*` command). |
+| **`GITHUB_SYNC_PUSH_SECRETS`** | **`true`** (unset, empty, or whitespace = push) | **`false`** → config-only sync (same as **`github:sync:config`**) |
+| **`GITHUB_SYNC_UPDATE_ENVIRONMENT_PROTECTION`** | **`false`** (only **`true`** enables) | On **`github:sync:*`**, also apply **`RepositoryEnvironment`** protection from **`config/github.policy.ts`** |
+| **`config/github.policy.ts`** | (tracked defaults in repo) | Repo **settings** API, **rulesets**, and **`staging` / `production` / `staging-fork`** deployment rules — edit **`github.sync.*`** and **`github.environments.*`** |
+
+**Requirements:** token needs **admin** on the repo for rulesets and repo variables. **GitHub Team/Enterprise** feature availability may vary for some ruleset options; see [GitHub rulesets docs](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-rulesets/about-rulesets).
+
+**Required CI via rulesets:** set **`github.repository.rulesets.main.requiredStatusCheckContexts`** in **`config/github.policy.ts`** to check **context** strings (confirm exact names from a PR’s checks tab after **Quality checks** has run). Wrong names block merges until fixed or cleared.
 
 What runs in CI:
 
 - **Quality checks** run on pushes and PRs to `main`: generated-artifact guard, typecheck, lint, seeded `.env.local`, and build.
 - **Staging deploys** run after Quality checks pass on a push to `main`.
 - **Production deploys** run from the `production` branch or manually from the Actions UI.
-- **PR previews** deploy for PRs into `main` and tear down when the PR closes.
+- **PR previews** (into `main`): **same-repo** PRs use GitHub Environment **`staging`**; **fork** PRs use **`staging-fork`**. Run **`github:sync:staging`** so both get the same secrets/vars and **`staging-fork`** gets **required reviewers** by default per **`github.environments.stagingFork`** in **`config/github.policy.ts`** (empty reviewer lists + **`reviewerFallbackToActor`** → current **`gh`** login or **`GITHUB_ACTOR`**). Leave **`staging`** open if you want internal branch PRs to preview without that gate.
 
 After a successful deploy, the Actions Summary shows the deployed `workers.dev` URL.
 
@@ -184,7 +270,7 @@ Important entry points:
 - `apps/web/alchemy.run.ts` wires the web worker and imported bindings.
 - `apps/web/workers/app.ts` is the web Worker entry.
 - `packages/db/src/schema.ts` is the D1 schema source of truth.
-- `packages/alchemy-utils/worker-peer-scripts.ts` owns product/app naming.
+- `packages/alchemy-utils/src/worker-peer-scripts.ts` owns product/app naming.
 - `agents/skills/` contains detailed project playbooks.
 
 ## Working In The Repo
@@ -247,7 +333,10 @@ For the detailed checklist, use [agents/skills/cf-durable-object-package/SKILL.m
 - `bun run destroy:staging` / `destroy:prod` / `destroy:preview`: destroy matching stacks.
 - `bun run deploy:preflight:*`: check whether deploys are enabled and configured.
 - `bun run github:setup`: print GitHub Actions onboarding steps.
-- `bun run github:sync:staging` / `github:sync:prod`: sync GitHub Environment secrets and variables from a trusted machine.
+- `bun run github:sync:staging` / `github:sync:prod`: sync GitHub Environment secrets and variables from the stage dotfile (`GITHUB_SYNC_SCOPE=secrets` is set by the script).
+- `bun run github:sync`: run **`github:sync:staging`** then **`github:sync:prod`** (fails if either dotfile is missing).
+- `bun run github:env:staging` / `github:env:prod`: same **`stacks/admin.ts`** with **`GITHUB_SYNC_SCOPE=environment`** — updates GitHub Environment deployment rules only from **`config/github.policy.ts`**; merges the stage dotfile when present for local env only.
+- `bun run github:env`: run **`github:env:staging`** then **`github:env:prod`**.
 
 ### Codegen And Dependencies
 
@@ -278,7 +367,7 @@ This kit ships with real infra and demos. Treat security as layering: tighten wh
 | Area | Behavior |
 | ---- | -------- |
 | **GitHub Actions** | Workflows declare least-privilege `permissions` where it matters (`contents: read`, `pull-requests: read`, `issues: write` for PR preview comments). **`pull_request` runs the workflow YAML from `main`**—fork PRs cannot silently replace Actions logic until their branch is merged. |
-| **PR preview deploy** | A **staging secret–bearing deploy** waits on an **explicit PR review APPROVED** from a collaborator with **`push`/maintain/admin** permission who **is not the PR author**. Teardown checks out the **`base` branch** so **`bun install` does not execute untrusted `package.json` scripts** during destroy. The bot upserts one PR comment (no deploy secrets attached). |
+| **PR preview deploy** | **Same-repo** PRs (branch on this repo) use **`staging`** — leave deployment protection open there for fast previews if you want. **Fork** PRs use **`staging-fork`** — **`github:sync:staging`** mirrors secrets/vars and applies **required reviewers** there by default per **`github.environments.stagingFork`** in **`config/github.policy.ts`** (see **`packages/scripts/src/github-pr-preview-fork-policy.ts`** and **`stacks/github-repository-environment-from-env.ts`**). Tighten **`staging`** / **`production`** Environment rules in the policy file or run **`bun run github:env:*`**. Teardown checks out **`base`** so **`bun install` does not run untrusted `package.json` scripts** during destroy. |
 | **Production manual deploy** | `workflow_dispatch` is rejected unless **`GITHUB_REF` is `refs/heads/production`** so Operators cannot accidentally run prod deploy against an arbitrary branch. |
 | **`/api/worker-services`** | Demo probe is **GET-only** and returns **health metadata only**—not full downstream Worker response bodies (reduces leakage and scraper value). |
 | **Demo chat** | Socka contract caps **display name length** (including **`?name=` on the WebSocket URL**) and **message body length**. History responses clamp legacy DB rows so oversized rows do not break the wire contract. |
@@ -287,7 +376,7 @@ This kit ships with real infra and demos. Treat security as layering: tighten wh
 **What stays intentionally lightweight (demo)**
 
 - **Public demos**: `/chat`, `/visitors`, `/ping-do`, and the Socka **`clearHistory`** path are trusts-everyone examples—fine for showcases, weak for moderation or tenancy.
-- **PR preview economics**: Approved preview deploy **still checks out PR head**—`bun install` and any postinstall/run scripts can execute. Keep **narrow Cloudflare tokens** scoped to Workers/D1 previews, consider **additional GitHub Environment protection rules**, and treat preview secrets as disposable.
+- **PR preview economics**: After a human allows the environment deploy, preview **still checks out PR head**—`bun install` and any postinstall/run scripts can execute. Keep **narrow Cloudflare tokens** scoped to Workers/D1 previews, consider **additional GitHub Environment protection rules**, and treat preview secrets as disposable.
 - **No strict Content-Security-Policy yet**: SSR + React bundles need careful nonces/hashes before turning on CSP in production—plan that when you freeze third-party origins.
 
 **If you fork for production**

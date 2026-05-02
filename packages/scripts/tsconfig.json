@@ -7,6 +7,6 @@
 		"module": "es2022",
 		"moduleResolution": "bundler"
 	},
-	"include": ["*.ts"],
+	"include": ["src/**/*.ts"],
 	"exclude": ["node_modules"]
 }

@@ -104,7 +104,7 @@ export default function generator(plop: PlopTypes.NodePlopAPI): void {
 				];
 				if (data.usesSqlite) {
 					notes.push(
-						"- SQLite selected: add src/schema.ts, then run the package-local db:generate script. The generated drizzle.config.ts uses driver: \"durable-sqlite\". Do not hand-edit drizzle output.",
+						'- SQLite selected: add src/schema.ts, then run the package-local db:generate script. The generated drizzle.config.ts uses driver: "durable-sqlite". Do not hand-edit drizzle output.',
 					);
 				}
 				if (data.wireWeb) {

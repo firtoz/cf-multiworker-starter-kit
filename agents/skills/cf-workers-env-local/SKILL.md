@@ -12,27 +12,66 @@ description: Alchemy + env files — repo-root `.env.local` (dev), `.env.staging
 - Choosing **local** (`typegen:local` / `typecheck:local`) vs **prod** (`typegen:prod` / `typecheck:prod`) for CI.
 - Explaining **repo-root** `.env.local` + `.env.staging` + `.env.production` vs optional per-package `.env.local`.
 
+## Fork onboarding (humans)
+
+After cloning or generating from the template, follow **README *Quick Start (three lanes)***:
+
+- **`bun run quickstart`** — install if needed, `.env.local` regeneratable keys, then **`bun run dev`**
+- **`bun run onboard:staging`** — **`gh`**, **`.env.staging`** Cloudflare keys, **`setup:staging --yes`**, **`github:sync:staging`**
+- **`bun run onboard:prod`** — production dotfile flow, **`github:sync:prod`**, repo variable **`CF_STARTER_AUTO_PRODUCTION_PR`**
+
+Create **Cloudflare API tokens** only in the dashboard (README *Cloudflare credentials (manual)*); this repo does not mint tokens via scripts or OAuth.
+
 ## Ground rules
 
 1. **`.env.example` (repo root, optional `apps/web/.env.example`)** — **Human documentation only** for most keys. Root **`bun run dev`** and package dev scripts read the real **`.env.local`**; Alchemy docs cover [Secrets](https://alchemy.run/providers/cloudflare/secret/) and [State](https://alchemy.run/concepts/state/).
 
-2. **Real env** — Put dev values in **`.env.local`** (gitignored). Use **`.env.staging`** for staging + PR preview deploys (`STAGE=staging` or `STAGE=pr-<n>`) and **`.env.production`** for production (`STAGE=prod`). **Do not use a plain `.env` file.**
+2. **Real env** — Put dev values in **`.env.local`** (gitignored).
+   - **`.env.staging`** — staging + PR preview deploys (`STAGE=staging` or `STAGE=pr-<n>`).
+   - **`.env.production`** — production (`STAGE=prod`).
+   - **Never** use a plain **`.env`** file.
+   - **`POSTHOG_*`** — optional analytics; same idea as optional **`WEB_*`** (unset = dark, or remove scaffolding — root README).
 
-3. **`ALCHEMY_PASSWORD`** + **`ALCHEMY_STATE_TOKEN` and CI deploy** — The password must match for every **`alchemy deploy`** touch that stage ([encryption password](https://alchemy.run/concepts/secret/#encryption-password)). **`ALCHEMY_STATE_TOKEN`** is one stable bearer token per Cloudflare account for the [Cloudflare-backed Alchemy state store](https://alchemy.run/guides/cloudflare-state-store/). In CI, every app spreads **`alchemyCiCloudStateStoreOptions(stage)`** onto the same Cloudflare state worker name derived from **`PRODUCT_PREFIX`** + **`STAGE`**, and every deploy package lists **`state-hub`** as a **`devDependency`** so Turbo **`dependsOn`** **`^deploy:*`** runs the hub before sibling **`deploy:*`** tasks (only the hub creates that worker once; parallel deploys therefore avoid **[10065 … already in use](https://developers.cloudflare.com/workers/configuration/durable-objects/)** on the state DO). **`bun run setup`** / **`setup:staging`** / **`setup:prod`** covers both keys in the browser; **`github:sync:*`** pushes **`ALCHEMY_STATE_TOKEN`** to the GitHub Environment with the other deploy secrets (`gh auth token` / `gh repo view` unless overridden).
+3. **`ALCHEMY_PASSWORD`**, **`ALCHEMY_STATE_TOKEN`**, and CI — Two different concerns; both matter for deploys.
+   - **`ALCHEMY_PASSWORD`** must match on **every** **`alchemy deploy`** for that stage ([encryption password](https://alchemy.run/concepts/secret/#encryption-password)).
+   - **`ALCHEMY_STATE_TOKEN`** is one stable token per Cloudflare account for the [Cloudflare-backed Alchemy state store](https://alchemy.run/guides/cloudflare-state-store/).
+   - In CI, apps use **`alchemyCiCloudStateStoreOptions(stage)`** on a state worker named from **`PRODUCT_PREFIX`** + **`STAGE`**. Every deploy package lists **`state-hub`** as a **`devDependency`** so Turbo **`^deploy:*`** runs the hub **before** other deploys (single creator → avoids **[10065 … already in use](https://developers.cloudflare.com/workers/configuration/durable-objects/)** on the state DO).
+   - **`bun run setup`** / **`setup:staging`** / **`setup:prod`** walks both keys in the browser. **`github:sync`** / **`github:sync:*`** pushes them to the GitHub Environment with the other deploy secrets (defaults: `gh auth token` / `gh repo view`).
+   - **`github:env:*`** updates **only** **`RepositoryEnvironment`** **deployment protection** from **`config/github.policy.ts`** (see [`stacks/github-repository-environment-from-env.ts`](../../../stacks/github-repository-environment-from-env.ts)); it does **not** upload secrets or Environment variables. Stage dotfile may still be merged for local process env.
 
 4. **Infra source of truth** — Package-local **`alchemy.run.ts`** files. Changing bindings means updating the relevant package app. `env.d.ts` files use the exported package worker resource's `Env`.
 
-5. **Turbo graph** — Root **`bun run dev`** runs a **filtered** Turbo **`dev`** so only web + worker packages run **`alchemy-cli.ts dev …`** (see [Alchemy Turborepo](https://alchemy.run/guides/turborepo/)). **`bun run deploy:prod`** / **`deploy:staging`** / **`deploy:preview`** and matching **`destroy:*`** use stage-specific Turbo graphs; package scripts resolve **`--app`** via **`alchemy-cli.ts`** + **`CF_STARTER_APPS`**. Deploy/destroy scripts use **`dotenv-cli`** (`bunx dotenv-cli -v STAGE=… -e .env.staging|.env.production -- …`): local runs load the stage file when present, and CI falls through to GitHub Environment values from **`process.env`** when repo dotenv files are absent. Checked-in package config belongs in **`alchemy.run.ts`**.
+5. **Turbo + stage files**
+   - **`bun run dev`** — filtered Turbo **`dev`**: web + worker packages run **`alchemy-cli.ts dev …`** ([Alchemy Turborepo](https://alchemy.run/guides/turborepo/)).
+   - **`deploy:*`** / **`destroy:*`** — stage-specific graphs; **`--app`** comes from **`alchemy-cli.ts`** + **`CF_STARTER_APPS`**.
+   - **`dotenv-cli`** — `bunx dotenv-cli -v STAGE=… -e .env.staging|.env.production -- …`. Locally, the stage file loads when present; in CI, missing repo dotfiles → values from **GitHub Environment** via **`process.env`**.
+   - Infra that belongs in git: **`alchemy.run.ts`**, not env files.
 
 6. **Per-package `.env.local`** — Optional; include in Turbo **`inputs`** where a package’s tasks need it (e.g. chatroom-do). Never substitute **`.env.example`** for real values.
 
 ## Cloudflare API token + account ID
 
-**`CLOUDFLARE_API_TOKEN`** and **`CLOUDFLARE_ACCOUNT_ID`** must refer to the **same** Cloudflare account. The Workers API resolves scripts and settings under **`CLOUDFLARE_ACCOUNT_ID`**; Alchemy’s [Cloudflare state store](https://alchemy.run/guides/cloudflare-state-store/) builds **`workers.dev`** URLs using that account’s subdomain. Values from **different accounts**, or swapping token and ID fields by mistake, often surface as vague failures—for example **`[CloudflareStateStore]`** RPCs returning **404** with **`text/html`** (edge “not found” page), deployments touching the wrong account, or subdomain mismatch after partial success.
+**Same account for both values**
 
-Verify **Account ID** against **Workers & Pages** in the dashboard (account-level details / URL context) when creating the token, and restrict the token to **that** account under **Account Resources**. Keep **`.env.staging`** / **`.env.production`**, **GitHub Environment** values, and **local** dotfiles **pair-wise** consistent for each stage.
+- **`CLOUDFLARE_API_TOKEN`** and **`CLOUDFLARE_ACCOUNT_ID`** must point at the **same** Cloudflare account.
+- Workers API calls are scoped by **`CLOUDFLARE_ACCOUNT_ID`**. The [Cloudflare state store](https://alchemy.run/guides/cloudflare-state-store/) uses that account’s **`workers.dev`** subdomain.
+- **Common failure mode:** token for account A + ID for account B, or swapping the two keys → vague errors, e.g. **`[CloudflareStateStore]`** RPC **404** with **`text/html`**, wrong-account deploys, subdomain mismatch.
 
-**GitHub Actions:** store **`CLOUDFLARE_ACCOUNT_ID`** as an Environment **variable** (plaintext), not a Secret — it is account metadata, not an auth credential. **`CLOUDFLARE_API_TOKEN`** stays a Secret. **`github:sync:*`** already upserts the account id as a variable.
+**How to stay sane**
+
+- When creating the token, match **Account ID** from the dashboard (**Workers & Pages** / account context) and restrict **Account Resources** to **that** account.
+- Keep **`.env.staging`** / **`.env.production`**, **GitHub Environment** fields, and local dotfiles **consistent per stage**.
+
+**GitHub Actions**
+
+- **`CLOUDFLARE_ACCOUNT_ID`** → Environment **variable** (plaintext), not a Secret.
+- **`CLOUDFLARE_API_TOKEN`** → Secret.
+- **`github:sync`** / **`github:sync:*`** upserts the account id as a variable.
+
+**PR previews**
+
+- Same-repo PRs → Environment **`staging`**. Fork PRs → **`staging-fork`**.
+- **`github:sync:staging`** mirrors secrets/vars to both; fork Environment rules come from **`config/github.policy.ts`** (`github.environments.stagingFork` — README security table).
 
 ## Typical layout
 
@@ -42,7 +81,7 @@ Verify **Account ID** against **Workers & Pages** in the dashboard (account-leve
 .env.staging              # gitignored — staging + PR preview deploy inputs (`STAGE=staging` or `pr-<n>`)
 .env.production           # gitignored prod / CI secrets as needed (`STAGE=prod`)
 stacks/admin.ts           # local-only admin stack — GitHub Environment secrets + deploy enablement var
-packages/alchemy-utils/   # `PRODUCT_PREFIX`, `CF_STARTER_APPS`, `alchemy-cli.ts`, `requireAlchemyPassword`, deployment-stage
+packages/alchemy-utils/   # `PRODUCT_PREFIX`, `CF_STARTER_APPS`, `src/alchemy-cli.ts`, `requireAlchemyPassword`, deployment-stage
 packages/state-hub/       # `alchemy.run.ts` — provisions shared CI CloudflareStateStore (`CF_STARTER_APPS.stateHub`)
 apps/web/
   alchemy.run.ts          # web Alchemy app

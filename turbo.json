@@ -1,6 +1,18 @@
 {
 	"$schema": "./node_modules/turbo/schema.json",
-	"globalDependencies": [".env.local", ".env.production", ".env.staging", "tsconfig.base.json", "packages/alchemy-utils/password.ts", "packages/alchemy-utils/worker-peer-scripts.ts", "packages/alchemy-utils/deployment-stage.ts", "packages/alchemy-utils/alchemy-cli.ts", "packages/state-hub/alchemy.run.ts"],
+	"globalDependencies": [
+		".env.local",
+		".env.production",
+		".env.staging",
+		"tsconfig.base.json",
+		"packages/alchemy-utils/src/password.ts",
+		"packages/alchemy-utils/src/env-requirements.ts",
+		"packages/alchemy-utils/src/worker-peer-scripts.ts",
+		"packages/alchemy-utils/src/deployment-stage.ts",
+		"packages/alchemy-utils/src/alchemy-cli.ts",
+		"packages/scripts/src/collected-env-requirements.ts",
+		"packages/state-hub/alchemy.run.ts"
+	],
 
 	"ui": "tui",
 	"tasks": {

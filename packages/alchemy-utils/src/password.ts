@@ -13,11 +13,7 @@ interface AlchemyScopeHint {
 	readonly stage: string;
 }
 
-function missingRequiredEnvMessage(
-	name: string,
-	description?: string,
-	scope?: AlchemyScopeHint,
-) {
+function missingRequiredEnvMessage(name: string, description?: string, scope?: AlchemyScopeHint) {
 	const prefix = description ? `${name} is not set. ${description}. ` : `${name} is not set. `;
 	if (scope?.phase === "destroy") {
 		return (
@@ -79,11 +75,7 @@ function missingRequiredEnvMessage(
 	);
 }
 
-export function requireEnv(
-	name: string,
-	description?: string,
-	scope?: AlchemyScopeHint,
-): string {
+export function requireEnv(name: string, description?: string, scope?: AlchemyScopeHint): string {
 	const raw = process.env[name];
 	if (raw == null || raw === "") {
 		throw new Error(missingRequiredEnvMessage(name, description, scope));

@@ -5,8 +5,8 @@
 		"module": "ESNext",
 		"moduleResolution": "bundler",
 		"noEmit": true,
-		"rootDir": ".",
+		"rootDir": "src",
 		"types": ["node"]
 	},
-	"include": ["*.ts"]
+	"include": ["src/**/*.ts"]
 }

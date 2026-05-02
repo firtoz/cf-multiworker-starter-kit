@@ -1,6 +1,6 @@
 /**
  * Optional Workers Custom Domains + Routes derived from staging/prod env (see README "Custom domains").
- * Used by `apps/web/alchemy.run.ts` and synced to GitHub Environments via `packages/scripts/github-environment-secrets.ts`.
+ * Used by `apps/web/alchemy.run.ts` and synced to GitHub Environments via env requirements in `apps/web/env.requirements.ts` + `packages/scripts/src/collected-env-requirements.ts`.
  */
 
 /** Comma-separated hostnames — e.g. `example.com,www.example.com` */

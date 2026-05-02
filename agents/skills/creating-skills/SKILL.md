@@ -1,6 +1,6 @@
 ---
 name: creating-skills
-description: Guide for creating new Agent Skills when patterns emerge or improvements are needed. Use when encountering repeated patterns, making the same mistakes, discovering better approaches, or receiving user corrections.
+description: Guide for creating new Agent Skills when patterns emerge or improvements are needed. Use when encountering repeated patterns, making the same mistakes, discovering better approaches, or receiving user corrections. Covers keeping each skill small (one topic), when to split SKILL.md or add references/, and line-count heuristics.
 ---
 
 # Creating Skills
@@ -17,6 +17,36 @@ Create a new skill when you notice:
 4. **Better approaches**: You discover a more effective pattern
 5. **Struggling**: You're uncertain how to proceed with a specific task type
 6. **Domain knowledge**: You need specialized context that's not already captured
+
+## One topic per skill (size heuristic)
+
+A skill should cover **one coherent “kind of work”** — small enough that an agent can skim it in one pass and know if it applies. If `SKILL.md` grows into a multi-manual, **split** rather than stack unrelated topics.
+
+**Rough size (body lines, excluding YAML frontmatter)** — not a hard gate, a smell test:
+
+| Size | Guidance |
+| --- | --- |
+| **~80–200 lines** | Healthy default for a focused playbook (when/references + checklists). |
+| **~200–350 lines** | Still OK if **one** topic; tighten prose, use bullets, or move long tables to `references/`. |
+| **> ~350–400 lines** | **Pause:** likely doing too much in one file—see split signals below. |
+| **> ~500 lines** | **Should** split or offload depth to `references/`; keep `SKILL.md` as the thin entry point. |
+
+(Aligns with progressive disclosure: full `SKILL.md` is often loaded when the skill activates—see below.)
+
+**Signals you should split or carve out `references/`:**
+
+- **Several unrelated top-level `##` sections** that could stand alone (e.g. “deploy” + “component style” + “DB migrations” in one skill).
+- **`description`** reads like fire-and-forget keywords for **three or more** different user intents—pick one primary trigger; spin off another skill.
+- **Overlap** with an existing skill (duplicate checklists → link instead).
+- **Long narrative or edge-case dumps** that most runs never need → `references/<topic>.md` and link “read when …”.
+
+**Ways to split:**
+
+1. **Sibling skill** — New `agents/skills/<narrow-name>/SKILL.md`; cross-link from the old one. Prefer **narrow names** (`cf-durable-object-package` vs `everything-about-workers`).
+2. **`references/`** — Deep dives, long examples, version-specific notes; `SKILL.md` stays “when + essential steps + links”.
+3. **Hub + leaves** — Optional thin index skill that only points to 2–4 leaves (use sparingly; don’t replace `AGENTS.md`).
+
+**Anti-pattern:** One mega-skill that tries to be the whole monorepo. Prefer **many small skills** + [AGENTS.md](../../AGENTS.md) index.
 
 ## Skill Structure
 
@@ -197,9 +227,11 @@ Skills should be structured for efficient use of context:
 2. **Instructions** (< 5000 tokens recommended): The full `SKILL.md` body is loaded when the skill is activated
 3. **Resources** (as needed): Files in `scripts/`, `references/`, or `assets/` are loaded only when required
 
-### Keep SKILL.md Under 500 Lines
+### Keep `SKILL.md` lean
 
-Keep your main `SKILL.md` concise. Move detailed reference material to separate files.
+Prefer a **short main file** so agents don’t burn context when the skill activates. See **[One topic per skill (size heuristic)](#one-topic-per-skill-size-heuristic)** for line-count heuristics and when to split.
+
+Target: main `SKILL.md` holds *when to use*, *essential steps*, and *pointers*; move long reference material to `references/` (or a sibling skill).
 
 ### File References
 

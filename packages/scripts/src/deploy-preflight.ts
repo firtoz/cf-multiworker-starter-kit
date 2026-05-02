@@ -5,11 +5,14 @@
  * - **CI + enabled:** missing required secrets → exit 1 (stderr ok).
  * - **Local:** ignores the enablement flag; checks required variables using `process.env` merged with the stage dotenv file when it exists.
  */
-import { existsSync, readFileSync, appendFileSync } from "node:fs";
+import { appendFileSync, existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { parse as parseDotenv } from "dotenv";
 import { isPrStage, resolveStageFromEnv } from "alchemy-utils/deployment-stage";
-import { CF_STARTER_DEPLOY_ENABLED_VAR, missingDeployConfigurationKeys } from "./github-environment-secrets";
+import { parse as parseDotenv } from "dotenv";
+import {
+	CF_STARTER_DEPLOY_ENABLED_VAR,
+	missingDeployConfigurationKeys,
+} from "./github-environment-secrets";
 
 const MODES = ["prod", "staging", "preview"] as const;
 type PreflightMode = (typeof MODES)[number];
@@ -42,7 +45,9 @@ function isTruthyEnabled(v: string | undefined): boolean {
 
 function validateStageForMode(mode: PreflightMode, stage: string): void {
 	if (mode === "prod" && stage !== "prod") {
-		throw new Error(`deploy-preflight: mode prod requires STAGE=prod (got ${JSON.stringify(stage)})`);
+		throw new Error(
+			`deploy-preflight: mode prod requires STAGE=prod (got ${JSON.stringify(stage)})`,
+		);
 	}
 	if (mode === "staging" && stage !== "staging") {
 		throw new Error(
@@ -64,7 +69,7 @@ function dotenvRelForMode(mode: PreflightMode): string {
 }
 
 function loadMergeEnv(mode: PreflightMode): Record<string, string | undefined> {
-	const root = resolve(import.meta.dir, "../..");
+	const root = resolve(import.meta.dir, "../../..");
 	const rel = dotenvRelForMode(mode);
 	const full = resolve(root, rel);
 	const out = { ...process.env } as Record<string, string | undefined>;
@@ -88,14 +93,18 @@ function printEnablementNotice(_mode: PreflightMode) {
 		"",
 		"  This is expected for a fresh fork. Quality CI still runs; deploy was skipped.",
 		"",
-		"  When you are ready to ship, run from the repo root:",
-		"    • bun run github:setup           — guided overview",
-		"    • bun run setup:staging          — fill .env.staging for staging / PR previews",
-		"    • bun run github:sync:staging    — sync .env.staging to the GitHub staging Environment",
-		"    • bun run setup:prod             — fill .env.production for production",
-		"    • bun run github:sync:prod       — sync .env.production to the GitHub production Environment",
+		"  When you are ready to ship from CI, run from the repo root:",
+		"    • bun run onboard:staging   — staging/PR preview secrets + sync (needs gh + .env.staging Cloudflare keys)",
+		"    • bun run onboard:prod      — production secrets + sync + optional main→production PR automation gate",
+		"    • bun run github:setup      — guided overview of setup + sync commands",
 		"",
-		`  The github:sync:* commands set ${ENABLE_VAR}=true on the target GitHub Environment.`,
+		"  Lower-level (same outcome when you already know the flow):",
+		"    • bun run setup:staging && bun run github:sync:staging",
+		"    • bun run setup:prod && bun run github:sync:prod",
+		"    • bun run github:sync            — both stage dotfiles, staging then production",
+		"    • bun run github:env             — deployment protection only (no secrets/variables pushed)",
+		"",
+		`  The github:sync / github:sync:* commands set ${ENABLE_VAR}=true on the target GitHub Environment.`,
 		"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
 		"",
 	];
@@ -128,7 +137,9 @@ try {
 	process.exit(1);
 }
 
-const envBag = isCi ? ({ ...process.env } as Record<string, string | undefined>) : loadMergeEnv(mode);
+const envBag = isCi
+	? ({ ...process.env } as Record<string, string | undefined>)
+	: loadMergeEnv(mode);
 const missing = missingDeployConfigurationKeys(envBag, { requiresAlchemyStateToken: isCi });
 if (missing.length > 0) {
 	console.error("");
@@ -139,9 +150,13 @@ if (missing.length > 0) {
 	);
 	console.error("");
 	if (mode === "prod") {
-		console.error("  Fix: bun run setup:prod && bun run github:sync:prod");
+		console.error(
+			"  Fix: bun run onboard:prod   (or bun run setup:prod && bun run github:sync:prod)",
+		);
 	} else {
-		console.error("  Fix: bun run setup:staging && bun run github:sync:staging");
+		console.error(
+			"  Fix: bun run onboard:staging   (or bun run setup:staging && bun run github:sync:staging)",
+		);
 	}
 	console.error("");
 	process.exit(1);

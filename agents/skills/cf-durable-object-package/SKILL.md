@@ -12,17 +12,39 @@ description: Add or change a Durable Object worker package under durable-objects
 
 ## Steps
 
-1. **Package layout** — At minimum: `alchemy.run.ts`, `env.d.ts`, `workers/app.ts`, `package.json` with `"exports": { "./alchemy": "./alchemy.run.ts" }`, `tsconfig.json`. Reference: [durable-objects/ping-do](durable-objects/ping-do) (Hono + DO + WorkerEntrypoint) or [durable-objects/chatroom-do](durable-objects/chatroom-do) (Socka + DO SQLite, shared contract in [packages/chat-contract](../../../packages/chat-contract)). For **WebSocket RPC + server push** on a DO, prefer that Socka + contract pattern over raw `WebSocket` JSON; full playbook: [cf-socka-realtime/SKILL.md](../cf-socka-realtime/SKILL.md).
+1. **Package layout**
 
-2. **`alchemy.run.ts`** — `const app = await alchemy(...)`, **`package.json`** **`alchemy-cli.ts`** key or **`${PRODUCT_PREFIX}-<suffix>`** **must resolve** to the same **`--app`** as this string (**`PRODUCT_PREFIX`** + **`CF_STARTER_APPS`** live in **`alchemy-utils/worker-peer-scripts`**). Then `requireAlchemyPassword(app)` with `import { requireAlchemyPassword } from "alchemy-utils"`. Export `DurableObjectNamespace<YourDoRpc>` (type from `./workers/rpc`). Use **`DEFAULT_WORKER_RESOURCE_ID`** (**`worker`**) in **`Worker(...)`**, omit **`name:`** unless you need an override — peer **`WorkerRef.service`** aligns via **`omitDefaultPhysicalWorkerScriptName`** in cf-worker-rpc-turbo cyclic pair cases.
+   Minimum files: **`alchemy.run.ts`**, **`env.d.ts`**, **`workers/app.ts`**, **`package.json`** (**`exports`**: **`"./alchemy": "./alchemy.run.ts"`**), **`tsconfig.json`**.
 
-3. **SQLite / Drizzle (if this DO persists data)** — Source of truth is package-local `src/schema.ts`. Add `drizzle.config.ts` pointing at that schema with `dialect: "sqlite"` and `driver: "durable-sqlite"`, add package-local `"db:generate": "drizzle-kit generate"`, and run that script to create `drizzle/*.sql`, `drizzle/meta/*.json`, and Drizzle's `drizzle/migrations.js` runtime wrapper. Add `drizzle/sql.d.ts` (`declare module "*.sql"`) and include `drizzle/**/*.d.ts` so the generated SQL imports typecheck. **Never hand-author or edit Drizzle SQL or meta snapshots.** Commit generated output only after it came from Drizzle.
+   Examples: [ping-do](../../../durable-objects/ping-do) (Hono + DO + WorkerEntrypoint), [chatroom-do](../../../durable-objects/chatroom-do) (Socka + DO SQLite + [chat-contract](../../../packages/chat-contract)).
 
-4. **`env.d.ts`** — `export type CloudflareEnv = (typeof <yourExportedWorker>)["Env"]`. `declare global { type Env = CloudflareEnv }` and `declare module "cloudflare:workers"` `Env` merge (match [durable-objects/ping-do/env.d.ts](durable-objects/ping-do/env.d.ts)).
+   For **WebSocket RPC + server push**, prefer **Socka + contract** over ad hoc **`WebSocket`** JSON — [cf-socka-realtime](../cf-socka-realtime/SKILL.md).
 
-5. **Hono** — In `workers/app.ts`: `import type { CloudflareEnv } from "../env"`, `const app = new Hono<{ Bindings: CloudflareEnv }>()` (same as [durable-objects/other-worker/workers/app.ts](durable-objects/other-worker/workers/app.ts)).
+2. **`alchemy.run.ts`**
 
-6. **Scripts** — Prefer **`bunx dotenv-cli -v STAGE=local -e ../../.env.local -- bun ../../packages/alchemy-utils/alchemy-cli.ts dev <kebab-suffix>`** in **`package.json`** **`dev`** (forwards to **`alchemy dev`** with **`--app`** **`${PRODUCT_PREFIX}-<suffix>`**). Mirror staged **`deploy`/`destroy`** the same way. Add **`state-hub`**: **`workspace:*`** **`devDependency`** so **`turbo`** **`deploy:*`** **`dependsOn`** **`^deploy:*`** hits the CI state hub first (see live packages). SQLite packages should also expose **`db:generate`**.
+   - **`await alchemy(…)`** string must match **`alchemy-cli.ts`** / **`${PRODUCT_PREFIX}-<suffix>`** (**`PRODUCT_PREFIX`** + **`CF_STARTER_APPS`** → **`alchemy-utils/worker-peer-scripts`**).
+   - **`requireAlchemyPassword(app)`** from **`alchemy-utils`**.
+   - Export **`DurableObjectNamespace<YourDoRpc>`** (types from **`./workers/rpc`**).
+   - **`Worker(...)`**: use **`DEFAULT_WORKER_RESOURCE_ID`** (**`worker`**); omit **`name:`** unless you need an override. Cyclic **`WorkerRef`** pairs: **`omitDefaultPhysicalWorkerScriptName`** ([cf-worker-rpc-turbo](../cf-worker-rpc-turbo/SKILL.md)).
+
+3. **SQLite / Drizzle (persisted DO state)**
+
+   - Source of truth: package **`src/schema.ts`**.
+   - **`drizzle.config.ts`**: **`dialect: "sqlite"`**, **`driver: "durable-sqlite"`**, schema → that file.
+   - **`package.json`**: **`"db:generate": "drizzle-kit generate"`**; run it → **`drizzle/*.sql`**, **`drizzle/meta/*.json`**, **`drizzle/migrations.js`**.
+   - **`drizzle/sql.d.ts`**: **`declare module "*.sql"`**; **`tsconfig`** includes **`drizzle/**/*.d.ts`** for SQL imports.
+   - **Never** hand-edit Drizzle SQL or meta; commit only generator output.
+
+4. **`env.d.ts`** — `export type CloudflareEnv = (typeof <yourExportedWorker>)["Env"]`. `declare global { type Env = CloudflareEnv }` and `declare module "cloudflare:workers"` `Env` merge (match [ping-do/env.d.ts](../../../durable-objects/ping-do/env.d.ts)).
+
+5. **Hono** — In `workers/app.ts`: `import type { CloudflareEnv } from "../env"`, `const app = new Hono<{ Bindings: CloudflareEnv }>()` (same as [other-worker/workers/app.ts](../../../durable-objects/other-worker/workers/app.ts)).
+
+6. **Scripts**
+
+   - **`dev`**: **`bunx dotenv-cli -v STAGE=local -e ../../.env.local -- bun ../../packages/alchemy-utils/src/alchemy-cli.ts dev <kebab-suffix>`** → **`alchemy dev --app ${PRODUCT_PREFIX}-<suffix>`**.
+   - **`deploy` / `destroy`**: same **`dotenv-cli`** + **`alchemy-cli`** pattern for each stage.
+   - Add **`state-hub`**: **`workspace:*`** **`devDependency`** so Turbo **`^deploy:*`** runs the shared CI state hub first.
+   - SQLite DOs: also expose **`db:generate`**.
 
 7. **After edits** — From repo root: `bun run typegen` and `bun run typecheck` (or package-local `typecheck:local`). If schema changed, run package-local `db:generate` first.
 
@@ -39,5 +61,9 @@ If this new DO should be reachable from the web app, complete these follow-up ed
 2. Root `turbo.json`: add `<your-package>#destroy:prod`, `#destroy:staging`, and `#destroy:preview` depending on the matching **`cf-starter-web#destroy:*`**.
 3. `apps/web/package.json`: add `"<your-package>": "workspace:*"` and run `bun install`.
 4. `apps/web/alchemy.run.ts`: import from `"<your-package>/alchemy"` and bind the namespace/worker into `ReactRouter`.
-5. **WebSocket / Socka:** handle the worker upgrade path in `apps/web/workers/app.ts` before React Router, keep the client URL prefix and worker handler prefix identical, avoid Vite HMR paths, and forward to the DO path `/websocket`. If using **`@firtoz/socka`**, align with [cf-socka-realtime/SKILL.md](../cf-socka-realtime/SKILL.md) (contract package, `SockaWebSocketDO`, `useSockaSession`, route-safe `wss://` from `window` in client-only code).
+5. **WebSocket / Socka**
+
+   - In **`apps/web/workers/app.ts`**: upgrades **before** React Router; same URL prefix as client; skip Vite HMR; forward to DO **`/websocket`**.
+   - **`@firtoz/socka`**: [cf-socka-realtime/SKILL.md](../cf-socka-realtime/SKILL.md) — contract, **`SockaWebSocketDO`**, **`useSockaSession`**, SSR-safe **`wss://`**.
+
 6. Verify from repo root: `bun run typegen`, `bun run typecheck`, `bun run lint`.

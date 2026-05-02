@@ -7,6 +7,8 @@ description: Repo-root commands, typegen and typecheck cadence, lint, deploy, ad
 
 ## Run from repo root
 
+**New fork?** README **Quick Start (three lanes)** — **`bun run quickstart`**, **`onboard:staging`**, **`onboard:prod`**. Env files: [cf-workers-env-local/SKILL.md](../cf-workers-env-local/SKILL.md).
+
 Build, typecheck, lint, and typegen from the **workspace root** so Turbo can order work across packages.
 
 ```bash
@@ -47,7 +49,15 @@ Whenever you change Drizzle schema:
 
 For **production** parity: `turbo run typegen:prod` then `turbo run typecheck:prod` if prod env differs.
 
-**Typecheck and lint are not always “done” for user-facing work.** For **UI**, **routes**, **canvas/pointer**, or **realtime** features, also run or document **smoke** checks (render the right route, no obvious breakage), and prefer **in-browser** verification (e.g. Cursor **cursor-ide-browser** MCP, or project E2E if present). At minimum for visual/product changes: see the app in a browser, **capture screenshots** of key surfaces, and for interaction-heavy flows use **automation** (click/type/pointer) — `fetch` to an action alone does not prove the UI works. See [dev-server.mdc](../../rules/dev-server.mdc): do not start `bun run dev` unless the user asked or you need it to verify.
+## User-facing work is more than typecheck
+
+For **UI**, **routes**, **canvas/pointer**, or **realtime** changes, **typecheck + lint are necessary but not sufficient.**
+
+- Do **smoke** checks: right route renders, nothing obviously broken.
+- Prefer **in-browser** verification (e.g. Cursor **cursor-ide-browser** MCP, or project E2E).
+- For visual work: open the app, **screenshot** key surfaces; for interactions, use **automation** (click / type / pointer). A lone `fetch` to an action does **not** prove the UI works.
+
+[dev-server.mdc](../../rules/dev-server.mdc): do not start **`bun run dev`** unless the user asked or you need it to verify.
 
 **Cloudflare `Env`:** Comes from each package’s `env.d.ts` and the worker resource exported from that package’s `alchemy.run.ts` (web uses `WebBindingResources` + `Bindings.Runtime<… & { ASSETS }>`; see [apps/web/types/env.d.ts](../../../apps/web/types/env.d.ts), [apps/web/alchemy.run.ts](../../../apps/web/alchemy.run.ts)).
 
@@ -106,9 +116,20 @@ Real keys: **`.env.local`** (dev), **`.env.staging`** (staging + PR preview depl
 
 Access in app code: `import { env } from "cloudflare:workers"` only.
 
-**Deploy / secrets:** Root **`bun run deploy:prod`** / **`deploy:staging`** / **`deploy:preview`** run the **full** Turbo **`deploy:*`** graph (**`packages/state-hub`** runs first: each deploy package lists it as a **`devDependency`** so **`dependsOn`** **`^deploy:*`** serializes the shared CI Cloudflare state hub before D1 + workers + web), not a web-only filter. Each `alchemy.run.ts` uses **`process.env.STAGE`** (`deployment-stage.ts`). Package **`deploy`/`destroy`/`dev`** scripts call **[`packages/alchemy-utils/alchemy-cli.ts`](../../../packages/alchemy-utils/alchemy-cli.ts)** with **`CF_STARTER_APPS`** keys (`database`, `frontend`, `stateHub`, …) after **`dotenv-cli`** for stage files (`bunx dotenv-cli -v STAGE=… -e .env.staging|.env.production -- …`), so **`--app`** tracks **`PRODUCT_PREFIX`** without duplicating **`cf-starter-*`** literals; CI falls through to GitHub Environment secrets/vars from **`process.env`** when repo dotenv files are absent. `requireAlchemyPassword(app)` in [alchemy-utils](../../../packages/alchemy-utils) requires **`ALCHEMY_PASSWORD`**; the chatroom secret example requires **`CHATROOM_INTERNAL_SECRET`**. For each stage, **`ALCHEMY_PASSWORD`** must match across every **`alchemy deploy`** (local **and** CI)—same value in **`.env.staging`** / **`.env.production`**, GitHub Environment **secrets**, etc. **`bun run github:sync:staging`** / **`github:sync:prod`** run **`stacks/admin.ts`** from a trusted machine to sync **secrets** (`ALCHEMY_PASSWORD`, `CHATROOM_INTERNAL_SECRET`, `CLOUDFLARE_API_TOKEN`) and **GitHub Environment variables** (`CLOUDFLARE_ACCOUNT_ID`, **`CF_STARTER_DEPLOY_ENABLED=true`** when not set in the dotfile); they use **`gh auth token`** / **`gh repo view`** by default — not from normal CI. **`bun run github:setup`** prints onboarding steps. Run **`bun run setup`** / **`setup:local`** in a terminal for the variable browser, or **`bun run setup -- --yes`** / **`bun packages/scripts/setup-env.ts --yes`** in automation (auto-generates only regeneratable keys). [Alchemy — encryption password](https://alchemy.run/concepts/secret/#encryption-password), [GitHubSecret](https://alchemy.run/providers/github/secret/), [Getting Started](https://alchemy.run/getting-started/) for `CLOUDFLARE_API_TOKEN`.
+### Deploy, CI, and secrets (cheat sheet)
 
-- **Local dev** — `bun run dev` runs a filtered `turbo run dev` (web + **`cf-starter-db`** + worker apps), each with **`alchemy-cli.ts dev …`** (wraps **`alchemy dev --app …`**) per [Alchemy monorepo](https://alchemy.run/guides/turborepo/). When verifying setup, exercise `/`, `/visitors`, `/ping-do`, and `/chat`; this covers React Router SSR, D1, cross-script DO bindings, and chat WebSockets. If web prints `webUrl` but port 5173 is closed after a crash, remove the stale generated `.alchemy/pids/cf-starter-web.pid.json`; if you also remove `.alchemy/logs/cf-starter-web.log`, recreate it before restarting because Alchemy's idempotent log follower expects the file to exist.
+- **Full deploy graph** — **`bun run deploy:prod`** / **`deploy:staging`** / **`deploy:preview`** run the whole Turbo **`deploy:*`** graph (D1 + workers + web), **not** web-only. **`packages/state-hub`** goes first because every deploy package lists it as a **`devDependency`**, so **`dependsOn`** **`^deploy:*`** runs the shared Alchemy state hub before siblings.
+- **How stage env is wired** — Each **`alchemy.run.ts`** reads **`process.env.STAGE`** ([`deployment-stage.ts`](../../../packages/alchemy-utils/src/deployment-stage.ts)). Package **`deploy` / `destroy` / `dev`** scripts use **[`alchemy-cli.ts`](../../../packages/alchemy-utils/src/alchemy-cli.ts)** with **`CF_STARTER_APPS`** keys after **`dotenv-cli`** loads **`.env.staging`** / **`.env.production`**, so **`--app`** follows **`PRODUCT_PREFIX`** without hard-coding **`cf-starter-*`**. In CI, missing dotfiles mean secrets/vars come from **GitHub Environment** via **`process.env`**.
+- **Must-match password** — `requireAlchemyPassword(app)` needs **`ALCHEMY_PASSWORD`**; the example chatroom path needs **`CHATROOM_INTERNAL_SECRET`**. **`ALCHEMY_PASSWORD`** must be the **same** for every **`alchemy deploy`** on that stage (local dotfiles **and** GitHub **secrets**).
+- **`github:sync:*` (trusted machine only)** — **`bun run github:sync:staging`** / **`github:sync:prod`** run **[`stacks/admin.ts`](../../../stacks/admin.ts)** to push GitHub **secrets** (Alchemy password, chatroom secret, **`CLOUDFLARE_API_TOKEN`**) and **variables** (**`CLOUDFLARE_ACCOUNT_ID`**, **`CF_STARTER_DEPLOY_ENABLED=true`** when omitted in the dotfile). Defaults to **`gh auth token`** / **`gh repo view`** — do **not** run this from routine CI.
+- **Repo policy (not dotenv)** — Merge toggles, rulesets (`main`: PR-only for writers by default with **Repository admin** bypass; **`allowRepositoryAdminBypassOnMain`** / **`requirePullRequestBeforeMerge`** in **[`config/github.policy.ts`](../../../config/github.policy.ts)**), and Environment deployment rules live under **`github.sync.*`** and **`github.environments.*`**. Staging sync can apply REST + rulesets; see README *GitHub admin sync reference*, [`github-repository-settings-sync.ts`](../../../stacks/github-repository-settings-sync.ts), [`github-repo-rulesets-sync.ts`](../../../stacks/github-repo-rulesets-sync.ts).
+- **`github:env:*`** — Updates **only** GitHub **`RepositoryEnvironment`** deployment protection from the policy file ([`github-repository-environment-from-env.ts`](../../../stacks/github-repository-environment-from-env.ts)); stage dotfile is merged when present for local process env only.
+- **Interactive setup** — **`bun run quickstart`** (local) and **`bun run onboard:staging`** / **`onboard:prod`** (CI bootstrap — README *Quick Start*). **`bun run github:setup`** prints an Actions overview. **`bun run setup`** / **`setup:local`** opens the variable browser; **`bun run setup -- --yes`** (or **`bun packages/scripts/src/setup-env.ts --yes`**) is for automation and only auto-fills regeneratable keys.
+- **Further reading** — [Alchemy encryption password](https://alchemy.run/concepts/secret/#encryption-password), [GitHubSecret](https://alchemy.run/providers/github/secret/), [Getting started](https://alchemy.run/getting-started/) — **`CLOUDFLARE_API_TOKEN`**.
+
+- **Local dev** — `bun run dev` runs a filtered `turbo run dev` (web + **`cf-starter-db`** + worker apps), each via **`alchemy-cli.ts dev …`** → **`alchemy dev --app …`** ([Alchemy monorepo](https://alchemy.run/guides/turborepo/)).
+   - **Smoke:** hit `/`, `/visitors`, `/ping-do`, `/chat` once (SSR, D1, cross-worker bindings, chat WebSockets).
+   - **Stale web / dead port:** if the log shows `webUrl` for **5173** but the port is dead after a crash, delete **`.alchemy/pids/cf-starter-web.pid.json`**. If you removed **`.alchemy/logs/cf-starter-web.log`**, recreate an **empty** file before restart—Alchemy’s log follower expects it.
 
 ## Completion checklist (before you stop)
 
@@ -123,4 +144,4 @@ Access in app code: `import { env } from "cloudflare:workers"` only.
 - [cf-socka-realtime/SKILL.md](../cf-socka-realtime/SKILL.md) — realtime WebSocket + canvas/pointer and pre-merge checks.
 - [cf-starter-gotchas](../cf-starter-gotchas/SKILL.md) — numbered gotchas and edge cases.
 - [project-init](../project-init/SKILL.md) — rename workers/docs after forking the template.
-- [packages/scripts/dev-preflight.ts](../../../packages/scripts/dev-preflight.ts) — `scripts#dev:preflight` runs Alchemy state password checks (Turbo `dev` dependency).
+- [packages/scripts/src/dev-preflight.ts](../../../packages/scripts/src/dev-preflight.ts) — `scripts#dev:preflight` runs Alchemy state password checks (Turbo `dev` dependency).
