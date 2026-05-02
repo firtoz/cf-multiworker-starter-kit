@@ -1,6 +1,7 @@
-# Required (via GitHub **ruleset** → *workflows* rule) when `bun run github:sync:staging` applies the
-# **cf-starter: production** ruleset. The allowed head branch is repo variable **`CF_STARTER_PRODUCTION_PR_HEAD`**
-# (default **main**), set by the admin sync from **`github.repository.rulesets.production.sourceBranchForProductionPrs`** in **`config/github.policy.ts`**.
+# Required by the **cf-starter: production** ruleset as a status check (`Production merge source`).
+# The allowed head branch is repo variable **`CF_STARTER_PRODUCTION_PR_HEAD`** (default **main**), set by
+# the admin sync from **`github.repository.rulesets.production.sourceBranchForProductionPrs`** in
+# **`config/github.policy.ts`**.
 
 name: Restrict production PR source
 

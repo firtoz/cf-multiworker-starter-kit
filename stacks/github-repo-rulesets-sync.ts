@@ -3,7 +3,8 @@
  * Runs on **`github:sync:staging`** when **`config/github.policy.ts`** has **`github.sync.applyRulesets`** set.
  *
  * Defaults: **`main`** — PR-only for **Write** and **Maintain** roles; **Repository admin** may bypass (direct push).
- * Optional status checks. **`production`** — PR rules for everyone, no admin bypass in defaults, optional **workflows** gate.
+ * Optional status checks. **`production`** — PR rules for everyone, no admin bypass in defaults, plus an optional
+ * required-status-check gate from `restrict-production-pr-source.yml`.
  *
  * @see https://docs.github.com/en/rest/repos/rules
  */
@@ -117,40 +118,6 @@ async function upsertRepoVariable(
 	}
 }
 
-/**
- * Rulesets validate the workflows rule against the live tree. A missing file yields 422 with an
- * opaque "Workflow error at index 0" message — check first so forks get a direct next step.
- */
-async function assertRemoteWorkflowFileForRuleset(
-	octokit: InstanceType<typeof Octokit>,
-	owner: string,
-	repo: string,
-	workflowPath: string,
-	ref: string,
-): Promise<void> {
-	try {
-		const { data } = await octokit.rest.repos.getContent({
-			owner,
-			repo,
-			path: workflowPath,
-			ref,
-		});
-		if (Array.isArray(data) || data.type !== "file") {
-			throw new Error(
-				`Ruleset workflows rule path ${workflowPath} at ref ${ref} must be a workflow file in ${owner}/${repo}.`,
-			);
-		}
-	} catch (error: unknown) {
-		const err = error as { status?: number };
-		if (err.status === 404) {
-			throw new Error(
-				`Cannot create/update the production ruleset workflows rule: ${workflowPath} is not present on the remote at ref ${ref} for ${owner}/${repo}. Merge or push that workflow to that ref first, or set github.repository.rulesets.production.requireSourceWorkflowGate to false in config/github.policy.ts until it exists.`,
-			);
-		}
-		throw error;
-	}
-}
-
 async function findRulesetIdByName(
 	octokit: InstanceType<typeof Octokit>,
 	owner: string,
@@ -214,12 +181,6 @@ export async function applyGitHubRepoRulesets(opts: {
 	const rules = policy.github.repository.rulesets;
 	const enforcement = rules.enforcement;
 
-	const { data: repoMeta } = await octokit.rest.repos.get({
-		owner,
-		repo,
-	});
-	const repositoryId = repoMeta.id;
-
 	const mainEnabled = rules.main.enabled;
 	const productionEnabled = rules.production.enabled;
 
@@ -229,10 +190,7 @@ export async function applyGitHubRepoRulesets(opts: {
 	const mainName = rules.main.displayName;
 	const productionName = rules.production.displayName;
 
-	const productionWorkflowPath = rules.production.gateWorkflowPath;
-	const productionWorkflowRef = rules.production.gateWorkflowRef;
-
-	const requireProductionSourceWorkflow = rules.production.requireSourceWorkflowGate;
+	const requireProductionSourceGate = rules.production.requireSourceBranchStatusCheckGate;
 	const productionSourceBranch = rules.production.sourceBranchForProductionPrs;
 
 	const results: {
@@ -241,7 +199,7 @@ export async function applyGitHubRepoRulesets(opts: {
 		productionRuleset?: string;
 	} = {};
 
-	if (productionEnabled && requireProductionSourceWorkflow) {
+	if (productionEnabled && requireProductionSourceGate) {
 		await upsertRepoVariable(
 			octokit,
 			owner,
@@ -267,6 +225,26 @@ export async function applyGitHubRepoRulesets(opts: {
 		return rs;
 	}
 
+	function productionSourceGateRules(): Record<string, unknown>[] {
+		if (!rules.production.requireSourceBranchStatusCheckGate) {
+			return [];
+		}
+		return [
+			{
+				type: "required_status_checks",
+				parameters: {
+					do_not_enforce_on_create: true,
+					strict_required_status_checks_policy: rules.production.strictSourceBranchStatusChecks,
+					required_status_checks: [
+						{
+							context: rules.production.sourceBranchStatusCheckContext,
+						},
+					],
+				},
+			},
+		];
+	}
+
 	try {
 		if (mainEnabled) {
 			const rs = [...branchRulesWithoutOptionalChecks("main"), ...mainStatusCheckRules(rules.main)];
@@ -281,29 +259,10 @@ export async function applyGitHubRepoRulesets(opts: {
 		}
 
 		if (productionEnabled) {
-			const rs: Record<string, unknown>[] = [...branchRulesWithoutOptionalChecks("production")];
-			if (requireProductionSourceWorkflow) {
-				await assertRemoteWorkflowFileForRuleset(
-					octokit,
-					owner,
-					repo,
-					productionWorkflowPath,
-					productionWorkflowRef,
-				);
-				rs.push({
-					type: "workflows",
-					parameters: {
-						do_not_enforce_on_create: true,
-						workflows: [
-							{
-								path: productionWorkflowPath,
-								ref: productionWorkflowRef,
-								repository_id: repositoryId,
-							},
-						],
-					},
-				});
-			}
+			const rs: Record<string, unknown>[] = [
+				...branchRulesWithoutOptionalChecks("production"),
+				...productionSourceGateRules(),
+			];
 			await upsertRuleset(octokit, owner, repo, {
 				name: productionName,
 				enforcement,
@@ -332,7 +291,7 @@ export async function applyGitHubRepoRulesets(opts: {
 			enforcement,
 			mainEnabled,
 			productionEnabled,
-			requireProductionSourceWorkflow,
+			requireProductionSourceGate,
 			...results,
 		},
 	});

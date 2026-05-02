@@ -265,7 +265,9 @@ function repositoryEnvironmentPayload(protection: ExplicitRepositoryEnvironmentP
 		preventSelfReview: protection.preventSelfReview,
 		adminBypass: protection.adminBypass,
 		reviewers: protection.reviewers,
-		deploymentBranchPolicy: protection.deploymentBranchPolicy,
+		...(protection.deploymentBranchPolicy
+			? { deploymentBranchPolicy: protection.deploymentBranchPolicy }
+			: {}),
 		...(protection.branchPatterns && protection.branchPatterns.length > 0
 			? { branchPatterns: protection.branchPatterns }
 			: {}),

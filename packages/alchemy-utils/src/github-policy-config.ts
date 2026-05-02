@@ -88,10 +88,10 @@ export type GithubRulesetMainExtensions = {
 };
 
 export type GithubRulesetProductionExtensions = {
-	readonly requireSourceWorkflowGate: boolean;
+	readonly requireSourceBranchStatusCheckGate: boolean;
 	readonly sourceBranchForProductionPrs: string;
-	readonly gateWorkflowPath: string;
-	readonly gateWorkflowRef: string;
+	readonly sourceBranchStatusCheckContext: string;
+	readonly strictSourceBranchStatusChecks: boolean;
 };
 
 export type GithubRulesetsConfig = {
@@ -179,10 +179,10 @@ export const DEFAULT_GITHUB_POLICY: GitHubPolicyConfig = {
 					enabled: true,
 					displayName: "cf-starter: production",
 					includeRefs: ["refs/heads/production"],
-					requireSourceWorkflowGate: true,
+					requireSourceBranchStatusCheckGate: true,
 					sourceBranchForProductionPrs: "main",
-					gateWorkflowPath: ".github/workflows/restrict-production-pr-source.yml",
-					gateWorkflowRef: "main",
+					sourceBranchStatusCheckContext: "Production merge source",
+					strictSourceBranchStatusChecks: true,
 				},
 				pullRequest: {
 					allowedMergeMethods: ["squash"],

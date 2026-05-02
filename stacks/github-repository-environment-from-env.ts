@@ -10,7 +10,7 @@ export type ExplicitRepositoryEnvironmentProtection = {
 	waitTimer: number;
 	preventSelfReview: boolean;
 	reviewers: { users: string[]; teams: string[] };
-	deploymentBranchPolicy: {
+	deploymentBranchPolicy?: {
 		protectedBranches: boolean;
 		customBranchPolicies: boolean;
 	};
@@ -34,6 +34,31 @@ function assertWaitTimerRange(waitTimer: number, label: string): void {
 	}
 }
 
+function deploymentBranchPolicyFor(
+	protectedBranches: boolean,
+	branchPatterns: readonly string[],
+	label: string,
+): ExplicitRepositoryEnvironmentProtection["deploymentBranchPolicy"] {
+	if (protectedBranches && branchPatterns.length > 0) {
+		throw new Error(
+			`${label} cannot set deploymentBranchProtectedOnly and branchPatterns at the same time.`,
+		);
+	}
+	if (protectedBranches) {
+		return {
+			protectedBranches: true,
+			customBranchPolicies: false,
+		};
+	}
+	if (branchPatterns.length > 0) {
+		return {
+			protectedBranches: false,
+			customBranchPolicies: true,
+		};
+	}
+	return undefined;
+}
+
 /**
  * Build **`RepositoryEnvironment`** protection from **`config/github.policy.ts`** for **`staging`** or **`production`**.
  */
@@ -47,17 +72,18 @@ export function explicitRepositoryEnvironmentProtectionFromRules(
 	const teamReviewers = parseCommaList(rules.reviewerTeams);
 	const branchPatterns = parseCommaList(rules.branchPatterns);
 
-	const deploymentBranchPolicy = {
-		protectedBranches: rules.deploymentBranchProtectedOnly,
-		customBranchPolicies: branchPatterns.length > 0,
-	};
+	const deploymentBranchPolicy = deploymentBranchPolicyFor(
+		rules.deploymentBranchProtectedOnly,
+		branchPatterns,
+		"deployment environment",
+	);
 
 	return {
 		adminBypass: true,
 		waitTimer,
 		preventSelfReview: rules.preventSelfReview,
 		reviewers: { users: userReviewers, teams: teamReviewers },
-		deploymentBranchPolicy,
+		...(deploymentBranchPolicy ? { deploymentBranchPolicy } : {}),
 		...(branchPatterns.length > 0 ? { branchPatterns } : {}),
 	};
 }
@@ -79,17 +105,18 @@ export function stagingForkRepositoryEnvironmentProtectionFromRules(
 
 	const branchPatterns = parseCommaList(rules.branchPatterns);
 
-	const deploymentBranchPolicy = {
-		protectedBranches: rules.deploymentBranchProtectedOnly,
-		customBranchPolicies: branchPatterns.length > 0,
-	};
+	const deploymentBranchPolicy = deploymentBranchPolicyFor(
+		rules.deploymentBranchProtectedOnly,
+		branchPatterns,
+		"staging-fork environment",
+	);
 
 	return {
 		adminBypass: true,
 		waitTimer,
 		preventSelfReview: rules.preventSelfReview,
 		reviewers: { users: userReviewers, teams: teamReviewers },
-		deploymentBranchPolicy,
+		...(deploymentBranchPolicy ? { deploymentBranchPolicy } : {}),
 		...(branchPatterns.length > 0 ? { branchPatterns } : {}),
 	};
 }

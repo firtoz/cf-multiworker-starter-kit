@@ -182,59 +182,26 @@ This starter may include **optional** PostHog-oriented pieces: typed env keys in
 
 ### GitHub Actions Deploys
 
-Deploy workflows are disabled by default on fresh forks. They stay green and skip Alchemy until `CF_STARTER_DEPLOY_ENABLED=true` is set on the GitHub Environment.
+Deploy workflows are disabled on fresh forks. They skip real deploys until `CF_STARTER_DEPLOY_ENABLED=true` exists on the GitHub Environment.
 
-Use the setup helpers from a trusted machine (see README **Quick Start** — **Lane B** / **Lane C** for the full ladder):
+Use the onboarding commands from a trusted machine:
 
 ```bash
 bun run github:setup
 
-# Idempotent wrappers (rerunnable):
 bun run onboard:staging
 bun run onboard:prod
-
-# Manual equivalent when you already maintain the dotfiles:
-gh auth login
-bun run setup:staging
-bun run setup:prod
-bun run github:sync:staging
-bun run github:sync:prod
-# or both in one go (requires .env.staging and .env.production):
-# bun run github:sync
 ```
 
-**`onboard:prod`** sets repository variable **`CF_STARTER_AUTO_PRODUCTION_PR=true`** after a successful **`github:sync:prod`**, allowing **Deploy staging** to open or reuse a **`main` → `production`** PR when staging deploy succeeds. Clear the variable with **`gh variable delete`** if you want to turn that off.
+Those commands fill missing generated secrets, sync GitHub Environment secrets/variables, and apply the default repo policy from [`config/github.policy.ts`](config/github.policy.ts).
 
-To create or update **only** the GitHub Environment **deployment protection** (Alchemy **`RepositoryEnvironment`**) — **no** GitHub **secrets** or **Environment variables** are written — use **`github:env:*`**. Rules come from **[`config/github.policy.ts`](config/github.policy.ts)** (`github.environments.*`). Each command still loads the stage dotfile when present (for `gh` / local process env), but **policy is not driven by `GITHUB_ENV_*` keys**.
+Default policy in plain English:
 
-```bash
-gh auth login
-bun run github:env:staging
-# or both GitHub environments (each run uses its own dotfile):
-# bun run github:env
-```
+- `main`: contributors use PRs; repo admins can push directly.
+- `production`: use a PR from `main`; no admin bypass by default.
+- Required approvals default to `0`, so a solo maintainer can merge.
 
-Full secret + variable sync remains **`github:sync:*`** or **`github:sync`** (both stage dotfiles required). **Config-only** (repo REST + **RepositoryEnvironment** shells, **no** secret or Environment variable upload; dotfiles optional): **`bun run github:sync:config`** or set **`GITHUB_SYNC_PUSH_SECRETS=false`** for a normal sync run.
-
-To **also** re-apply **deployment protection** from **`config/github.policy.ts`** while running a secrets sync, set **`GITHUB_SYNC_UPDATE_ENVIRONMENT_PROTECTION=true`** for that run (same payload as **`github:env:*`**).
-
-**Repository rulesets (staging sync only):** when **`github.sync.applyRulesets`** is **true** in **`config/github.policy.ts`**, **`github:sync:staging`** upserts rulesets for **`main`** and **`production`**. By default **`main`** requires a pull request before merge for **Write** / **Maintain** collaborators, while **`allowRepositoryAdminBypassOnMain`** (default **true**) adds a ruleset bypass for the built-in **Repository admin** role so owners/admins can push directly; set **`requirePullRequestBeforeMerge`** to **false** for a fully open `main`. **`github.repository.rulesets.pullRequest.sharedRequiredApprovingReviewCount`** defaults to **0** (solo-friendly merges); raise it when you want mandatory approvals. Optional **status checks** via **`github.repository.rulesets.main.requiredStatusCheckContexts`**. **`production`** uses pull-request rules for **everyone** (no admin bypass in defaults), no force-push, and a **workflows** rule from [`restrict-production-pr-source.yml`](.github/workflows/restrict-production-pr-source.yml). Repo variable **`CF_STARTER_PRODUCTION_PR_HEAD`** is set from **`github.repository.rulesets.production.sourceBranchForProductionPrs`**. See [`stacks/github-repo-rulesets-sync.ts`](stacks/github-repo-rulesets-sync.ts).
-
-### GitHub admin sync reference (env vs policy)
-
-- **Secrets / stage values:** [`.env.staging`](.env.staging) / [`.env.production`](.env.production) and [`packages/scripts/src/repo-root-env-requirements.ts`](packages/scripts/src/repo-root-env-requirements.ts) — Alchemy, Cloudflare, app secrets, optional `WEB_*` / `POSTHOG_*`, and the sync switches below.
-- **Repo policy (rulesets, merge settings, Environment rules):** **[`config/github.policy.ts`](config/github.policy.ts)** — edit TypeScript, then run **`bun run typecheck:root`**. Applied during **`github:sync:staging`** (REST + rulesets + staging-side policy) and by **`github:env:*`** (deployment protection only). **`github:sync:prod`** does not repeat REST/ruleset steps.
-
-| Variable | Default if unset / empty | Purpose |
-| --- | --- | --- |
-| **`GITHUB_SYNC_SCOPE`** | *None — must be set by the script* | **`secrets`** vs **`environment`** (`package.json` sets this for each `github:*` command). |
-| **`GITHUB_SYNC_PUSH_SECRETS`** | **`true`** (unset, empty, or whitespace = push) | **`false`** → config-only sync (same as **`github:sync:config`**) |
-| **`GITHUB_SYNC_UPDATE_ENVIRONMENT_PROTECTION`** | **`false`** (only **`true`** enables) | On **`github:sync:*`**, also apply **`RepositoryEnvironment`** protection from **`config/github.policy.ts`** |
-| **`config/github.policy.ts`** | (tracked defaults in repo) | Repo **settings** API, **rulesets**, and **`staging` / `production` / `staging-fork`** deployment rules — edit **`github.sync.*`** and **`github.environments.*`** |
-
-**Requirements:** token needs **admin** on the repo for rulesets and repo variables. **GitHub Team/Enterprise** feature availability may vary for some ruleset options; see [GitHub rulesets docs](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-rulesets/about-rulesets).
-
-**Required CI via rulesets:** set **`github.repository.rulesets.main.requiredStatusCheckContexts`** in **`config/github.policy.ts`** to check **context** strings (confirm exact names from a PR’s checks tab after **Quality checks** has run). Wrong names block merges until fixed or cleared.
+For the knobs behind this, see [GitHub admin sync reference](docs/github-admin.md).
 
 What runs in CI:
 
@@ -347,6 +314,7 @@ For the detailed checklist, use [agents/skills/cf-durable-object-package/SKILL.m
 
 ## Deeper Docs
 
+- [docs/github-admin.md](docs/github-admin.md): GitHub Environment sync, rulesets, and repo policy knobs.
 - [apps/web/README.md](apps/web/README.md): web app routes, SSR, and frontend patterns.
 - [AGENTS.md](AGENTS.md): short index for AI agents and project playbooks.
 - [agents/skills/cf-starter-workflow/SKILL.md](agents/skills/cf-starter-workflow/SKILL.md): repo commands, typegen, deploy order, and generated artifacts.
@@ -360,30 +328,19 @@ For the detailed checklist, use [agents/skills/cf-durable-object-package/SKILL.m
 
 ## Security posture (for template users)
 
-This kit ships with real infra and demos. Treat security as layering: tighten what ships by default, then add product-specific controls when you graduate past the template.
+This kit ships real infra plus public demos. It starts reasonably locked down, but it is still a starter.
 
-**What’s reasonably locked down here**
+Built-in guardrails:
 
-| Area | Behavior |
-| ---- | -------- |
-| **GitHub Actions** | Workflows declare least-privilege `permissions` where it matters. PR preview deploys run on `pull_request` with read permissions and upload a sanitized comment payload; **`pr-preview-comment.yml`** runs later on `workflow_run` with `issues: write` to post/update the PR comment, including fork PRs, without running fork code with a write token. **`pull_request` runs the workflow YAML from `main`**—fork PRs cannot silently replace Actions logic until their branch is merged. |
-| **PR preview deploy** | **Same-repo** PRs (branch on this repo) use **`staging`** — leave deployment protection open there for fast previews if you want. **Fork** PRs use **`staging-fork`** — **`github:sync:staging`** mirrors secrets/vars and applies **required reviewers** there by default per **`github.environments.stagingFork`** in **`config/github.policy.ts`** (see **`packages/scripts/src/github-pr-preview-fork-policy.ts`** and **`stacks/github-repository-environment-from-env.ts`**). Tighten **`staging`** / **`production`** Environment rules in the policy file or run **`bun run github:env:*`**. Teardown checks out **`base`** so **`bun install` does not run untrusted `package.json` scripts** during destroy. |
-| **Production manual deploy** | `workflow_dispatch` is rejected unless **`GITHUB_REF` is `refs/heads/production`** so Operators cannot accidentally run prod deploy against an arbitrary branch. |
-| **`/api/worker-services`** | Demo probe is **GET-only** and returns **health metadata only**—not full downstream Worker response bodies (reduces leakage and scraper value). |
-| **Demo chat** | Socka contract caps **display name length** (including **`?name=` on the WebSocket URL**) and **message body length**. History responses clamp legacy DB rows so oversized rows do not break the wire contract. |
-| **Headers + fonts** | Baseline **`Referrer-Policy`**, **`Permissions-Policy`**, **`X-Frame-Options`**. UI fonts are **self-hosted variable** DM Sans / Fira Code (`@fontsource-variable/*`) via **`<link rel="preload">` in `links()` plus `font-display: swap`** — reduces reload “twitch” without Google Fonts. |
+- PR preview deploys from forks use the protected `staging-fork` Environment.
+- PR preview comments are posted by a separate trusted `workflow_run` workflow, not by fork code with a write token.
+- Production deploys run from the `production` branch.
+- Demo probes return health metadata, not full downstream Worker responses.
+- Basic browser headers are enabled.
 
-**What stays intentionally lightweight (demo)**
+Still add your product’s security work before launch: authentication, authorization, moderation, CSP, logging, rate limits, token rotation, and tighter Cloudflare/GitHub permissions.
 
-- **Public demos**: `/chat`, `/visitors`, `/ping-do`, and the Socka **`clearHistory`** path are trusts-everyone examples—fine for showcases, weak for moderation or tenancy.
-- **PR preview economics**: After a human allows the environment deploy, preview **still checks out PR head**—`bun install` and any postinstall/run scripts can execute. Keep **narrow Cloudflare tokens** scoped to Workers/D1 previews, consider **additional GitHub Environment protection rules**, and treat preview secrets as disposable.
-- **No strict Content-Security-Policy yet**: SSR + React bundles need careful nonces/hashes before turning on CSP in production—plan that when you freeze third-party origins.
-
-**If you fork for production**
-
-Add what your threat model demands: authenticated admin surfaces, structured logging, CSP + security headers tuning, outbound abuse controls (especially on WebSockets and public writes), tighter Cloudflare account/IAM segmentation, OIDC/GitHub deployments instead of long-lived tokens, dependency review/supply-chain checks, secrets rotation, rate limits/WAF tuning, etc.
-
-See also [agents/skills/cf-workers-env-local/SKILL.md](agents/skills/cf-workers-env-local/SKILL.md) for env and secret hygiene across stages.
+See [docs/github-admin.md](docs/github-admin.md) for GitHub policy knobs and [agents/skills/cf-workers-env-local/SKILL.md](agents/skills/cf-workers-env-local/SKILL.md) for env and secret hygiene.
 
 ## Contributing
 
