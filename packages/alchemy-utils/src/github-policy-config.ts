@@ -62,6 +62,20 @@ export type GithubRulesetBranchProfile = {
 };
 
 export type GithubRulesetMainExtensions = {
+	/**
+	 * When **true**, the **main** ruleset includes GitHub’s *require a pull request before merging* rule
+	 * (direct pushes to `main` are rejected for most collaborators). **`production`** always uses that rule.
+	 * Use **`allowRepositoryAdminBypassOnMain`** so users with the repo **Admin** role (including the owner)
+	 * can still push directly. Set both to **false** if you want `main` open to anyone with push access.
+	 */
+	readonly requirePullRequestBeforeMerge: boolean;
+	/**
+	 * When **requirePullRequestBeforeMerge** is **true**, add a ruleset bypass for the built-in **Repository admin**
+	 * role (`RepositoryRole` actor id **5** on github.com) with **`bypass_mode: always`**, so admins can push to `main`
+	 * while **Write** / **Maintain** users must use PRs. No effect when **requirePullRequestBeforeMerge** is **false**.
+	 * **`production`** ruleset intentionally has **no** such bypass in the default policy.
+	 */
+	readonly allowRepositoryAdminBypassOnMain: boolean;
 	readonly requiredStatusCheckContexts: readonly string[];
 	readonly strictRequiredStatusChecks: boolean;
 };
@@ -149,6 +163,8 @@ export const DEFAULT_GITHUB_POLICY: GitHubPolicyConfig = {
 					enabled: true,
 					displayName: "cf-starter: main",
 					includeRefs: ["refs/heads/main"],
+					requirePullRequestBeforeMerge: true,
+					allowRepositoryAdminBypassOnMain: true,
 					requiredStatusCheckContexts: [],
 					strictRequiredStatusChecks: true,
 				},

@@ -2,16 +2,40 @@
  * GitHub **repository rulesets** (REST) — complements **`github-repository-settings-sync.ts`**.
  * Runs on **`github:sync:staging`** when **`config/github.policy.ts`** has **`github.sync.applyRulesets`** set.
  *
- * Defaults: rulesets for **`main`** (PR + no force-push, optional required checks) and **`production`**
- * (same + **workflows** gate: restrict-production-pr-source.yml).
+ * Defaults: **`main`** — PR-only for **Write** and **Maintain** roles; **Repository admin** may bypass (direct push).
+ * Optional status checks. **`production`** — PR rules for everyone, no admin bypass in defaults, optional **workflows** gate.
  *
  * @see https://docs.github.com/en/rest/repos/rules
  */
 
-import type { GitHubPolicyConfig } from "../packages/alchemy-utils/src/github-policy-config";
 import { Octokit } from "@octokit/rest";
+import type { GitHubPolicyConfig } from "../packages/alchemy-utils/src/github-policy-config";
 
 export const CF_STARTER_PRODUCTION_PR_HEAD_VARIABLE = "CF_STARTER_PRODUCTION_PR_HEAD";
+
+/** Built-in github.com “Repository admin” repository role id for ruleset `bypass_actors` (`RepositoryRole`). */
+const GITHUB_RULESET_BUILTIN_REPOSITORY_ROLE_ADMIN_ACTOR_ID = 5;
+
+type RulesetBypassActorPayload = {
+	actor_id: number;
+	actor_type: "RepositoryRole";
+	bypass_mode: "always" | "pull_request" | "exempt";
+};
+
+function mainRulesetBypassActors(
+	main: GitHubPolicyConfig["github"]["repository"]["rulesets"]["main"],
+): RulesetBypassActorPayload[] {
+	if (!main.requirePullRequestBeforeMerge || !main.allowRepositoryAdminBypassOnMain) {
+		return [];
+	}
+	return [
+		{
+			actor_id: GITHUB_RULESET_BUILTIN_REPOSITORY_ROLE_ADMIN_ACTOR_ID,
+			actor_type: "RepositoryRole",
+			bypass_mode: "always",
+		},
+	];
+}
 
 function approvingReviewCountFor(
 	policy: GitHubPolicyConfig["github"]["repository"]["rulesets"]["pullRequest"],
@@ -151,6 +175,7 @@ async function upsertRuleset(
 		enforcement: "active" | "disabled" | "evaluate";
 		conditions: { ref_name: { include: string[]; exclude: string[] } };
 		rules: Record<string, unknown>[];
+		bypassActors: RulesetBypassActorPayload[];
 	},
 ): Promise<void> {
 	const existingId = await findRulesetIdByName(octokit, owner, repo, body.name);
@@ -160,6 +185,7 @@ async function upsertRuleset(
 		enforcement: body.enforcement,
 		conditions: body.conditions,
 		rules: body.rules as never,
+		bypass_actors: body.bypassActors as never,
 	};
 	if (existingId === undefined) {
 		await octokit.rest.repos.createRepoRuleset({
@@ -226,25 +252,36 @@ export async function applyGitHubRepoRulesets(opts: {
 		results.productionPrHeadVariable = `${CF_STARTER_PRODUCTION_PR_HEAD_VARIABLE}=${productionSourceBranch}`;
 	}
 
-	const commonRules = (which: "main" | "production"): Record<string, unknown>[] => [
-		pullRequestRule(rules, which) as unknown as Record<string, unknown>,
-		{ type: "non_fast_forward" },
-	];
+	function branchRulesWithoutOptionalChecks(
+		which: "main" | "production",
+	): Record<string, unknown>[] {
+		const rs: Record<string, unknown>[] = [];
+		if (which === "main") {
+			if (rules.main.requirePullRequestBeforeMerge) {
+				rs.push(pullRequestRule(rules, "main") as unknown as Record<string, unknown>);
+			}
+		} else {
+			rs.push(pullRequestRule(rules, "production") as unknown as Record<string, unknown>);
+		}
+		rs.push({ type: "non_fast_forward" });
+		return rs;
+	}
 
 	try {
 		if (mainEnabled) {
-			const rs = [...commonRules("main"), ...mainStatusCheckRules(rules.main)];
+			const rs = [...branchRulesWithoutOptionalChecks("main"), ...mainStatusCheckRules(rules.main)];
 			await upsertRuleset(octokit, owner, repo, {
 				name: mainName,
 				enforcement,
 				conditions: { ref_name: { include: mainInclude, exclude: [] } },
 				rules: rs,
+				bypassActors: mainRulesetBypassActors(rules.main),
 			});
 			results.mainRuleset = mainName;
 		}
 
 		if (productionEnabled) {
-			const rs: Record<string, unknown>[] = [...commonRules("production")];
+			const rs: Record<string, unknown>[] = [...branchRulesWithoutOptionalChecks("production")];
 			if (requireProductionSourceWorkflow) {
 				await assertRemoteWorkflowFileForRuleset(
 					octokit,
@@ -272,6 +309,7 @@ export async function applyGitHubRepoRulesets(opts: {
 				enforcement,
 				conditions: { ref_name: { include: productionInclude, exclude: [] } },
 				rules: rs,
+				bypassActors: [],
 			});
 			results.productionRuleset = productionName;
 		}
