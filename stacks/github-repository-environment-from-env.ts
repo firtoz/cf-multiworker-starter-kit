@@ -1,16 +1,43 @@
 /**
- * Optional GitHub Environment **deployment protection** for `alchemy/github` **`RepositoryEnvironment`**,
- * driven by **`GITHUB_ENV_*`** process env.
+ * **Explicit** GitHub Environment deployment protection for `alchemy/github` **`RepositoryEnvironment`**.
  *
- * - **`repositoryEnvironmentProtectionOverlayForAdminSync`**: only fields you explicitly set — merge onto
- *   **`github:sync:*`** so a sync without these vars does not change deployment rules configured elsewhere.
- * - **`repositoryEnvironmentProtectionForEnvOnlyDeploy`**: props for **`github:env:*`** (explicit defaults
- *   where useful so one command can set reviewers without a prior sync).
+ * Every input is **required** (must appear in `process.env`, including empty string where “none” is intended).
+ * Used when **`GITHUB_SYNC_SCOPE=environment`** or when **`GITHUB_SYNC_SCOPE=secrets`** with
+ * **`GITHUB_SYNC_UPDATE_ENVIRONMENT_PROTECTION=true`**.
+ *
+ * Required env (set empty string for “no users” / “no teams” / “no branch patterns”):
+ * - `GITHUB_ENV_WAIT_TIMER_MINUTES` — `0`–`43200`
+ * - `GITHUB_ENV_PREVENT_SELF_REVIEW` — `true` / `false`
+ * - `GITHUB_ENV_DEPLOYMENT_BRANCH_PROTECTED_ONLY` — `true` / `false`
+ * - `GITHUB_ENV_DEPLOYMENT_REVIEWER_USERS` — comma-separated logins, or empty
+ * - `GITHUB_ENV_DEPLOYMENT_REVIEWER_TEAMS` — `org/slug` or `slug`, comma-separated, or empty
+ * - `GITHUB_ENV_DEPLOYMENT_BRANCH_CUSTOM_PATTERNS` — comma-separated patterns, or empty
  */
-import type { RepositoryEnvironmentProps } from "alchemy/github";
 
-function parseCommaList(raw: string | undefined): string[] {
-	if (!raw) {
+const REQUIRED_ENV_NAMES = [
+	"GITHUB_ENV_WAIT_TIMER_MINUTES",
+	"GITHUB_ENV_PREVENT_SELF_REVIEW",
+	"GITHUB_ENV_DEPLOYMENT_BRANCH_PROTECTED_ONLY",
+	"GITHUB_ENV_DEPLOYMENT_REVIEWER_USERS",
+	"GITHUB_ENV_DEPLOYMENT_REVIEWER_TEAMS",
+	"GITHUB_ENV_DEPLOYMENT_BRANCH_CUSTOM_PATTERNS",
+] as const;
+
+function requireEnvRaw(name: (typeof REQUIRED_ENV_NAMES)[number]): string {
+	if (process.env[name] === undefined) {
+		throw new Error(
+			[
+				`Missing required env ${name} for GitHub environment deployment protection.`,
+				`Set every key in: ${REQUIRED_ENV_NAMES.join(", ")}.`,
+				`Use an empty string where you mean “none” (e.g. no reviewer users).`,
+			].join(" "),
+		);
+	}
+	return process.env[name]!;
+}
+
+function parseCommaList(raw: string): string[] {
+	if (!raw.trim()) {
 		return [];
 	}
 	return raw
@@ -19,10 +46,7 @@ function parseCommaList(raw: string | undefined): string[] {
 		.filter((s) => s.length > 0);
 }
 
-function parseOptionalInt(raw: string | undefined, label: string): number | undefined {
-	if (raw === undefined || raw.trim() === "") {
-		return undefined;
-	}
+function parseOptionalInt(raw: string, label: string): number {
 	const n = Number.parseInt(raw.trim(), 10);
 	if (!Number.isFinite(n)) {
 		throw new Error(`${label} must be a finite integer (got ${JSON.stringify(raw)})`);
@@ -30,10 +54,7 @@ function parseOptionalInt(raw: string | undefined, label: string): number | unde
 	return n;
 }
 
-function parseBool(raw: string | undefined, defaultValue: boolean): boolean {
-	if (raw === undefined || raw.trim() === "") {
-		return defaultValue;
-	}
+function parseBool(raw: string, label: string): boolean {
 	const t = raw.trim().toLowerCase();
 	if (t === "1" || t === "true" || t === "yes" || t === "on") {
 		return true;
@@ -41,89 +62,68 @@ function parseBool(raw: string | undefined, defaultValue: boolean): boolean {
 	if (t === "0" || t === "false" || t === "no" || t === "off") {
 		return false;
 	}
-	throw new Error(`Expected boolean string for env flag (got ${JSON.stringify(raw)})`);
+	throw new Error(`${label} must be "true" or "false" (got ${JSON.stringify(raw)})`);
 }
 
-function assertWaitTimerRange(waitTimer: number): void {
+function assertWaitTimerRange(waitTimer: number, label: string): void {
 	if (waitTimer < 0 || waitTimer > 43200) {
-		throw new Error("GITHUB_ENV_WAIT_TIMER_MINUTES must be between 0 and 43200");
+		throw new Error(`${label} must be between 0 and 43200`);
 	}
 }
 
-type ProtectionPick = Pick<
-	RepositoryEnvironmentProps,
-	"waitTimer" | "preventSelfReview" | "reviewers" | "deploymentBranchPolicy" | "branchPatterns"
->;
-
-/** Non-destructive merge for `stacks/admin.ts` — only keys backed by a non-empty env value. */
-export function repositoryEnvironmentProtectionOverlayForAdminSync(): Partial<ProtectionPick> {
-	const out: Partial<ProtectionPick> = {};
-
-	const userReviewers = parseCommaList(process.env["GITHUB_ENV_DEPLOYMENT_REVIEWER_USERS"]);
-	const teamReviewers = parseCommaList(process.env["GITHUB_ENV_DEPLOYMENT_REVIEWER_TEAMS"]);
-	if (userReviewers.length > 0 || teamReviewers.length > 0) {
-		out.reviewers = { users: userReviewers, teams: teamReviewers };
-	}
-
-	const waitRaw = process.env["GITHUB_ENV_WAIT_TIMER_MINUTES"]?.trim();
-	if (waitRaw) {
-		const waitTimer = parseOptionalInt(waitRaw, "GITHUB_ENV_WAIT_TIMER_MINUTES") ?? 0;
-		assertWaitTimerRange(waitTimer);
-		out.waitTimer = waitTimer;
-	}
-
-	if (process.env["GITHUB_ENV_PREVENT_SELF_REVIEW"]?.trim()) {
-		out.preventSelfReview = parseBool(process.env["GITHUB_ENV_PREVENT_SELF_REVIEW"], false);
-	}
-
-	const protectedBranchesOnly = process.env["GITHUB_ENV_DEPLOYMENT_BRANCH_PROTECTED_ONLY"]?.trim();
-	const branchPatternsRaw = process.env["GITHUB_ENV_DEPLOYMENT_BRANCH_CUSTOM_PATTERNS"]?.trim();
-	if (protectedBranchesOnly || branchPatternsRaw) {
-		const branchPatterns = parseCommaList(process.env["GITHUB_ENV_DEPLOYMENT_BRANCH_CUSTOM_PATTERNS"]);
-		out.deploymentBranchPolicy = {
-			protectedBranches: parseBool(process.env["GITHUB_ENV_DEPLOYMENT_BRANCH_PROTECTED_ONLY"], false),
-			customBranchPolicies: branchPatterns.length > 0,
-		};
-		if (branchPatterns.length > 0) {
-			out.branchPatterns = branchPatterns;
-		}
-	}
-
-	return out;
-}
-
-/** Full protection block for `stacks/github-environment-only.ts` (no secrets). */
-export function repositoryEnvironmentProtectionForEnvOnlyDeploy(): ProtectionPick & {
+/** Concrete shape for **`RepositoryEnvironment`** (no optional ambiguity from `Pick`). */
+export type ExplicitRepositoryEnvironmentProtection = {
 	adminBypass: boolean;
-} {
-	const userReviewers = parseCommaList(process.env["GITHUB_ENV_DEPLOYMENT_REVIEWER_USERS"]);
-	const teamReviewers = parseCommaList(process.env["GITHUB_ENV_DEPLOYMENT_REVIEWER_TEAMS"]);
-	const waitTimer = parseOptionalInt(process.env["GITHUB_ENV_WAIT_TIMER_MINUTES"], "GITHUB_ENV_WAIT_TIMER_MINUTES") ?? 0;
-	assertWaitTimerRange(waitTimer);
+	waitTimer: number;
+	preventSelfReview: boolean;
+	reviewers: { users: string[]; teams: string[] };
+	deploymentBranchPolicy: {
+		protectedBranches: boolean;
+		customBranchPolicies: boolean;
+	};
+	branchPatterns?: string[];
+};
 
-	const preventSelfReview = parseBool(process.env["GITHUB_ENV_PREVENT_SELF_REVIEW"], false);
-	const protectedBranchesOnly = parseBool(process.env["GITHUB_ENV_DEPLOYMENT_BRANCH_PROTECTED_ONLY"], false);
-	const branchPatterns = parseCommaList(process.env["GITHUB_ENV_DEPLOYMENT_BRANCH_CUSTOM_PATTERNS"]);
+/**
+ * Reads **`GITHUB_ENV_*`** — every required key must be present (see module doc).
+ */
+export function parseExplicitRepositoryEnvironmentProtectionFromEnv(): ExplicitRepositoryEnvironmentProtection {
+	for (const n of REQUIRED_ENV_NAMES) {
+		requireEnvRaw(n);
+	}
 
-	const reviewers =
-		userReviewers.length > 0 || teamReviewers.length > 0
-			? { users: userReviewers, teams: teamReviewers }
-			: undefined;
+	const waitTimer = parseOptionalInt(
+		requireEnvRaw("GITHUB_ENV_WAIT_TIMER_MINUTES"),
+		"GITHUB_ENV_WAIT_TIMER_MINUTES",
+	);
+	assertWaitTimerRange(waitTimer, "GITHUB_ENV_WAIT_TIMER_MINUTES");
 
-	const deploymentBranchPolicy =
-		protectedBranchesOnly || branchPatterns.length > 0
-			? {
-					protectedBranches: protectedBranchesOnly,
-					customBranchPolicies: branchPatterns.length > 0,
-				}
-			: undefined;
+	const preventSelfReview = parseBool(
+		requireEnvRaw("GITHUB_ENV_PREVENT_SELF_REVIEW"),
+		"GITHUB_ENV_PREVENT_SELF_REVIEW",
+	);
+	const protectedBranchesOnly = parseBool(
+		requireEnvRaw("GITHUB_ENV_DEPLOYMENT_BRANCH_PROTECTED_ONLY"),
+		"GITHUB_ENV_DEPLOYMENT_BRANCH_PROTECTED_ONLY",
+	);
+
+	const userReviewers = parseCommaList(requireEnvRaw("GITHUB_ENV_DEPLOYMENT_REVIEWER_USERS"));
+	const teamReviewers = parseCommaList(requireEnvRaw("GITHUB_ENV_DEPLOYMENT_REVIEWER_TEAMS"));
+	const branchPatterns = parseCommaList(requireEnvRaw("GITHUB_ENV_DEPLOYMENT_BRANCH_CUSTOM_PATTERNS"));
+
+	const reviewers = { users: userReviewers, teams: teamReviewers };
+
+	const deploymentBranchPolicy = {
+		protectedBranches: protectedBranchesOnly,
+		customBranchPolicies: branchPatterns.length > 0,
+	};
 
 	return {
 		adminBypass: true,
 		waitTimer,
 		preventSelfReview,
-		...(reviewers ? { reviewers } : {}),
-		...(deploymentBranchPolicy ? { deploymentBranchPolicy } : {}),
+		reviewers,
+		deploymentBranchPolicy,
 		...(branchPatterns.length > 0 ? { branchPatterns } : {}),
 	};
 }

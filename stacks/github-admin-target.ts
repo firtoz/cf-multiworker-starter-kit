@@ -1,5 +1,5 @@
 /**
- * Shared GitHub repo + token resolution for admin stacks (`stacks/admin.ts`, `stacks/github-environment-only.ts`).
+ * Shared GitHub repo + token resolution for **`stacks/admin.ts`**.
  * Uses `gh` when env vars are not set.
  */
 function runGh(args: readonly string[], hint: string): string {
@@ -57,7 +57,7 @@ export function getGitHubToken(): string {
 	);
 }
 
-/** Maps `STAGE` from dotenv-cli for `github:sync:*` / `github:env:*` to the GitHub Actions environment name. */
+/** Maps `STAGE` from dotenv-cli for **`github:sync:*`** / **`github:env:*`** to the GitHub Actions environment name. */
 export function githubActionsEnvironmentFromAlchemyStage(stage: string): "production" | "staging" {
 	const s = stage.trim().toLowerCase();
 	if (s === "prod" || s === "production") {

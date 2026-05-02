@@ -150,13 +150,21 @@ bun run github:sync:staging
 bun run github:sync:prod
 ```
 
-To create or update the **`staging`** / **`production`** GitHub Environment **without** reading `.env.staging` / `.env.production` or syncing secrets (e.g. set deployment reviewers from a machine that only has `gh`):
+To create or update **only** the GitHub Environment **deployment protection** (Alchemy **`RepositoryEnvironment`**) — **no** `.env.*`, **no** secrets, **no** variables — set **`GITHUB_SYNC_SCOPE=environment`** (the **`github:env:*`** scripts do this), **`GITHUB_SYNC_ENVIRONMENT_ONLY_CONFIRM=true`**, and **every** **`GITHUB_ENV_*`** key listed in **`stacks/github-repository-environment-from-env.ts`** (use `""` for empty lists):
 
 ```bash
-GITHUB_ENV_DEPLOYMENT_REVIEWER_USERS=alice,bob bun run github:env:staging
+export GITHUB_SYNC_SCOPE=environment
+export GITHUB_SYNC_ENVIRONMENT_ONLY_CONFIRM=true
+export GITHUB_ENV_WAIT_TIMER_MINUTES=0
+export GITHUB_ENV_PREVENT_SELF_REVIEW=false
+export GITHUB_ENV_DEPLOYMENT_BRANCH_PROTECTED_ONLY=false
+export GITHUB_ENV_DEPLOYMENT_REVIEWER_USERS=alice,bob
+export GITHUB_ENV_DEPLOYMENT_REVIEWER_TEAMS=
+export GITHUB_ENV_DEPLOYMENT_BRANCH_CUSTOM_PATTERNS=
+bun run github:env:staging
 ```
 
-See **`stacks/github-environment-only.ts`** for all **`GITHUB_ENV_*`** options. Full secret + variable sync remains **`github:sync:*`**.
+Full secret + variable sync remains **`github:sync:*`** (`GITHUB_SYNC_SCOPE=secrets`, set by those npm scripts). To **also** apply the same **`GITHUB_ENV_*`** block on a secrets sync, set **`GITHUB_SYNC_UPDATE_ENVIRONMENT_PROTECTION=true`** for that run.
 
 What runs in CI:
 
@@ -255,8 +263,8 @@ For the detailed checklist, use [agents/skills/cf-durable-object-package/SKILL.m
 - `bun run destroy:staging` / `destroy:prod` / `destroy:preview`: destroy matching stacks.
 - `bun run deploy:preflight:*`: check whether deploys are enabled and configured.
 - `bun run github:setup`: print GitHub Actions onboarding steps.
-- `bun run github:sync:staging` / `github:sync:prod`: sync GitHub Environment secrets and variables from a trusted machine.
-- `bun run github:env:staging` / `github:env:prod`: create or update the GitHub Environment and deployment protection rules only (no dotfile, no secrets) — Alchemy **`RepositoryEnvironment`**; optional **`GITHUB_ENV_*`** vars (see `stacks/github-environment-only.ts`).
+- `bun run github:sync:staging` / `github:sync:prod`: sync GitHub Environment secrets and variables from the stage dotfile (`GITHUB_SYNC_SCOPE=secrets` is set by the script).
+- `bun run github:env:staging` / `github:env:prod`: same **`stacks/admin.ts`** entry with **`GITHUB_SYNC_SCOPE=environment`** — GitHub Environment config only; requires **`GITHUB_SYNC_ENVIRONMENT_ONLY_CONFIRM=true`** and all **`GITHUB_ENV_*`** keys (see **`stacks/github-repository-environment-from-env.ts`**).
 
 ### Codegen And Dependencies
 
@@ -287,7 +295,7 @@ This kit ships with real infra and demos. Treat security as layering: tighten wh
 | Area | Behavior |
 | ---- | -------- |
 | **GitHub Actions** | Workflows declare least-privilege `permissions` where it matters (`contents: read`, `pull-requests: read`, `issues: write` for PR preview comments). **`pull_request` runs the workflow YAML from `main`**—fork PRs cannot silently replace Actions logic until their branch is merged. |
-| **PR preview deploy** | **Deploy** and **destroy preview** jobs use GitHub Environment **`staging`**. Add **required deployment reviewers** (approve the **workflow deployment** in Actions, not the PR) via **Settings → Environments → staging**, or run **`bun run github:env:staging`** with **`GITHUB_ENV_DEPLOYMENT_REVIEWER_*`** (Alchemy **`RepositoryEnvironment`** — `stacks/github-environment-only.ts`). Teardown checks out the **`base` branch** so **`bun install` does not execute untrusted `package.json` scripts** during destroy. The bot upserts one PR comment (no deploy secrets attached). |
+| **PR preview deploy** | **Deploy** and **destroy preview** jobs use GitHub Environment **`staging`**. Add **required deployment reviewers** (approve the **workflow deployment** in Actions, not the PR) via **Settings → Environments → staging**, or run **`bun run github:env:staging`** with **`GITHUB_SYNC_ENVIRONMENT_ONLY_CONFIRM=true`** and the full **`GITHUB_ENV_*`** set (**`stacks/github-repository-environment-from-env.ts`**). Teardown checks out the **`base` branch** so **`bun install` does not execute untrusted `package.json` scripts** during destroy. The bot upserts one PR comment (no deploy secrets attached). |
 | **Production manual deploy** | `workflow_dispatch` is rejected unless **`GITHUB_REF` is `refs/heads/production`** so Operators cannot accidentally run prod deploy against an arbitrary branch. |
 | **`/api/worker-services`** | Demo probe is **GET-only** and returns **health metadata only**—not full downstream Worker response bodies (reduces leakage and scraper value). |
 | **Demo chat** | Socka contract caps **display name length** (including **`?name=` on the WebSocket URL**) and **message body length**. History responses clamp legacy DB rows so oversized rows do not break the wire contract. |

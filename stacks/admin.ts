@@ -1,19 +1,21 @@
 /**
- * Local/admin-only: sync GitHub Actions **environment** secrets and **variables** from a stage dotfile.
+ * Local/admin-only: GitHub Actions **environment** + optional **secrets** / **variables** sync.
  *
- * - **Production:** `STAGE=prod`, repo-root `.env.production`, GitHub environment **`production`**.
- * - **Staging:** `STAGE=staging`, repo-root `.env.staging`, GitHub environment **`staging`**.
+ * **`GITHUB_SYNC_SCOPE`** (required):
+ * - **`secrets`** — read repo-root `.env.production` or `.env.staging`, upsert **`RepositoryEnvironment`**, then
+ *   **GitHubSecret** + **GitHubEnvironmentVariable** for that environment.
+ * - **`environment`** — **only** create/update **`RepositoryEnvironment`** (deployment protection). **No** dotfile,
+ *   **no** secrets, **no** variables. Requires **`GITHUB_SYNC_ENVIRONMENT_ONLY_CONFIRM=true`**.
  *
- * **Secrets** (GitHubSecret): `ALCHEMY_PASSWORD`, `ALCHEMY_STATE_TOKEN`, `CHATROOM_INTERNAL_SECRET`, `CLOUDFLARE_API_TOKEN`
- * **Variables** (REST): `CLOUDFLARE_ACCOUNT_ID`, `CF_STARTER_DEPLOY_ENABLED=true`, and optional plaintext **`WEB_*`** keys (`WEB_DOMAINS`, `WEB_ROUTES`, `WEB_ZONE_ID`, `WEB_DOMAIN_OVERRIDE_EXISTING_ORIGIN`) when set in the dotfile — **`GitHubEnvironmentVariable`** resources in **`github-environment-variable.ts`** (shared list prefetch per env/token in-process + one tracked resource per name).
+ * Deployment protection (`GITHUB_ENV_*`) is applied **only** when:
+ * - `GITHUB_SYNC_SCOPE=environment` (always — all **`GITHUB_ENV_*`** keys required), or
+ * - `GITHUB_SYNC_SCOPE=secrets` **and** `GITHUB_SYNC_UPDATE_ENVIRONMENT_PROTECTION=true` (same **`GITHUB_ENV_*`**).
+ *
+ * For **`GITHUB_ENV_*`** every listed variable must be set (use `""` for “none”); see **`github-repository-environment-from-env.ts`**.
  *
  * Run from repo root:
- * - `bun run github:sync:prod`
- * - `bun run github:sync:staging`
- *
- * Optional: set **`GITHUB_ENV_*`** (see **`stacks/github-repository-environment-from-env.ts`**) so this run also
- * updates deployment protection on **`RepositoryEnvironment`** (e.g. required reviewers). Omitting those vars
- * leaves existing GitHub deployment rules unchanged on sync.
+ * - `bun run github:sync:prod` / `github:sync:staging` — scope **`secrets`** + stage dotfile
+ * - `bun run github:env:prod` / `github:env:staging` — scope **`environment`** + confirm (no `-e` dotfile)
  */
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
@@ -33,10 +35,30 @@ import {
 	getGitHubToken,
 	githubActionsEnvironmentFromAlchemyStage,
 } from "./github-admin-target";
-import { repositoryEnvironmentProtectionOverlayForAdminSync } from "./github-repository-environment-from-env";
+import { parseExplicitRepositoryEnvironmentProtectionFromEnv } from "./github-repository-environment-from-env";
 import { GitHubEnvironmentVariable } from "./github-environment-variable";
 
 const REPO_ROOT = path.resolve(import.meta.dir, "..");
+
+type GithubSyncScope = "secrets" | "environment";
+
+function parseGithubSyncScope(): GithubSyncScope {
+	const raw = process.env["GITHUB_SYNC_SCOPE"]?.trim();
+	if (raw === "secrets") {
+		return "secrets";
+	}
+	if (raw === "environment") {
+		return "environment";
+	}
+	throw new Error(
+		[
+			`Invalid or missing GITHUB_SYNC_SCOPE (got ${JSON.stringify(raw ?? "")}).`,
+			`Set exactly one of: "secrets" | "environment".`,
+			`- "secrets": sync from .env.staging / .env.production (requires dotfile + secret/variable keys).`,
+			`- "environment": update GitHub Environment config only (no dotfile; set GITHUB_SYNC_ENVIRONMENT_ONLY_CONFIRM=true).`,
+		].join(" "),
+	);
+}
 
 function dotfilePathForGithubEnvironment(environmentName: "production" | "staging"): string {
 	if (environmentName === "staging") {
@@ -60,6 +82,7 @@ function loadStageDotfileOrThrow(resolvedPath: string, hintCli: string) {
 	return envFromDotfile;
 }
 
+const scope = parseGithubSyncScope();
 const stageSlug = resolveStageFromEnv();
 const githubEnvironment = githubActionsEnvironmentFromAlchemyStage(stageSlug);
 const ENV_DOTFILE_PATH = dotfilePathForGithubEnvironment(githubEnvironment);
@@ -68,38 +91,52 @@ const ENV_DOTFILE_REL = path.relative(REPO_ROOT, ENV_DOTFILE_PATH) || ENV_DOTFIL
 const setupCli = setupCommandLabelForDotfileRel(ENV_DOTFILE_REL);
 const hintForMissing = `Run \`${setupCli}\` (or \`bun run github:setup\`) to prepare ${ENV_DOTFILE_REL}, then rerun the matching \`bun run github:sync:*\` command.`;
 
-const envFromDotfile = loadStageDotfileOrThrow(ENV_DOTFILE_PATH, hintForMissing);
+let secretPayload: Record<string, string> = {};
+let githubVariables: Record<string, string> = {};
 
-const { payload: secretPayload, missing: missingSecrets } =
-	buildGitHubSecretPayload(envFromDotfile);
-if (missingSecrets.length > 0) {
-	throw new Error(
-		[
-			`Missing non-empty GitHub **secret** keys in ${ENV_DOTFILE_REL} for environment "${githubEnvironment}":`,
-			...missingSecrets.map((k) => `  - ${k}`),
-			"",
-			`Fix: ${hintForMissing}`,
-		].join("\n"),
-	);
+if (scope === "secrets") {
+	const envFromDotfile = loadStageDotfileOrThrow(ENV_DOTFILE_PATH, hintForMissing);
+
+	const { payload: secrets, missing: missingSecrets } = buildGitHubSecretPayload(envFromDotfile);
+	if (missingSecrets.length > 0) {
+		throw new Error(
+			[
+				`Missing non-empty GitHub **secret** keys in ${ENV_DOTFILE_REL} for environment "${githubEnvironment}":`,
+				...missingSecrets.map((k) => `  - ${k}`),
+				"",
+				`Fix: ${hintForMissing}`,
+			].join("\n"),
+		);
+	}
+	secretPayload = secrets;
+
+	const { payload: varPart, missing: missingVars } = buildGitHubVariablePayloadFromDotfile(envFromDotfile);
+	if (missingVars.length > 0) {
+		throw new Error(
+			[
+				`Missing non-empty GitHub **variable** keys in ${ENV_DOTFILE_REL} for environment "${githubEnvironment}":`,
+				...missingVars.map((k) => `  - ${k}`),
+				"",
+				`Fix: ${hintForMissing}`,
+			].join("\n"),
+		);
+	}
+	githubVariables = {
+		...varPart,
+		[CF_STARTER_DEPLOY_ENABLED_VAR]: varPart[CF_STARTER_DEPLOY_ENABLED_VAR] ?? "true",
+	};
+} else {
+	const confirm = process.env["GITHUB_SYNC_ENVIRONMENT_ONLY_CONFIRM"]?.trim();
+	if (confirm !== "true") {
+		throw new Error(
+			[
+				`GITHUB_SYNC_SCOPE=environment refuses to run without an explicit confirmation.`,
+				`Set GITHUB_SYNC_ENVIRONMENT_ONLY_CONFIRM=true (exactly).`,
+				`This mode does not read .env.staging / .env.production and does not sync secrets or variables.`,
+			].join(" "),
+		);
+	}
 }
-
-const { payload: varPart, missing: missingVars } =
-	buildGitHubVariablePayloadFromDotfile(envFromDotfile);
-if (missingVars.length > 0) {
-	throw new Error(
-		[
-			`Missing non-empty GitHub **variable** keys in ${ENV_DOTFILE_REL} for environment "${githubEnvironment}":`,
-			...missingVars.map((k) => `  - ${k}`),
-			"",
-			`Fix: ${hintForMissing}`,
-		].join("\n"),
-	);
-}
-
-const githubVariables: Record<string, string> = {
-	...varPart,
-	[CF_STARTER_DEPLOY_ENABLED_VAR]: varPart[CF_STARTER_DEPLOY_ENABLED_VAR] ?? "true",
-};
 
 const githubToken = getGitHubToken();
 const { owner, repository } = getGitHubTarget();
@@ -110,60 +147,90 @@ const app = await alchemy(CF_STARTER_APPS.admin, {
 
 if (githubActionsEnvironmentFromAlchemyStage(app.stage) !== githubEnvironment) {
 	throw new Error(
-		`stacks/admin.ts: Alchemy app.stage "${app.stage}" does not match ${ENV_DOTFILE_REL} for GitHub environment "${githubEnvironment}".`,
+		`stacks/admin.ts: Alchemy app.stage "${app.stage}" does not match GitHub environment "${githubEnvironment}" for STAGE=${JSON.stringify(stageSlug)}.`,
 	);
 }
 
-const envProtectionOverlay = repositoryEnvironmentProtectionOverlayForAdminSync();
+const updateProtectionOnSecretsSync =
+	scope === "secrets" && process.env["GITHUB_SYNC_UPDATE_ENVIRONMENT_PROTECTION"]?.trim() === "true";
 
-await RepositoryEnvironment("github-actions-environment", {
-	owner,
-	repository,
-	name: githubEnvironment,
-	token: githubToken,
-	...envProtectionOverlay,
-});
-
-for (const name of Object.keys(secretPayload) as (keyof typeof secretPayload)[]) {
-	const raw = secretPayload[name]?.trim();
-	if (!raw) {
-		throw new Error(`Unexpected: secret ${name} missing after validation.`);
-	}
-	await GitHubSecret(`github-env-${name}`, {
+if (scope === "environment" || updateProtectionOnSecretsSync) {
+	const protection = parseExplicitRepositoryEnvironmentProtectionFromEnv();
+	await RepositoryEnvironment("github-actions-environment", {
 		owner,
 		repository,
-		name,
-		environment: githubEnvironment,
-		value: alchemy.secret(raw),
-		token: alchemy.secret(githubToken),
+		name: githubEnvironment,
+		token: githubToken,
+		waitTimer: protection.waitTimer,
+		preventSelfReview: protection.preventSelfReview,
+		adminBypass: protection.adminBypass,
+		reviewers: protection.reviewers,
+		deploymentBranchPolicy: protection.deploymentBranchPolicy,
+		...(protection.branchPatterns && protection.branchPatterns.length > 0
+			? { branchPatterns: protection.branchPatterns }
+			: {}),
 	});
-}
-
-const variableNames = Object.keys(githubVariables).sort();
-for (const name of variableNames) {
-	const value = githubVariables[name];
-	if (value === undefined) {
-		continue;
-	}
-	await GitHubEnvironmentVariable(`github-env-variable-${name}`, {
+} else {
+	await RepositoryEnvironment("github-actions-environment", {
 		owner,
 		repository,
-		environment: githubEnvironment,
-		name,
-		value,
+		name: githubEnvironment,
 		token: githubToken,
 	});
 }
 
-console.log({
-	app: CF_STARTER_APPS.admin,
-	alchemyStage: app.stage,
-	envFile: ENV_DOTFILE_PATH,
-	repository: `${owner}/${repository}`,
-	environment: githubEnvironment,
-	secrets: Object.keys(secretPayload).sort(),
-	variables: variableNames,
-	githubEnvProtectionFromProcessEnv: Object.keys(envProtectionOverlay).length > 0 ? envProtectionOverlay : "(none)",
-});
+if (scope === "secrets") {
+	for (const name of Object.keys(secretPayload) as (keyof typeof secretPayload)[]) {
+		const raw = secretPayload[name]?.trim();
+		if (!raw) {
+			throw new Error(`Unexpected: secret ${name} missing after validation.`);
+		}
+		await GitHubSecret(`github-env-${name}`, {
+			owner,
+			repository,
+			name,
+			environment: githubEnvironment,
+			value: alchemy.secret(raw),
+			token: alchemy.secret(githubToken),
+		});
+	}
+
+	const variableNames = Object.keys(githubVariables).sort();
+	for (const name of variableNames) {
+		const value = githubVariables[name];
+		if (value === undefined) {
+			continue;
+		}
+		await GitHubEnvironmentVariable(`github-env-variable-${name}`, {
+			owner,
+			repository,
+			environment: githubEnvironment,
+			name,
+			value,
+			token: githubToken,
+		});
+	}
+
+	console.log({
+		app: CF_STARTER_APPS.admin,
+		alchemyStage: app.stage,
+		GITHUB_SYNC_SCOPE: scope,
+		GITHUB_SYNC_UPDATE_ENVIRONMENT_PROTECTION: updateProtectionOnSecretsSync,
+		envFile: ENV_DOTFILE_PATH,
+		repository: `${owner}/${repository}`,
+		environment: githubEnvironment,
+		secrets: Object.keys(secretPayload).sort(),
+		variables: variableNames,
+	});
+} else {
+	console.log({
+		app: CF_STARTER_APPS.admin,
+		alchemyStage: app.stage,
+		GITHUB_SYNC_SCOPE: scope,
+		repository: `${owner}/${repository}`,
+		environment: githubEnvironment,
+		message: "RepositoryEnvironment only — no secrets or variables synced.",
+	});
+}
 
 await app.finalize();
