@@ -9,6 +9,8 @@
 #   per **`github.environments.stagingFork`** in **`config/github.policy.ts`** (see `stacks/github-repository-environment-from-env.ts`).
 #   `github:sync:staging` mirrors secrets/vars to both (`packages/scripts/src/github-pr-preview-fork-policy.ts`).
 # - Preview secrets should stay narrowly scoped Cloudflare tokens.
+# - This workflow uploads a small sanitized artifact for `pr-preview-comment.yml`.
+#   That trusted `workflow_run` commenter can write PR comments even for fork PRs without running fork code with a write token.
 
 name: PR preview
 
@@ -24,7 +26,6 @@ concurrency:
 permissions:
   contents: read
   pull-requests: read
-  issues: write
 
 jobs:
   destroy_preview:
@@ -246,89 +247,40 @@ jobs:
             echo "WURL"
           } >>"$GITHUB_OUTPUT"
 
-  post_preview_comment:
-    name: PR preview bot comment
-    needs: [deploy_preview]
-    if: >-
-      always()
-      && github.event.action != 'closed'
-    runs-on: ubuntu-latest
-    steps:
-      - name: Upsert preview comment on PR
-        uses: actions/github-script@v7
+      - name: Write preview comment artifact payload
+        if: always()
         env:
           PR_NUMBER: ${{ github.event.pull_request.number }}
-          PREVIEW_WEB_URL: ${{ needs.deploy_preview.outputs.web_url }}
-          PREVIEW_SUMMARY_LINE: ${{ needs.deploy_preview.outputs.summary_line }}
+          PREVIEW_WEB_URL: ${{ steps.preview_outputs.outputs.web_url }}
+          PREVIEW_SUMMARY_LINE: ${{ steps.preview_outputs.outputs.summary_line }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           HEAD_SHA_SHORT: ${{ github.event.pull_request.head.sha }}
-          JOB_RESULT: ${{ needs.deploy_preview.result }}
+          DEPLOY_OUTCOME: ${{ steps.deploy.outcome }}
+          PREFLIGHT_OUTCOME: ${{ steps.preflight.outcome }}
+        run: |
+          mkdir -p pr-preview-comment
+          node <<'NODE'
+          const fs = require("node:fs");
+          const payload = {
+            pr_number: Number(process.env.PR_NUMBER),
+            web_url: process.env.PREVIEW_WEB_URL ?? "",
+            summary_line: process.env.PREVIEW_SUMMARY_LINE ?? "",
+            run_url: process.env.RUN_URL ?? "",
+            head_sha: (process.env.HEAD_SHA_SHORT ?? "").slice(0, 7),
+            deploy_outcome: process.env.DEPLOY_OUTCOME ?? "",
+            preflight_outcome: process.env.PREFLIGHT_OUTCOME ?? "",
+          };
+          if (!Number.isInteger(payload.pr_number) || payload.pr_number <= 0) {
+            throw new Error(`Invalid PR number: ${process.env.PR_NUMBER}`);
+          }
+          fs.writeFileSync("pr-preview-comment/payload.json", JSON.stringify(payload, null, 2));
+          NODE
+
+      - name: Upload preview comment artifact
+        if: always()
+        uses: actions/upload-artifact@v4
         with:
-          script: |
-            const webUrl = (process.env.PREVIEW_WEB_URL ?? "").trim();
-            const summaryLine = (process.env.PREVIEW_SUMMARY_LINE ?? "").trim();
-
-            const marker = "<!-- cf-starter-pr-preview -->";
-            const prNumber = Number(process.env.PR_NUMBER);
-            const runUrl = process.env.RUN_URL ?? "";
-            const sha = (process.env.HEAD_SHA_SHORT ?? "").slice(0, 7);
-            const jobResult = process.env.JOB_RESULT ?? "";
-
-            const header = `# PR preview (cf-starter)`;
-            let bodyLines = [
-              marker,
-              header,
-              "",
-              `- ${summaryLine}`,
-              `- Workflow: [Actions run](${runUrl})`,
-              `- Commit SHA: \`${sha}\``,
-              `- Deploy job: **${jobResult}**`,
-            ];
-            if (webUrl.length > 0) {
-              bodyLines.push("", `**Preview:** [Open workers.dev app](${webUrl})`);
-            }
-            bodyLines.push("", "_This comment updates whenever the preview workflow finishes._");
-
-            let body = bodyLines.join("\n");
-
-            const owner = context.repo.owner;
-            const repo = context.repo.repo;
-
-            const { data: comments } = await github.rest.issues.listComments({
-              owner,
-              repo,
-              issue_number: prNumber,
-              per_page: 100,
-            });
-
-            let existing = comments.find((c) => c.body?.includes(marker));
-            /** Walk pages if marker not in first batch */
-            if (!existing && comments.length === 100) {
-              for (let page = 2; page <= 5; page++) {
-                const { data: pageComments } = await github.rest.issues.listComments({
-                  owner,
-                  repo,
-                  issue_number: prNumber,
-                  per_page: 100,
-                  page,
-                });
-                existing = pageComments.find((c) => c.body?.includes(marker));
-                if (existing || pageComments.length < 100) break;
-              }
-            }
-
-            if (existing?.id != null) {
-              await github.rest.issues.updateComment({
-                owner,
-                repo,
-                comment_id: existing.id,
-                body,
-              });
-            } else {
-              await github.rest.issues.createComment({
-                owner,
-                repo,
-                issue_number: prNumber,
-                body,
-              });
-            }
+          name: pr-preview-comment
+          path: pr-preview-comment/payload.json
+          if-no-files-found: error
+          retention-days: 7
