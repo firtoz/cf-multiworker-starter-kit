@@ -30,7 +30,7 @@ bun run onboard:staging
 bun run onboard:prod
 ```
 
-**`onboard:prod`** also sets repo variable **`CF_STARTER_AUTO_PRODUCTION_PR=true`**, after which a successful **staging** deploy may **open or reuse** a PR **`main` → `production`**. You still **merge** that PR to ship production (and remote **`production`** must exist).
+**`onboard:prod`** also sets repo variable **`CF_STARTER_AUTO_PRODUCTION_PR=true`**, after which a successful **staging** deploy may **open or reuse** a PR **`main` → `production`**. You still **merge** that PR to ship production (and remote **`production`** must exist). `bun run github:sync:staging` also enables the repository Actions workflow permission that lets **`GITHUB_TOKEN`** create the production PR; if GitHub rejects that setting, enable it at the **organization or enterprise** level, then rerun staging sync.
 
 **Default repo policy** (see [`config/github.policy.ts`](../config/github.policy.ts)): **`main`** — PRs for writers, admins may bypass; **`production`** — PR from **`main`**, no admin bypass by default; approving review count defaults to **0** for solo maintainers.
 
@@ -82,7 +82,7 @@ bun run github:sync:staging
 - Requires pull requests.
 - Has no admin bypass by default.
 - Blocks force-push.
-- Requires the `Production merge source` status check, which is produced by [`restrict-production-pr-source.yml`](../.github/workflows/restrict-production-pr-source.yml).
+- Requires the `Production merge source` status check, which is produced by [`restrict-production-pr-source.yml`](../.github/workflows/restrict-production-pr-source.yml) on **normal** `pull_request` events (humans / PAT-opened PRs). **PRs opened by Actions using `GITHUB_TOKEN` do not start other workflows**, so [`deploy-staging.yml`](../.github/workflows/deploy-staging.yml) also posts that check via the Checks API after it opens or reuses the **main → production** PR.
 - That workflow only passes when the PR into `production` comes from the configured source branch, default `main`.
 
 ## Common Tweaks

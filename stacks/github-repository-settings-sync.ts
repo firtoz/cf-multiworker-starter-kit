@@ -1,8 +1,8 @@
 /**
  * Repo-level GitHub settings via REST (not Alchemy resources — `alchemy/github` has no Repository
  * provider). Runs during **`bun run github:sync:staging`** (or the first half of **`bun run github:sync`**) when
- * **`config/github.policy.ts`** has **`applyRepositorySettings`** enabled — merge toggles only; branch rules live in **rulesets**
- * (`stacks/github-repo-rulesets-sync.ts`).
+ * **`config/github.policy.ts`** has **`applyRepositorySettings`** enabled — merge toggles and GitHub Actions
+ * workflow permissions; branch rules live in **rulesets** (`stacks/github-repo-rulesets-sync.ts`).
  *
  * Token needs **admin** on the repo (same as repository settings in the GitHub UI).
  *
@@ -23,6 +23,7 @@ export async function applyGitHubRepositoryPolicy(opts: {
 	const octokit = new Octokit({ auth: token });
 
 	const repoSettings = policy.github.repository;
+	const actionsSettings = repoSettings.actions;
 
 	const deleteBranchOnMerge = repoSettings.merge.deleteBranchOnMerge;
 	const allowSquashMerge = repoSettings.merge.allowSquashMerge;
@@ -41,6 +42,13 @@ export async function applyGitHubRepositoryPolicy(opts: {
 				allow_rebase_merge: allowRebaseMerge,
 				allow_auto_merge: allowAutoMerge,
 			});
+			await octokit.request("PUT /repos/{owner}/{repo}/actions/permissions/workflow", {
+				owner,
+				repo,
+				default_workflow_permissions: actionsSettings.defaultWorkflowPermissions,
+				can_approve_pull_request_reviews:
+					actionsSettings.allowGitHubActionsToCreateAndApprovePullRequests,
+			});
 		} catch (error: unknown) {
 			const err = error as { status?: number; message?: string };
 			if (err.status === 401) {
@@ -49,6 +57,11 @@ export async function applyGitHubRepositoryPolicy(opts: {
 			if (err.status === 403) {
 				throw new Error(
 					"Insufficient permissions to update repository settings (need admin on the repo). Grant `repo` scope or organization owner access.",
+				);
+			}
+			if (err.status === 409) {
+				throw new Error(
+					"GitHub organization or enterprise policy prevented updating repository Actions workflow permissions. Enable Actions workflow permissions at the organization/enterprise level, then rerun `bun run github:sync:staging`.",
 				);
 			}
 			throw error;
@@ -64,6 +77,9 @@ export async function applyGitHubRepositoryPolicy(opts: {
 			allow_merge_commit: allowMergeCommit,
 			allow_rebase_merge: allowRebaseMerge,
 			allow_auto_merge: allowAutoMerge,
+			default_workflow_permissions: actionsSettings.defaultWorkflowPermissions,
+			can_approve_pull_request_reviews:
+				actionsSettings.allowGitHubActionsToCreateAndApprovePullRequests,
 		},
 	});
 }
