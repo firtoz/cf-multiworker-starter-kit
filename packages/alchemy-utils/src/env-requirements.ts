@@ -53,7 +53,7 @@ export const ENV_SETUP_CATEGORY_NAV = [
 		id: "github-sync-cli",
 		label: "GitHub admin CLI",
 		description:
-			"Optional **`GITHUB_SYNC_PUSH_SECRETS`**: unset or empty = **`true`**. Repo + Environment policy is **`config/github.policy.ts`** (edit in your editor, not here). See **`.env.example`** / README table for all sync defaults.",
+			"GITHUB_SYNC_PUSH_SECRETS: omit or blank → default true (upload secrets + Environment variables from this dotfile; needs all required keys). false → config-only sync (repo merge settings, rulesets, environment shells; no secret upload); same as bun run github:sync:config. Rulesets/policy file: config/github.policy.ts. Details: .env.example.",
 	},
 	{
 		id: "custom-domains",
@@ -322,7 +322,7 @@ export function missingDeployConfigurationKeysFromRequirements(
 		if (
 			r.kind !== "variable" ||
 			r.githubSync !== "required" ||
-			r.key === "CF_STARTER_DEPLOY_ENABLED"
+			r.key === "MULTIWORKER_DEPLOY_ENABLED"
 		) {
 			continue;
 		}

@@ -25,6 +25,7 @@ export type GithubEnvironmentDeploymentRules = {
 export type GithubStagingForkDeploymentRules = GithubEnvironmentDeploymentRules & {
 	/**
 	 * When **true** and both reviewer lists are empty, sync uses the current **`gh`** login or **`GITHUB_ACTOR`**.
+	 * Default **false**: GitHub Free/private often returns **422** for Environment **required reviewers**; fork previews then run without an approval gate unless you list **`reviewerUsers`** / **`reviewerTeams`** or upgrade plans.
 	 */
 	readonly reviewerFallbackToActor: boolean;
 };
@@ -159,7 +160,7 @@ export const DEFAULT_GITHUB_POLICY: GitHubPolicyConfig = {
 				reviewerUsers: [],
 				reviewerTeams: [],
 				branchPatterns: [],
-				reviewerFallbackToActor: true,
+				reviewerFallbackToActor: false,
 			},
 		},
 		repository: {
@@ -170,7 +171,7 @@ export const DEFAULT_GITHUB_POLICY: GitHubPolicyConfig = {
 			merge: {
 				deleteBranchOnMerge: true,
 				allowSquashMerge: true,
-				allowMergeCommit: false,
+				allowMergeCommit: true,
 				allowRebaseMerge: false,
 				allowAutoMerge: true,
 			},
@@ -178,7 +179,7 @@ export const DEFAULT_GITHUB_POLICY: GitHubPolicyConfig = {
 				enforcement: "active",
 				main: {
 					enabled: true,
-					displayName: "cf-starter: main",
+					displayName: "multiworker: main",
 					includeRefs: ["refs/heads/main"],
 					requirePullRequestBeforeMerge: true,
 					allowRepositoryAdminBypassOnMain: true,
@@ -187,7 +188,7 @@ export const DEFAULT_GITHUB_POLICY: GitHubPolicyConfig = {
 				},
 				production: {
 					enabled: true,
-					displayName: "cf-starter: production",
+					displayName: "multiworker: production",
 					includeRefs: ["refs/heads/production"],
 					requireSourceBranchStatusCheckGate: true,
 					sourceBranchForProductionPrs: "main",
@@ -195,7 +196,7 @@ export const DEFAULT_GITHUB_POLICY: GitHubPolicyConfig = {
 					strictSourceBranchStatusChecks: true,
 				},
 				pullRequest: {
-					allowedMergeMethods: ["squash"],
+					allowedMergeMethods: ["squash", "merge"],
 					dismissStaleReviewsOnPush: true,
 					requireCodeOwnerReview: false,
 					requireLastPushApproval: false,

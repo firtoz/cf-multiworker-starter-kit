@@ -1,7 +1,7 @@
 import { env } from "cloudflare:workers";
 import { type MaybeError, success } from "@firtoz/maybe-error";
 import type { RoutePath } from "@firtoz/router-toolkit";
-import { incrementSiteVisits } from "cf-starter-db";
+import { incrementSiteVisits } from "@internal/db";
 import { BackToHomeLink } from "~/components/shared/BackToHomeLink";
 import type { Route } from "./+types/visitors";
 

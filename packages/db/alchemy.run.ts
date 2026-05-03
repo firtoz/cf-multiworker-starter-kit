@@ -4,12 +4,12 @@ import { requireAlchemyPassword } from "alchemy-utils";
 import { alchemyCiCloudStateStoreOptions } from "alchemy-utils/alchemy-cloud-state-store";
 import { resolveStageFromEnv } from "alchemy-utils/deployment-stage";
 import {
-	CF_STARTER_APPS,
+	ALCHEMY_APP_IDS,
 	DEFAULT_D1_DATABASE_RESOURCE_ID,
 } from "alchemy-utils/worker-peer-scripts";
 
 const stage = resolveStageFromEnv();
-const app = await alchemy(CF_STARTER_APPS.database, {
+const app = await alchemy(ALCHEMY_APP_IDS.database, {
 	stage,
 	...alchemyCiCloudStateStoreOptions(stage),
 });
@@ -20,6 +20,6 @@ export const mainDb = await D1Database(DEFAULT_D1_DATABASE_RESOURCE_ID, {
 	migrationsDir: new URL("./drizzle", import.meta.url).pathname,
 });
 
-console.log({ app: CF_STARTER_APPS.database, d1: mainDb.name });
+console.log({ app: ALCHEMY_APP_IDS.database, d1: mainDb.name });
 
 await app.finalize();

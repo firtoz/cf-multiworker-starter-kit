@@ -13,11 +13,11 @@ Use this page when you want to change how GitHub behaves after onboarding.
 
 ## CI and deploy workflows
 
-- **Fresh forks:** deploy jobs **no-op** until **`CF_STARTER_DEPLOY_ENABLED=true`** exists on each GitHub Environment that runs deploys (**`staging`**, **`staging-fork`** for fork PRs, **`production`**). Running **`bun run onboard:staging`** / **`onboard:prod`** (or **`github:sync:*`**) syncs secrets/variables and typically sets this.
+- **Fresh forks:** deploy jobs **no-op** until **`MULTIWORKER_DEPLOY_ENABLED=true`** exists on each GitHub Environment that runs deploys (**`staging`**, **`staging-fork`** for fork PRs, **`production`**). Running **`bun run onboard:staging`** / **`onboard:prod`** (or **`github:sync:*`**) syncs secrets/variables and typically sets this.
 - **Quality checks** (`.github/workflows/ci.yml`): runs on **push** and **pull_request** to **`main`** — Drizzle generated-artifact guard, typecheck, lint, **`bun run setup -- --yes`** (seed `.env.local`), build.
 - **Staging deploy** (`.github/workflows/deploy-staging.yml`): runs after **Quality checks** complete **successfully** on a **push** to **`main`** (same **`head_sha`** — not on PR-only Quality runs). Uses Environment **`staging`**.
 - **Production deploy** (`.github/workflows/deploy-production.yml`): **push** to **`production`** or **workflow_dispatch** when the selected ref is **`production`**.
-- **PR previews** (`.github/workflows/deploy-pr-preview.yml`): **same-repo** PR branches use Environment **`staging`**; **fork** PRs use **`staging-fork`** (deployment protection / reviewers from **`config/github.policy.ts`** → **`github.environments.stagingFork`**). Preview stacks use **`STAGE=pr-<n>`**. Teardown on PR **close** checks out the **base** branch so destroy does not run untrusted PR scripts.
+- **PR previews** (`.github/workflows/deploy-pr-preview.yml`): **deploy** starts only after **Quality checks** finish **successfully** (`workflow_run` on **`Quality checks`** for **`pull_request`** events — same **`head_sha`** as CI). **same-repo** PR branches use Environment **`staging`**; **fork** PRs use **`staging-fork`** (deployment protection from **`config/github.policy.ts`** → **`github.environments.stagingFork`**). Preview stacks use **`STAGE=pr-<n>`**. **Teardown** uses **`pull_request.closed`** only — **not** chained to CI or **`workflow_run`** (close cancels in-flight preview runs via shared concurrency). Teardown checks out the **base** branch so destroy does not run untrusted PR scripts. **`alchemy destroy`** still loads **`alchemy.run.ts`** top-level **`requireEnv`** — mirror deploy **`env`** keys on the **`Turbo destroy (preview)`** step when you add vars used at module scope (see [**multiworker-gotchas** §22](../agents/skills/multiworker-gotchas/SKILL.md)).
 - **Comments on PRs** with preview URLs come from **`pr-preview-comment.yml`** (**`workflow_run`**) so fork code never runs with a token that writes PR comments.
 
 Use **`bun run github:setup`** for a step-by-step printout.
@@ -30,7 +30,7 @@ bun run onboard:staging
 bun run onboard:prod
 ```
 
-**`onboard:prod`** also sets repo variable **`CF_STARTER_AUTO_PRODUCTION_PR=true`**, after which a successful **staging** deploy may **open or reuse** a PR **`main` → `production`**. You still **merge** that PR to ship production (and remote **`production`** must exist). `bun run github:sync:staging` also enables the repository Actions workflow permission that lets **`GITHUB_TOKEN`** create the production PR; if GitHub rejects that setting, enable it at the **organization or enterprise** level, then rerun staging sync.
+**`onboard:prod`** also sets repo variable **`MULTIWORKER_AUTO_PRODUCTION_PR=true`**, after which a successful **staging** deploy may **open or reuse** a PR **`main` → `production`**. You still **merge** that PR to ship production (and remote **`production`** must exist). `bun run github:sync:staging` also enables the repository Actions workflow permission that lets **`GITHUB_TOKEN`** create the production PR; if GitHub rejects that setting, enable it at the **organization or enterprise** level, then rerun staging sync.
 
 **Default repo policy** (see [`config/github.policy.ts`](../config/github.policy.ts)): **`main`** — PRs for writers, admins may bypass; **`production`** — PR from **`main`**, no admin bypass by default; approving review count defaults to **0** for solo maintainers.
 
@@ -140,6 +140,15 @@ github: {
 }
 ```
 
+### Merge methods (GitHub UI + rulesets)
+
+Default policy enables **squash** and **merge commits** on the repo and allows **`pullRequest.allowedMergeMethods: ["squash", "merge"]`** (rebase stays off) — see **`packages/alchemy-utils/src/github-policy-config.ts`**. After **`bun run github:sync:staging`** updates settings and rulesets, you should see **both** options (dropdown or separate actions). If rulesets are skipped on your plan (**403**), set merge button options once under **Settings → General** to match, or override in **`config/github.policy.ts`**.
+
+### PR preview CI: `GitHub repository not found` (Alchemy)
+
+The stock **`apps/web/alchemy.run.ts`** does **not** use **`alchemy/github`** (no `GitHubComment` / `RepositoryEnvironment` here). Preview links are handled by **`pr-preview-comment.yml`**. If you add **`GitHubComment`** (or similar) in this file, **do not** run it for **`CI` + `STAGE=pr-*`** unless you skip **`verifyGitHubAuth`** — fork/private **`pull_request`** runs often get **404** from **`repos.get`** with **`GITHUB_TOKEN`**.
+
+If **`deploy:preview`** still fails in **`verifyGitHubAuth`**, some **other** package in the deploy graph provisions GitHub resources with a bad **`owner`/`repository`**.
 ## Useful Commands
 
 ```bash
@@ -166,3 +175,5 @@ bun run github:sync:config
 The GitHub token used by `gh` needs admin access to the repository for rulesets, repo settings, repo variables, and Environment protection.
 
 GitHub ruleset feature availability can vary by account/plan. If a ruleset option fails with a GitHub API validation error, simplify the policy first and rerun `github:sync:staging`.
+
+On **private repositories**, GitHub may refuse **rulesets** (**403** — e.g. upgrade to Pro or make the repo **public**) or **Environment** protection fields (**422** — e.g. wait timers on plans that disallow them, **`prevent_self_review`** without reviewers, or **required reviewers** on **`staging-fork`**). Sync logs **`githubRepoRulesetsSkipped`** when rulesets cannot be applied and **`githubRepositoryEnvironmentSkipped`** when **`RepositoryEnvironment`** updates fail; both are **best-effort** so secrets and variables still sync. Keep **`waitTimerMinutes: 0`** in **`config/github.policy.ts`** for **`staging`** / **`production`** / **`stagingFork`** unless your plan supports wait timers; **`github:sync:*`** omits **`wait_timer`** and omits **`prevent_self_review`** unless it is **true** and at least one reviewer is configured. **`staging-fork`** defaults with **`reviewerFallbackToActor: false`** so sync does not inject a synthetic required reviewer (Free/private friendly); on Team/Enterprise, set **`reviewerFallbackToActor: true`** or explicit **`reviewerUsers`** / **`reviewerTeams`** in **`github.environments.stagingFork`** if you want fork PR deploy approvals.

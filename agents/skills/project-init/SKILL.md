@@ -1,20 +1,20 @@
 ---
 name: project-init
-description: Personalizes a fork of this Cloudflare multi-worker monorepo—Alchemy application ids (`await alchemy` literals + `--app`), npm workspace names (`--filter`), README, and UI—so Cloudflare dashboards and Turbo filters are not confusing. Use when the user created a repo from the template, wants to deploy their own app, or asks to rename workers, rebrand, or remove generic starter kit copy. Skip when developing the upstream starter kit (origin URL contains firtoz/cf-multiworker-starter-kit; canonical https://github.com/firtoz/cf-multiworker-starter-kit) unless the user explicitly asks.
+description: Personalizes a fork of this Cloudflare multi-worker monorepo—Alchemy application ids (`await alchemy` literals + `--app`), npm workspace names (`--filter`), README, and UI—so Cloudflare dashboards and Turbo filters are not confusing. Use when the user created a repo from the template, wants to deploy their own app, or asks to rename workers, rebrand, or remove generic starter kit copy. **Skip** when `origin` matches root **`package.json`** **`repository.url`** (canonical template maintenance) unless the user explicitly asks.
 ---
 
 # Project initialization (personalize your fork)
 
-Use this skill when someone is building **their** app on top of this starter kit—not when maintaining the upstream repo at [https://github.com/firtoz/cf-multiworker-starter-kit](https://github.com/firtoz/cf-multiworker-starter-kit).
+Use this skill when someone is building **their** app on top of this starter kit—not when maintaining the **canonical** template (see [`project-init.mdc`](../../rules/project-init.mdc): compare `origin` with root **`repository.url`**).
 
-**Guard:** If `git remote get-url origin` contains `firtoz/cf-multiworker-starter-kit`, do **not** run this flow unless the user explicitly requests renaming or templating work.
+**Guard:** If you are on the canonical template checkout, do **not** run this flow unless the user explicitly requests renaming or templating work.
 
 **Note — infra naming is code-first**
 
-- Set **`PRODUCT_PREFIX`** once in **[`worker-peer-scripts.ts`](../../packages/alchemy-utils/src/worker-peer-scripts.ts)** (**`CF_STARTER_APPS`** derives each Alchemy **`appId`**).
+- Set **`PRODUCT_PREFIX`** once in **[`worker-peer-scripts.ts`](../../packages/alchemy-utils/src/worker-peer-scripts.ts)** (**`ALCHEMY_APP_IDS`** derives each Alchemy **`appId`**).
 - **`deploy` / `destroy` / `dev`** scripts use **[`alchemy-cli.ts`](../../packages/alchemy-utils/src/alchemy-cli.ts)** with those keys — don’t duplicate **`--app`** strings by hand.
 - Keep **`await alchemy("…")`** literals in each **`alchemy.run.ts`** aligned with that table, then **`bun run typegen`**.
-- Worker branding lives in **TypeScript**, not env vars. See [cf-starter-workflow](../cf-starter-workflow/SKILL.md) and [cf-starter-gotchas](../cf-starter-gotchas/SKILL.md).
+- Worker branding lives in **TypeScript**, not env vars. See [multiworker-workflow](../multiworker-workflow/SKILL.md) and [multiworker-gotchas](../multiworker-gotchas/SKILL.md).
 
 **Adding** a DO package or worker binding after fork setup — use the small focused skills, not one giant doc:
 
@@ -30,26 +30,26 @@ Ask the user (or infer from context):
 - **Workspace package names (`package.json` `name`)** — often **`skybook-web`**, **`skybook-db`**, … — separate from Alchemy **`--app`** — used mainly for **`turbo run … --filter=…`**.
 - **One-line description** — README, meta tags, home hero copy.
 - **Chatroom DO** — `durable-objects/chatroom-do`; web binds **`ChatroomDo`**; internal secret **`CHATROOM_INTERNAL_SECRET`** (already in env flows).
-- **D1** — `packages/db` + optional **`D1_DATABASE_NAME`** / **`D1_DATABASE_ID`** in **`.env.local`** / **`.env.production`** for remote/local debugging; **`CF_STARTER_APPS.database`** (**[`packages/db/alchemy.run.ts`](../../packages/db/alchemy.run.ts)**) drives migrations (**`alchemy-cli.ts deploy database`**).
+- **D1** — `packages/db` + optional **`D1_DATABASE_NAME`** / **`D1_DATABASE_ID`** in **`.env.local`** / **`.env.production`** for remote/local debugging; **`ALCHEMY_APP_IDS.database`** (**[`packages/db/alchemy.run.ts`](../../packages/db/alchemy.run.ts)**) drives migrations (**`alchemy-cli.ts deploy database`**).
 
 ## 2. Code-first Alchemy ids and Workers
 
 - Each deployable **`alchemy.run.ts`** has one **`await alchemy(<appId>, { … })`**; **`STAGE`** comes from **`package.json`** scripts (**`dotenv-cli -v STAGE=…`** or CI).
-- **`alchemy("…")`** must match **`CF_STARTER_APPS`** for that package (**`frontend`**, **`chatroom`**, …).
+- **`alchemy("…")`** must match **`ALCHEMY_APP_IDS`** for that package (**`frontend`**, **`chatroom`**, …).
 - **`alchemy-cli.ts`** resolves **`alchemy dev|deploy|destroy --app …`** from the **same** keys — avoid extra hard-coded **`--app`** strings that can drift.
 
 ### Where **`PRODUCT_PREFIX`** drives ids
 
-- **[**`CF_STARTER_APPS`** + **`PRODUCT_PREFIX`**](../../packages/alchemy-utils/src/worker-peer-scripts.ts)** — Canonical Alchemy **`appId`** strings. **`alchemy-cli.ts`** accepts these keys (**`frontend`**, **`chatroom`**, **`ping`**, **`other`**, **`database`**, **`stateHub`**, **`admin`**) plus arbitrary **suffix** segments for **`${PRODUCT_PREFIX}-<suffix>`** (generator-created DO packages). Forks change **`PRODUCT_PREFIX`** once.
+- **[**`ALCHEMY_APP_IDS`** + **`PRODUCT_PREFIX`**](../../packages/alchemy-utils/src/worker-peer-scripts.ts)** — Canonical Alchemy **`appId`** strings. **`alchemy-cli.ts`** accepts these keys (**`frontend`**, **`chatroom`**, **`ping`**, **`other`**, **`database`**, **`stateHub`**, **`admin`**) plus arbitrary **suffix** segments for **`${PRODUCT_PREFIX}-<suffix>`** (generator-created DO packages). Forks change **`PRODUCT_PREFIX`** once.
 
-| Package folder | Typical **`appId`** (**`PRODUCT_PREFIX = cf-starter`**) | Turbo **`--filter`** uses workspace **`name`** (starter) |
+| Package folder | Typical **`appId`** (**`PRODUCT_PREFIX = starter`**) | Turbo **`--filter`** uses workspace **`name`** (starter) |
 |----------------|----------------------------------------------------------|--------------------------------------------------------|
-| `apps/web` | **`cf-starter-frontend`** (**`CF_STARTER_APPS.frontend`**) | `cf-starter-web` |
-| `durable-objects/chatroom-do` | **`cf-starter-chatroom`** | `chatroom-do` |
-| `durable-objects/ping-do` | **`cf-starter-ping`** | `ping-do` |
-| `durable-objects/other-worker` | **`cf-starter-other`** | `other-worker` |
-| `packages/db` | **`cf-starter-database`** | `cf-starter-db` |
-| `packages/state-hub` | **`${PRODUCT_PREFIX}-state-hub`** (**`CF_STARTER_APPS.stateHub`**) | `state-hub` |
+| `apps/web` | **`starter-frontend`** (**`ALCHEMY_APP_IDS.frontend`**) | `@internal/web` |
+| `durable-objects/chatroom-do` | **`starter-chatroom`** | `chatroom-do` |
+| `durable-objects/ping-do` | **`starter-ping`** | `ping-do` |
+| `durable-objects/other-worker` | **`starter-other`** | `other-worker` |
+| `packages/db` | **`starter-database`** | `@internal/db` |
+| `packages/state-hub` | **`${PRODUCT_PREFIX}-state-hub`** (**`ALCHEMY_APP_IDS.stateHub`**) | `state-hub` |
 
 - **Resource ids (short):** **`Worker(DEFAULT_WORKER_RESOURCE_ID)`** with **`DEFAULT_WORKER_RESOURCE_ID = "worker"`**; **`ReactRouter`** uses **`DEFAULT_REACT_ROUTER_WEB_RESOURCE_ID` (`"web"`)**; D1 **`D1Database(DEFAULT_D1_DATABASE_RESOURCE_ID)`** with **`db`**. Omit explicit **`name:`** so Cloudflare script names derive from **`${alchemyAppId}-${resource}-${stage}`**.
 - **Cyclic stubs** (`ping-do` ↔ `other-worker`): **`omitDefaultPhysicalWorkerScriptName(<peer-alchemy-app>, app.stage)`** feeds **`WorkerRef.service`** / **`WorkerStub.name`**, matching omit-default **`Worker("worker")`** physical names — see [cf-worker-rpc-turbo](../cf-worker-rpc-turbo/SKILL.md).
@@ -60,10 +60,10 @@ After edits: **`bun run typegen`** from the repo root. **`env.d.ts`** reflects e
 
 ## 3. Package names (`package.json`)
 
-- **Root** [`package.json`](../../package.json): set **`"name"`** to the fork project slug (replaces `cf-multiworker-starter-kit`).
-- **`apps/web/package.json`**: set **`"name"`** (e.g. **`my-saas-web`**) — **Turbo filter** usage; **`alchemy`** app id stays in **`alchemy.run.ts`** (**`CF_STARTER_APPS.frontend`** …).
-- Each DO/worker **`package.json`**: **`deploy`/`destroy`/`dev`** scripts should call **`alchemy-cli.ts`** with the **`CF_STARTER_APPS`** key that matches **`alchemy("…")`** in **`alchemy.run.ts`**.
-- **`packages/state-hub`**: **`alchemy.run.ts`** stays on **`CF_STARTER_APPS.stateHub`**; scripts use **`alchemy-cli.ts … stateHub`** (provision-only shared CI Cloudflare state).
+- **Root** [`package.json`](../../package.json): set **`"name"`** to the fork project slug (replaces `cloudflare-multiworker-template`).
+- **`apps/web/package.json`**: set **`"name"`** (e.g. **`my-saas-web`**) — **Turbo filter** usage; **`alchemy`** app id stays in **`alchemy.run.ts`** (**`ALCHEMY_APP_IDS.frontend`** …).
+- Each DO/worker **`package.json`**: **`deploy`/`destroy`/`dev`** scripts should call **`alchemy-cli.ts`** with the **`ALCHEMY_APP_IDS`** key that matches **`alchemy("…")`** in **`alchemy.run.ts`**.
+- **`packages/state-hub`**: **`alchemy.run.ts`** stays on **`ALCHEMY_APP_IDS.stateHub`**; scripts use **`alchemy-cli.ts … stateHub`** (provision-only shared CI Cloudflare state).
 - **`workspace:*` dependencies:** If you rename a workspace package (**`chatroom-do`** folder / **`name`**), update every consumer and **`bun install`**.
 
 ## 4. README
@@ -73,7 +73,7 @@ Rewrite [`README.md`](../../README.md) for the **product**:
 - Title, description, **`bun install`**, **`bun run dev`**, **`bun run deploy:prod`** (and **`deploy:staging`** / **`deploy:preview`** as needed).
 - Update or shorten template links/marketing unless you keep attribution.
 - Keep CI, scripts, **`ALCHEMY_PASSWORD`/`CHATROOM_INTERNAL_SECRET`** — [cf-workers-env-local](../cf-workers-env-local/SKILL.md).
-- Mention **liter Alchemy **`--app`** IDs** (`cf-starter-*` → your slug) alongside **workspace **`name`****.
+- Mention **liter Alchemy **`--app`** IDs** (`starter-*` (with your PRODUCT_PREFIX) → your slug) alongside **workspace **`name`****.
 
 ## 5. UI and meta copy
 
@@ -87,7 +87,7 @@ Rewrite [`README.md`](../../README.md) for the **product**:
 
 ## 7. Optional: grep / nested docs
 
-Search for **`cf-multiworker-starter-kit`**, **`github.com/firtoz/cf-multiworker-starter-kit`**, old **`alchemy("web")`** / **`alchemy("ping-do")`** if any remain. Nested READMEs under **`apps/web`**, **`durable-objects/*`**.
+Search for **`cloudflare-multiworker-template`**, **`your-org/cloudflare-multiworker-template`**, old **`alchemy("web")`** / **`alchemy("ping-do")`** if any remain. Nested READMEs under **`apps/web`**, **`durable-objects/*`**.
 
 ## 8. Verification
 

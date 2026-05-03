@@ -22,7 +22,7 @@ description: workers/rpc.ts for WorkerRef or DO RPC types, package exports, cros
 
 ## Cyclic stubs / refs (`ping-do` ↔ `other-worker`)
 
-When two worker packages **`WorkerRef`** / **`WorkerStub`** each other to avoid `./alchemy` value-import cycles, paste **no drift** **`service`** / **`name`** strings derived from **`omitDefaultPhysicalWorkerScriptName(peersCfStarterAppLiteral, app.stage)`** with **`DEFAULT_WORKER_RESOURCE_ID`/`CF_STARTER_APPS`** from **`alchemy-utils/worker-peer-scripts`**.
+When two worker packages **`WorkerRef`** / **`WorkerStub`** each other to avoid `./alchemy` value-import cycles, paste **no drift** **`service`** / **`name`** strings derived from **`omitDefaultPhysicalWorkerScriptName(peerAlchemyAppId, app.stage)`** with **`DEFAULT_WORKER_RESOURCE_ID`/`ALCHEMY_APP_IDS`** from **`alchemy-utils/worker-peer-scripts`**.
 
 ## Cross-package imports (avoid Turbo / npm cycles)
 
@@ -32,11 +32,11 @@ When two worker packages **`WorkerRef`** / **`WorkerStub`** each other to avoid 
 
 ## Root `bun run dev` — explicit filters
 
-- [package.json](package.json) `dev` uses `turbo run dev --filter=cf-starter-web --filter=...`. **Add** `--filter=<new-package-name>` for each new top-level Alchemy app or it will not run in the root dev TUI.
+- [package.json](package.json) `dev` uses `turbo run dev --filter=@internal/web --filter=...`. **Add** `--filter=<new-package-name>` for each new top-level Alchemy app or it will not run in the root dev TUI.
 
 ## Destroy order
 
-- In [turbo.json](turbo.json), new worker apps that depend on the web should have `<pkg>#destroy:prod`, `#destroy:staging`, and `#destroy:preview` each with `dependsOn` on the matching **`cf-starter-web#destroy:*`** so the web is destroyed first (match existing **`ping-do#destroy:*`**, **`other-worker#destroy:*`**, etc.).
+- In [turbo.json](turbo.json), new worker apps that depend on the web should have `<pkg>#destroy:prod`, `#destroy:staging`, and `#destroy:preview` each with `dependsOn` on the matching **`@internal/web#destroy:*`** so the web is destroyed first (match existing **`ping-do#destroy:*`**, **`other-worker#destroy:*`**, etc.).
 
 ## See also
 

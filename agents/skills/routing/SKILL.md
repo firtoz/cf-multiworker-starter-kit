@@ -15,7 +15,7 @@ This project uses React Router v7 with file-based routing configured in `apps/we
 bun run typegen
 ```
 
-Run from repo root (turbo routes to the web app). **Without this, TypeScript imports will fail.** The typegen command generates the `+types` files that route components need. Full `typegen` / `typecheck` cadence: [cf-starter-workflow](../cf-starter-workflow/SKILL.md).
+Run from repo root (turbo routes to the web app). **Without this, TypeScript imports will fail.** The typegen command generates the `+types` files that route components need. Full `typegen` / `typecheck` cadence: [multiworker-workflow](../multiworker-workflow/SKILL.md).
 
 ## Adding a New Route
 

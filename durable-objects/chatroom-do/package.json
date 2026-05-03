@@ -25,7 +25,7 @@
 	"dependencies": {
 		"@firtoz/socka": "catalog:",
 		"@firtoz/websocket-do": "^13.0.2",
-		"cf-starter-chat-contract": "workspace:*",
+		"@internal/chat-contract": "workspace:*",
 		"drizzle-orm": "catalog:",
 		"hono": "catalog:"
 	},

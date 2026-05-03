@@ -1,5 +1,5 @@
 {
-	"name": "cf-starter-chat-contract",
+	"name": "@internal/chat-contract",
 	"private": true,
 	"type": "module",
 	"exports": {

@@ -16,7 +16,7 @@ import path from "node:path";
 
 import { resolveStageFromEnv } from "alchemy-utils/deployment-stage";
 import {
-	CF_STARTER_APPS,
+	ALCHEMY_APP_IDS,
 	DEFAULT_REACT_ROUTER_WEB_RESOURCE_ID,
 } from "alchemy-utils/worker-peer-scripts";
 import { $ } from "bun";
@@ -24,7 +24,7 @@ import { $ } from "bun";
 const DEFAULT_POSTHOG_CLI_HOST = "https://us.posthog.com";
 
 function workerScriptPhysicalName(stage: string): string {
-	return `${CF_STARTER_APPS.frontend}-${DEFAULT_REACT_ROUTER_WEB_RESOURCE_ID}-${stage}`;
+	return `${ALCHEMY_APP_IDS.frontend}-${DEFAULT_REACT_ROUTER_WEB_RESOURCE_ID}-${stage}`;
 }
 
 function hasMapFiles(dir: string): boolean {

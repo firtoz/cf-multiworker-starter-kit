@@ -1,5 +1,5 @@
 {
-	"name": "cf-starter-db",
+	"name": "@internal/db",
 	"private": true,
 	"type": "module",
 	"exports": {

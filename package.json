@@ -1,9 +1,9 @@
 {
-	"name": "cf-multiworker-starter-kit",
+	"name": "cloudflare-multiworker-template",
 	"private": true,
 	"repository": {
 		"type": "git",
-		"url": "https://github.com/firtoz/cf-multiworker-starter-kit.git"
+		"url": "https://github.com/your-org/cloudflare-multiworker-template.git"
 	},
 	"workspaces": {
 		"packages": [
@@ -51,7 +51,7 @@
 		"deploy:preflight:prod": "bun run --cwd packages/scripts deploy:preflight:prod",
 		"deploy:preflight:staging": "bun run --cwd packages/scripts deploy:preflight:staging",
 		"deploy:preflight:preview": "bun run --cwd packages/scripts deploy:preflight:preview",
-		"dev": "turbo run dev --filter=cf-starter-web --filter=cf-starter-db --filter=chatroom-do --filter=ping-do --filter=other-worker",
+		"dev": "turbo run dev --filter=@internal/web --filter=@internal/db --filter=chatroom-do --filter=ping-do --filter=other-worker",
 		"deploy:prod": "turbo run deploy:prod",
 		"deploy:staging": "turbo run deploy:staging",
 		"deploy:preview": "turbo run deploy:preview",
@@ -73,7 +73,7 @@
 		"outdated": "bun outdated --recursive",
 		"update:interactive": "bun update --latest --ir",
 		"clean": "turbo clean && rm -rf node_modules **/node_modules",
-		"db:generate": "turbo run db:generate --filter=cf-starter-db"
+		"db:generate": "turbo run db:generate --filter=@internal/db"
 	},
 	"devDependencies": {
 		"@octokit/rest": "^22.0.1",

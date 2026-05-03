@@ -8,7 +8,7 @@ description: Alchemy + env files — repo-root `.env.local` (dev), `.env.staging
 ## When to use this skill
 
 - Adding, renaming, or documenting environment variables for the web worker, chatroom worker, or D1.
-- Local dev shows missing vars for Alchemy (each app uses **`alchemy-cli.ts dev <CF_STARTER_APPS key>`** → **`alchemy dev --app <id>`**; see [Alchemy Turborepo](https://alchemy.run/guides/turborepo/)).
+- Local dev shows missing vars for Alchemy (each app uses **`alchemy-cli.ts dev <ALCHEMY_APP_IDS key>`** → **`alchemy dev --app <id>`**; see [Alchemy Turborepo](https://alchemy.run/guides/turborepo/)).
 - Choosing **local** (`typegen:local` / `typecheck:local`) vs **prod** (`typegen:prod` / `typecheck:prod`) for CI.
 - Explaining **repo-root** `.env.local` + `.env.staging` + `.env.production` vs optional per-package `.env.local`.
 
@@ -18,7 +18,7 @@ After cloning or generating from the template, follow **README *Quick start***:
 
 - **`bun run quickstart`** — install if needed, `.env.local` regeneratable keys, then **`bun run dev`**
 - **`bun run onboard:staging`** — **`gh`**, **`.env.staging`** Cloudflare keys, **`setup:staging --yes`**, **`github:sync:staging`**
-- **`bun run onboard:prod`** — production dotfile flow, **`github:sync:prod`**, repo variable **`CF_STARTER_AUTO_PRODUCTION_PR`**
+- **`bun run onboard:prod`** — production dotfile flow, **`github:sync:prod`**, repo variable **`MULTIWORKER_AUTO_PRODUCTION_PR`**
 
 Create **Cloudflare API tokens** only in the dashboard ([`docs/github-admin.md`](../../docs/github-admin.md#cloudflare-credentials-manual)); this repo does not mint tokens via scripts or OAuth.
 
@@ -43,7 +43,7 @@ Create **Cloudflare API tokens** only in the dashboard ([`docs/github-admin.md`]
 
 5. **Turbo + stage files**
    - **`bun run dev`** — filtered Turbo **`dev`**: web + worker packages run **`alchemy-cli.ts dev …`** ([Alchemy Turborepo](https://alchemy.run/guides/turborepo/)).
-   - **`deploy:*`** / **`destroy:*`** — stage-specific graphs; **`--app`** comes from **`alchemy-cli.ts`** + **`CF_STARTER_APPS`**.
+   - **`deploy:*`** / **`destroy:*`** — stage-specific graphs; **`--app`** comes from **`alchemy-cli.ts`** + **`ALCHEMY_APP_IDS`**.
    - **`dotenv-cli`** — `bunx dotenv-cli -v STAGE=… -e .env.staging|.env.production -- …`. Locally, the stage file loads when present; in CI, missing repo dotfiles → values from **GitHub Environment** via **`process.env`**.
    - Infra that belongs in git: **`alchemy.run.ts`**, not env files.
 
@@ -81,11 +81,11 @@ Create **Cloudflare API tokens** only in the dashboard ([`docs/github-admin.md`]
 .env.staging              # gitignored — staging + PR preview deploy inputs (`STAGE=staging` or `pr-<n>`)
 .env.production           # gitignored prod / CI secrets as needed (`STAGE=prod`)
 stacks/admin.ts           # local-only admin stack — GitHub Environment secrets + deploy enablement var
-packages/alchemy-utils/   # `PRODUCT_PREFIX`, `CF_STARTER_APPS`, `src/alchemy-cli.ts`, `requireAlchemyPassword`, deployment-stage
-packages/state-hub/       # `alchemy.run.ts` — provisions shared CI CloudflareStateStore (`CF_STARTER_APPS.stateHub`)
+packages/alchemy-utils/   # `PRODUCT_PREFIX`, `ALCHEMY_APP_IDS`, `src/alchemy-cli.ts`, `requireAlchemyPassword`, deployment-stage
+packages/state-hub/       # `alchemy.run.ts` — provisions shared CI CloudflareStateStore (`ALCHEMY_APP_IDS.stateHub`)
 apps/web/
   alchemy.run.ts          # web Alchemy app
-  env.d.ts                # Alchemy-derived Env (see cf-starter-workflow / cf-web-alchemy-bindings)
+  env.d.ts                # Alchemy-derived Env (see multiworker-workflow / cf-web-alchemy-bindings)
 ```
 
 ## Checklist after changing env or bindings
@@ -97,7 +97,7 @@ apps/web/
 
 ## Related docs
 
-- [`cf-starter-workflow`](../cf-starter-workflow/SKILL.md) — typegen cadence, deploy, checklist.
-- [`cf-starter-gotchas`](../cf-starter-gotchas/SKILL.md) — stack-specific gotchas.
+- [`multiworker-workflow`](../multiworker-workflow/SKILL.md) — typegen cadence, deploy, checklist.
+- [`multiworker-gotchas`](../multiworker-gotchas/SKILL.md) — stack-specific gotchas.
 - [`project-init`](../project-init/SKILL.md) — renaming resources after forking the template.
 - [Alchemy Getting Started](https://alchemy.run/getting-started/) — `alchemy dev` / `deploy`, `alchemy login`.

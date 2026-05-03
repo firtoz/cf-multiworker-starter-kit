@@ -1,7 +1,7 @@
-# Required by the **cf-starter: production** ruleset as a status check (`Production merge source`).
+# Required by the **multiworker: production** ruleset as a status check (`Production merge source`).
 # PRs opened using `GITHUB_TOKEN` do not run `pull_request` workflows (GitHub suppresses those events),
 # so **Deploy staging** posts the same check via the Checks API after open/reuse — see `deploy-staging.yml`.
-# The allowed head branch is repo variable **`CF_STARTER_PRODUCTION_PR_HEAD`** (default **main**), set by
+# The allowed head branch is repo variable **`MULTIWORKER_PRODUCTION_PR_HEAD`** (default **main**), set by
 # the admin sync from **`github.repository.rulesets.production.sourceBranchForProductionPrs`** in
 # **`config/github.policy.ts`**.
 
@@ -26,7 +26,7 @@ jobs:
     steps:
       - name: Require configured head branch
         env:
-          WANT_RAW: ${{ vars.CF_STARTER_PRODUCTION_PR_HEAD }}
+          WANT_RAW: ${{ vars.MULTIWORKER_PRODUCTION_PR_HEAD }}
         run: |
           set -euo pipefail
           head="${{ github.head_ref }}"

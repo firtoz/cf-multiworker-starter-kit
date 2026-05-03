@@ -76,7 +76,7 @@
 				"^deploy:prod",
 				"db:generate",
 				"typecheck:prod",
-				"cf-starter-chat-contract#typecheck:prod"
+				"@internal/chat-contract#typecheck:prod"
 			],
 			"cache": false,
 			"inputs": [
@@ -96,7 +96,7 @@
 				"^deploy:staging",
 				"db:generate",
 				"typecheck:prod",
-				"cf-starter-chat-contract#typecheck:prod"
+				"@internal/chat-contract#typecheck:prod"
 			],
 			"cache": false,
 			"inputs": [
@@ -116,7 +116,7 @@
 				"^deploy:preview",
 				"db:generate",
 				"typecheck:prod",
-				"cf-starter-chat-contract#typecheck:prod"
+				"@internal/chat-contract#typecheck:prod"
 			],
 			"cache": false,
 			"inputs": [

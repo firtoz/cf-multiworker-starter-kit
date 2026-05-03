@@ -4,9 +4,12 @@
 # - Workflow definitions run from default branch YAML; malicious PR edits here do not run until merged.
 # - Deploy steps checkout the PR HEAD and execute `bun install` etc., so untrusted code runs only after a
 #   maintainer approves the **`staging-fork`** environment deployment when the PR is from a fork.
+# - **Deploy** runs only after **Quality checks** (`.github/workflows/ci.yml`) completes **successfully**
+#   for the same workflow run (`workflow_run`).
+# - **Destroy** runs only on **`pull_request.closed`** — separate trigger, **never** gated on **`workflow_run`** or CI.
 # - **Same-repo** PRs (branch on this repository) use **`staging`** so you can leave that environment open for
-#   fast previews; **fork** PRs use **`staging-fork`** — **`github:sync:staging`** applies **required reviewers** there
-#   per **`github.environments.stagingFork`** in **`config/github.policy.ts`** (see `stacks/github-repository-environment-from-env.ts`).
+#   fast previews; **fork** PRs use **`staging-fork`** — **`github:sync:staging`** applies deployment rules per
+#   **`github.environments.stagingFork`** in **`config/github.policy.ts`** (see `stacks/github-repository-environment-from-env.ts`).
 #   `github:sync:staging` mirrors secrets/vars to both (`packages/scripts/src/github-pr-preview-fork-policy.ts`).
 # - Preview secrets should stay narrowly scoped Cloudflare tokens.
 # - This workflow uploads a small sanitized artifact for `pr-preview-comment.yml`.
@@ -14,16 +17,24 @@
 
 name: PR preview
 
+env:
+  TURBO_TELEMETRY_DISABLED: "1"
+
 on:
   pull_request:
-    types: [opened, reopened, synchronize, closed]
+    types: [closed]
     branches: [main]
+  workflow_run:
+    workflows: ["Quality checks"]
+    types: [completed]
 
 concurrency:
-  group: pr-preview-${{ github.event.pull_request.number || github.ref }}
-  # New commits and PR close/merge events should cancel stale preview deploys.
-  # In particular, merging a PR emits `pull_request.closed`; that run destroys the preview stack and
-  # should stop any still-running deploy for the same PR instead of letting it finish afterward.
+  # Same head repo + branch as `pull_request` payloads so **close** cancels an in-flight deploy from **workflow_run**.
+  group: >-
+    pr-preview-${{ github.event_name == 'pull_request'
+    && format('{0}-{1}', github.event.pull_request.head.repo.full_name, github.event.pull_request.head.ref)
+    || format('{0}-{1}', github.event.workflow_run.head_repository.full_name, github.event.workflow_run.head_branch)
+    }}
   cancel-in-progress: true
 
 permissions:
@@ -33,7 +44,7 @@ permissions:
 jobs:
   destroy_preview:
     name: Destroy PR preview
-    if: github.event.action == 'closed'
+    if: github.event_name == 'pull_request' && github.event.action == 'closed'
     runs-on: ubuntu-latest
     # Same-repo branch PRs → `staging`; fork PRs → `staging-fork` (see github-pr-preview-fork-policy.ts).
     environment: ${{ github.event.pull_request.head.repo.full_name == github.repository && 'staging' || 'staging-fork' }}
@@ -55,7 +66,7 @@ jobs:
         env:
           CI: true
           STAGE: pr-${{ github.event.pull_request.number }}
-          CF_STARTER_DEPLOY_ENABLED: ${{ vars.CF_STARTER_DEPLOY_ENABLED }}
+          MULTIWORKER_DEPLOY_ENABLED: ${{ vars.MULTIWORKER_DEPLOY_ENABLED }}
           ALCHEMY_PASSWORD: ${{ secrets.ALCHEMY_PASSWORD }}
           ALCHEMY_STATE_TOKEN: ${{ secrets.ALCHEMY_STATE_TOKEN }}
           CHATROOM_INTERNAL_SECRET: ${{ secrets.CHATROOM_INTERNAL_SECRET }}
@@ -64,6 +75,7 @@ jobs:
         run: bun run deploy:preflight:preview
 
       # Only deploy secrets beyond preflight strictly on destroy (staging env).
+      # Mirror **Turbo deploy (preview)** env for any **requireEnv** at module scope (e.g. **APP_PUBLIC_BASE_URL**).
       - name: Turbo destroy (preview)
         id: destroy
         if: steps.preflight.outputs.deploy_enabled == 'true'
@@ -106,11 +118,81 @@ jobs:
             fi
           } >> "$GITHUB_STEP_SUMMARY"
 
+  resolve_pr_preview:
+    name: Resolve PR for preview deploy
+    if: >-
+      github.event_name == 'workflow_run'
+      && github.event.workflow_run.conclusion == 'success'
+      && github.event.workflow_run.event == 'pull_request'
+    runs-on: ubuntu-latest
+    outputs:
+      pr_number: ${{ steps.pr.outputs.pr_number }}
+      head_sha: ${{ steps.pr.outputs.head_sha }}
+      environment_name: ${{ steps.pr.outputs.environment_name }}
+      skip: ${{ steps.pr.outputs.skip }}
+    steps:
+      - name: Resolve PR number and Environment
+        id: pr
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const wr = context.payload.workflow_run;
+            const baseOwner = context.repo.owner;
+            const baseRepo = context.repo.repo;
+            const baseFull = `${baseOwner}/${baseRepo}`;
+
+            let prNumber;
+            let headSha = wr.head_sha;
+            let headRepoFull;
+
+            const embedded = wr.pull_requests ?? [];
+            if (embedded.length > 0) {
+              const p = embedded[0];
+              prNumber = p.number;
+              headRepoFull = p.head.repo.full_name;
+            } else {
+              const { data } = await github.rest.repos.listPullRequestsAssociatedWithCommit({
+                owner: baseOwner,
+                repo: baseRepo,
+                commit_sha: wr.head_sha,
+              });
+              const openPrs = data.filter((p) => p.state === "open");
+              if (openPrs.length === 0) {
+                core.notice(
+                  `Skipping PR preview deploy: no open PR contains workflow head SHA ${wr.head_sha} (merged, closed, or branch replaced).`,
+                );
+                core.setOutput("skip", "true");
+                core.setOutput("pr_number", "0");
+                core.setOutput("head_sha", wr.head_sha);
+                core.setOutput("environment_name", "staging");
+                return;
+              }
+              if (openPrs.length > 1) {
+                core.setFailed(
+                  `Ambiguous PR resolution for ${wr.head_sha}: ${openPrs.map((p) => p.number).join(", ")}`,
+                );
+                return;
+              }
+              prNumber = openPrs[0].number;
+              headRepoFull = openPrs[0].head.repo.full_name;
+            }
+
+            headSha = wr.head_sha;
+
+            const environment_name = headRepoFull === baseFull ? "staging" : "staging-fork";
+            core.setOutput("skip", "false");
+            core.setOutput("pr_number", String(prNumber));
+            core.setOutput("head_sha", headSha);
+            core.setOutput("environment_name", environment_name);
+
   deploy_preview:
     name: Deploy PR preview
-    if: github.event.action != 'closed'
+    needs: resolve_pr_preview
+    if: >-
+      github.event_name == 'workflow_run'
+      && needs.resolve_pr_preview.outputs.skip != 'true'
     runs-on: ubuntu-latest
-    environment: ${{ github.event.pull_request.head.repo.full_name == github.repository && 'staging' || 'staging-fork' }}
+    environment: ${{ needs.resolve_pr_preview.outputs.environment_name }}
 
     outputs:
       web_url: ${{ steps.preview_outputs.outputs.web_url }}
@@ -120,6 +202,8 @@ jobs:
     steps:
       # PR branch — required for deploying the contributor's code path.
       - uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.resolve_pr_preview.outputs.head_sha }}
 
       - uses: oven-sh/setup-bun@v2
         with:
@@ -132,8 +216,8 @@ jobs:
         id: preflight
         env:
           CI: true
-          STAGE: pr-${{ github.event.pull_request.number }}
-          CF_STARTER_DEPLOY_ENABLED: ${{ vars.CF_STARTER_DEPLOY_ENABLED }}
+          STAGE: pr-${{ needs.resolve_pr_preview.outputs.pr_number }}
+          MULTIWORKER_DEPLOY_ENABLED: ${{ vars.MULTIWORKER_DEPLOY_ENABLED }}
           ALCHEMY_PASSWORD: ${{ secrets.ALCHEMY_PASSWORD }}
           ALCHEMY_STATE_TOKEN: ${{ secrets.ALCHEMY_STATE_TOKEN }}
           CHATROOM_INTERNAL_SECRET: ${{ secrets.CHATROOM_INTERNAL_SECRET }}
@@ -141,12 +225,14 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
         run: bun run deploy:preflight:preview
 
+      # Forks: keep **env** keys aligned with **Turbo destroy (preview)** — `alchemy destroy` evaluates top-level
+      # **requireEnv** in every **alchemy.run.ts** in the graph (same as deploy).
       - name: Turbo deploy (preview)
         id: deploy
         if: steps.preflight.outputs.deploy_enabled == 'true'
         env:
           CI: true
-          STAGE: pr-${{ github.event.pull_request.number }}
+          STAGE: pr-${{ needs.resolve_pr_preview.outputs.pr_number }}
           ALCHEMY_PASSWORD: ${{ secrets.ALCHEMY_PASSWORD }}
           ALCHEMY_STATE_TOKEN: ${{ secrets.ALCHEMY_STATE_TOKEN }}
           CHATROOM_INTERNAL_SECRET: ${{ secrets.CHATROOM_INTERNAL_SECRET }}
@@ -156,7 +242,7 @@ jobs:
           set -o pipefail
           bun run deploy:preview 2>&1 | tee deploy-output.txt
           deploy_status=${PIPESTATUS[0]}
-          URL_FILE="$GITHUB_WORKSPACE/.alchemy/ci/cf-starter-web-deploy-url.txt"
+          URL_FILE="$GITHUB_WORKSPACE/.alchemy/ci/web-deploy-url.txt"
           WEB_URL=""
           if [[ -f "$URL_FILE" ]]; then
             IFS= read -r WEB_URL <"$URL_FILE" || true
@@ -167,7 +253,7 @@ jobs:
       - name: Deploy summary
         if: always()
         env:
-          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_NUMBER: ${{ needs.resolve_pr_preview.outputs.pr_number }}
           WORKFLOW_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           WEB_URL_FROM_STEP: ${{ steps.deploy.outputs.web_url }}
         run: |
@@ -175,7 +261,7 @@ jobs:
           DE_OUT="${{ steps.deploy.outcome }}"
           EN="${{ steps.preflight.outputs.deploy_enabled }}"
           WEB_URL="$WEB_URL_FROM_STEP"
-          URL_FILE="$GITHUB_WORKSPACE/.alchemy/ci/cf-starter-web-deploy-url.txt"
+          URL_FILE="$GITHUB_WORKSPACE/.alchemy/ci/web-deploy-url.txt"
           if [[ -z "$WEB_URL" && -f "$URL_FILE" ]]; then
             IFS= read -r WEB_URL <"$URL_FILE" || true
           fi
@@ -187,14 +273,14 @@ jobs:
             elif [[ "$PF_OUT" == "skipped" ]]; then
               echo "**Status:** an earlier step failed or was cancelled before preflight."
             elif [[ "$EN" != "true" ]]; then
-              echo "**Status:** skipped — \`CF_STARTER_DEPLOY_ENABLED\` is not \`true\` on the **staging** Environment."
+              echo "**Status:** skipped — \`MULTIWORKER_DEPLOY_ENABLED\` is not \`true\` on the **staging** Environment."
             elif [[ "$DE_OUT" == "success" ]]; then
               echo "**Status:** success"
               echo ""
               if [[ -n "$WEB_URL" ]]; then
                 echo "**Preview (workers.dev):** [$WEB_URL]($WEB_URL)"
               else
-                echo "- **workers.dev preview URL:** artifact missing — ${GITHUB_WORKSPACE}/.alchemy/ci/cf-starter-web-deploy-url.txt _(see apps/web/alchemy.run.ts)._"
+                echo "- **workers.dev preview URL:** artifact missing — ${GITHUB_WORKSPACE}/.alchemy/ci/web-deploy-url.txt _(see apps/web/alchemy.run.ts)._"
               fi
             elif [[ "$DE_OUT" == "failure" ]]; then
               echo "**Status:** Turbo deploy failed — see **Turbo deploy (preview)**."
@@ -208,13 +294,13 @@ jobs:
       - id: preview_outputs
         if: always()
         env:
-          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_NUMBER: ${{ needs.resolve_pr_preview.outputs.pr_number }}
           WORKFLOW_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           PF_OUT: ${{ steps.preflight.outcome }}
           DE_OUT: ${{ steps.deploy.outcome }}
           DE_WEB: ${{ steps.deploy.outputs.web_url }}
           EN_SET: ${{ steps.preflight.outputs.deploy_enabled }}
-          URL_FILE_PATH: ${{ github.workspace }}/.alchemy/ci/cf-starter-web-deploy-url.txt
+          URL_FILE_PATH: ${{ github.workspace }}/.alchemy/ci/web-deploy-url.txt
         run: |
           set -euo pipefail
           WEB="$DE_WEB"
@@ -227,7 +313,7 @@ jobs:
           elif [[ "$PF_OUT" == "skipped" ]]; then
             SUMMARY='Run cancelled/skipped before preflight.'
           elif [[ "$EN_SET" != "true" ]]; then
-            SUMMARY='Skipped — staging env `CF_STARTER_DEPLOY_ENABLED` is not `true`.'
+            SUMMARY='Skipped — staging env `MULTIWORKER_DEPLOY_ENABLED` is not `true`.'
           elif [[ "$DE_OUT" == "success" ]] && [[ -n "$WEB" ]]; then
             SUMMARY="Preview **success** · [Open app](${WEB})"
           elif [[ "$DE_OUT" == "success" ]]; then
@@ -253,11 +339,11 @@ jobs:
       - name: Write preview comment artifact payload
         if: always()
         env:
-          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_NUMBER: ${{ needs.resolve_pr_preview.outputs.pr_number }}
           PREVIEW_WEB_URL: ${{ steps.preview_outputs.outputs.web_url }}
           PREVIEW_SUMMARY_LINE: ${{ steps.preview_outputs.outputs.summary_line }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-          HEAD_SHA_SHORT: ${{ github.event.pull_request.head.sha }}
+          HEAD_SHA_SHORT: ${{ needs.resolve_pr_preview.outputs.head_sha }}
           DEPLOY_OUTCOME: ${{ steps.deploy.outcome }}
           PREFLIGHT_OUTCOME: ${{ steps.preflight.outcome }}
         run: |

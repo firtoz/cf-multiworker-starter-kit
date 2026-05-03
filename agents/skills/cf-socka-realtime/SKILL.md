@@ -22,7 +22,7 @@ description: Socka + Durable Object WebSockets—defineSocka, SockaWebSocketDO, 
 | Client `useSockaSession` + URL from current host | [apps/web/app/components/chat/ChatClient.tsx](../../../apps/web/app/components/chat/ChatClient.tsx) |
 | Route-safe `wss://` / `ws://` builder | [apps/web/app/lib/chat-ws-url.ts](../../../apps/web/app/lib/chat-ws-url.ts) |
 
-**After `bunx turbo gen durable-object`:** the default template is Hono + optional WebSocket *forwarding*; for **Socka + DO SQLite**, copy the **chatroom** pattern (`chatroom-do` + `cf-starter-chat-contract`) and renames described in [project-init/SKILL.md](../project-init/SKILL.md) for forks. A dedicated Socka codegen path may be added later.
+**After `bunx turbo gen durable-object`:** the default template is Hono + optional WebSocket *forwarding*; for **Socka + DO SQLite**, copy the **chatroom** pattern (`chatroom-do` + `@internal/chat-contract`) and renames described in [project-init/SKILL.md](../project-init/SKILL.md) for forks. A dedicated Socka codegen path may be added later.
 
 ## SSR-safe WebSocket URL
 
@@ -58,7 +58,7 @@ For interactive canvas features, expect (unless scoped otherwise):
 - **Hit testing** for select tool; selected shape can **move**; selection affordances are clear.
 - **Local vs remote cursors** share a coherent visual language; “trails” behave as trails/glows, not one-off static stamps.
 
-**Testing:** `fetch` and unit tests do not catch pointer bugs. Prefer browser automation (e.g. Cursor **cursor-ide-browser** MCP or Playwright): pointer down / move / up on the canvas, then assert visual or DOM/canvas state. See [cf-starter-workflow/SKILL.md](../cf-starter-workflow/SKILL.md) for when typecheck is not enough.
+**Testing:** `fetch` and unit tests do not catch pointer bugs. Prefer browser automation (e.g. Cursor **cursor-ide-browser** MCP or Playwright): pointer down / move / up on the canvas, then assert visual or DOM/canvas state. See [multiworker-workflow/SKILL.md](../multiworker-workflow/SKILL.md) for when typecheck is not enough.
 
 ## Fire-and-forget Socka calls
 
@@ -75,7 +75,7 @@ void send.sendCursor(...).catch(() => undefined);
 - [ ] **No** fake `localhost` / `127.0.0.1` / placeholder WebSocket URLs as runtime fallbacks.
 - [ ] If applicable: **live draft** path and **committed** op path are both defined; presence/cursor path if required.
 - [ ] **Browser** interaction or automation exercised for the flow; no unexplained **console** errors.
-- [ ] `bun run typegen` (if routes/bindings changed), `bun run typecheck`, `bun run lint` from repo root per [cf-starter-workflow/SKILL.md](../cf-starter-workflow/SKILL.md).
+- [ ] `bun run typegen` (if routes/bindings changed), `bun run typecheck`, `bun run lint` from repo root per [multiworker-workflow/SKILL.md](../multiworker-workflow/SKILL.md).
 
 ## Related
 

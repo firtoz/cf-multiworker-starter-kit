@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 /**
- * Runs `alchemy <verb> [--app]` with an id from {@link CF_STARTER_APPS} or `${PRODUCT_PREFIX}-<suffix>`
- * when the segment is not a known key — forks only edit **`PRODUCT_PREFIX`** / **`CF_STARTER_APPS`** in **`worker-peer-scripts.ts`**.
+ * Runs `alchemy <verb> [--app]` with an id from {@link ALCHEMY_APP_IDS} or `${PRODUCT_PREFIX}-<suffix>`
+ * when the segment is not a known key — forks only edit **`PRODUCT_PREFIX`** / **`ALCHEMY_APP_IDS`** in **`worker-peer-scripts.ts`**.
  *
  * @example Deploy D1 package (cwd = package root)
  *   bun ../alchemy-utils/src/alchemy-cli.ts deploy database
@@ -13,13 +13,13 @@
 import { spawn } from "node:child_process";
 import process from "node:process";
 
-import { CF_STARTER_APPS, PRODUCT_PREFIX } from "./worker-peer-scripts";
+import { ALCHEMY_APP_IDS, PRODUCT_PREFIX } from "./worker-peer-scripts";
 
-type AppKey = keyof typeof CF_STARTER_APPS;
+type AppKey = keyof typeof ALCHEMY_APP_IDS;
 
 function resolveAppId(segment: string): string {
-	if (segment in CF_STARTER_APPS) {
-		return CF_STARTER_APPS[segment as AppKey];
+	if (segment in ALCHEMY_APP_IDS) {
+		return ALCHEMY_APP_IDS[segment as AppKey];
 	}
 	return `${PRODUCT_PREFIX}-${segment}`;
 }
@@ -40,7 +40,7 @@ function main(): void {
 			[
 				`Usage: bun alchemy-cli.ts <${verbs.join("|")}> <appKey|suffix> [alchemy-entry.ts] [extra-args...]`,
 				"",
-				`appKey ∈ ${Object.keys(CF_STARTER_APPS).sort().join(", ")}`,
+				`appKey ∈ ${Object.keys(ALCHEMY_APP_IDS).sort().join(", ")}`,
 				"",
 				`Any other <suffix> resolves to --app \`${PRODUCT_PREFIX}-<suffix>\` (generator / one-off scripts).`,
 				"",
@@ -93,7 +93,7 @@ function main(): void {
 }
 
 function alchemyCliUsage(): string {
-	return `alchemy-cli.ts: pass a CF_STARTER_APPS key (${Object.keys(CF_STARTER_APPS).sort().join(", ")}) or a PRODUCT_PREFIX suffix.`;
+	return `alchemy-cli.ts: pass an ALCHEMY_APP_IDS key (${Object.keys(ALCHEMY_APP_IDS).sort().join(", ")}) or a PRODUCT_PREFIX suffix.`;
 }
 
 main();

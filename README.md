@@ -1,7 +1,7 @@
 # Cloudflare Multi-Worker Starter Kit
 
-[![GitHub: use this template](https://img.shields.io/badge/GitHub-use%20this%20template-24292e?logo=github)](https://github.com/firtoz/cf-multiworker-starter-kit/generate)
-[![License: MIT](https://img.shields.io/badge/license-MIT-22c55e)](https://github.com/firtoz/cf-multiworker-starter-kit/blob/main/README.md#license)
+[![GitHub: use this template](https://img.shields.io/badge/GitHub-use%20this%20template-24292e?logo=github)](https://github.com/your-org/cloudflare-multiworker-template/generate)
+[![License: MIT](https://img.shields.io/badge/license-MIT-22c55e)](https://github.com/your-org/cloudflare-multiworker-template/blob/main/README.md#license)
 
 [![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Cloudflare Workers](https://img.shields.io/badge/Cloudflare%20Workers-F38020?logo=cloudflare&logoColor=white)](https://developers.cloudflare.com/workers/)
@@ -15,17 +15,6 @@
 ![Cloudflare Multi-worker Starter Kit: Monorepo for full-stack Cloudflare Workers & Durable Objects, type safety, ready to ship](docs/branding/banner.jpg)
 
 A production-minded starter for full-stack Cloudflare apps: React Router on Workers, Durable Objects, D1, Drizzle, Hono, typed bindings, Turborepo, and Alchemy deploys. Copy it, rename it, ship it. The demo covers SSR, D1, service bindings, Durable Objects, and WebSockets.
-
-<p align="center">
-  <a href="https://peerlist.io/firtoz/project/cloudflare-multiworker-starter-kit" target="_blank" rel="noreferrer">
-    <img
-      src="https://peerlist.io/api/v1/projects/embed/PRJHA9E6LDQG9KQKD1AJB9M7OM6B7B?showUpvote=true&theme=dark"
-      alt="Cloudflare Multi-Worker Starter Kit"
-      height="72"
-    />
-  </a>
-</p>
-
 ## What you get
 
 - **React Router 7 on Workers** — streaming SSR, Tailwind, typed loaders/actions, form actions.
@@ -42,7 +31,7 @@ A production-minded starter for full-stack Cloudflare apps: React Router on Work
 | GitHub Environments, rulesets, what runs in CI, custom domains | [`docs/github-admin.md`](docs/github-admin.md) |
 | `.env.local` / staging / prod secrets | [`.env.example`](.env.example) · [`agents/skills/cf-workers-env-local/SKILL.md`](agents/skills/cf-workers-env-local/SKILL.md) |
 | Full rebrand (package names, UI copy) | [`agents/skills/project-init/SKILL.md`](agents/skills/project-init/SKILL.md) |
-| Typegen cadence, Turbo deploy order, generated artifacts | [`agents/skills/cf-starter-workflow/SKILL.md`](agents/skills/cf-starter-workflow/SKILL.md) |
+| Typegen cadence, Turbo deploy order, generated artifacts | [`agents/skills/multiworker-workflow/SKILL.md`](agents/skills/multiworker-workflow/SKILL.md) |
 | Cursor / IDE rules look wrong after clone | `bun run agents:link` · [`agents/README.md`](agents/README.md) |
 
 **Bun:** use the version in root [`package.json`](package.json) → `packageManager` (CI matches it).
@@ -54,11 +43,11 @@ A production-minded starter for full-stack Cloudflare apps: React Router on Work
 Create a repo from the template:
 
 ```bash
-gh repo create my-project --template firtoz/cf-multiworker-starter-kit --public
+gh repo create my-project --template your-org/cloudflare-multiworker-template --public
 cd my-project
 ```
 
-Or **Use this template** on the [GitHub repo](https://github.com/firtoz/cf-multiworker-starter-kit).
+Or **Use this template** on the [GitHub repository](https://github.com/your-org/cloudflare-multiworker-template) (replace `your-org` with the template owner).
 
 ### Run locally
 
@@ -92,7 +81,7 @@ bun run onboard:staging   # sync staging → push/merge to `main` deploys stagin
 bun run onboard:prod      # sync production → deploys from `production` branch (see docs)
 ```
 
-**`bun run github:setup`** prints a fuller Actions checklist. Workflow behavior, **`CF_STARTER_DEPLOY_ENABLED`**, fork vs same-repo PR previews, rulesets, and **`CF_STARTER_AUTO_PRODUCTION_PR`**: [`docs/github-admin.md`](docs/github-admin.md).
+**`bun run github:setup`** prints a fuller Actions checklist. Workflow behavior, **`MULTIWORKER_DEPLOY_ENABLED`**, fork vs same-repo PR previews, rulesets, and **`MULTIWORKER_AUTO_PRODUCTION_PR`**: [`docs/github-admin.md`](docs/github-admin.md).
 
 ### If setup fails
 
@@ -107,11 +96,11 @@ bun run onboard:prod      # sync production → deploys from `production` branch
 
 **Alchemy app ids** (e.g. `skybook-frontend`, `skybook-database`) come from one place:
 
-1. Set **`PRODUCT_PREFIX`** in [`packages/alchemy-utils/src/worker-peer-scripts.ts`](packages/alchemy-utils/src/worker-peer-scripts.ts) (default `cf-starter` → your slug).
+1. Set **`PRODUCT_PREFIX`** in [`packages/alchemy-utils/src/worker-peer-scripts.ts`](packages/alchemy-utils/src/worker-peer-scripts.ts) (default `starter` → your slug).
 2. Run **`bun run typegen`**.
 3. Adjust visible product copy when you want.
 
-**Workspace package names** and Turbo **`--filter`** values (e.g. `cf-starter-web`) are separate from those ids. Full checklist: [`agents/skills/project-init/SKILL.md`](agents/skills/project-init/SKILL.md).
+**Workspace package names** and Turbo **`--filter`** values (e.g. `@internal/web`) are separate from those ids. Full checklist: [`agents/skills/project-init/SKILL.md`](agents/skills/project-init/SKILL.md).
 
 ## Deploy
 
@@ -194,7 +183,7 @@ Details: [`agents/skills/cf-durable-object-package/SKILL.md`](agents/skills/cf-d
 | GitHub Environments | `github:setup`, `github:sync:staging`, `github:sync:prod`, `github:sync`, `github:env:*`, `github:sync:config` |
 | DB | `db:generate`, `check:drizzle-generated` |
 
-More context: [`agents/skills/cf-starter-workflow/SKILL.md`](agents/skills/cf-starter-workflow/SKILL.md), [`docs/github-admin.md`](docs/github-admin.md).
+More context: [`agents/skills/multiworker-workflow/SKILL.md`](agents/skills/multiworker-workflow/SKILL.md), [`docs/github-admin.md`](docs/github-admin.md).
 
 ## Deeper docs
 

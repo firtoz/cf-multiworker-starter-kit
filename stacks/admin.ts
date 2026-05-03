@@ -43,11 +43,11 @@ import {
 	assertGithubPolicyConfig,
 	shouldApplyGithubRulesets,
 } from "../packages/alchemy-utils/src/github-policy-config";
-import { CF_STARTER_APPS } from "../packages/alchemy-utils/src/worker-peer-scripts";
+import { ALCHEMY_APP_IDS } from "../packages/alchemy-utils/src/worker-peer-scripts";
 import {
 	buildGitHubSecretPayload,
 	buildGitHubVariablePayloadFromDotfile,
-	CF_STARTER_DEPLOY_ENABLED_VAR,
+	MULTIWORKER_DEPLOY_ENABLED_VAR,
 	setupCommandLabelForDotfileRel,
 } from "../packages/scripts/src/github-environment-secrets";
 import { PR_PREVIEW_FORK_GITHUB_ENVIRONMENT } from "../packages/scripts/src/github-pr-preview-fork-policy";
@@ -57,6 +57,7 @@ import {
 	githubActionsEnvironmentFromAlchemyStage,
 } from "./github-admin-target";
 import { GitHubEnvironmentVariable } from "./github-environment-variable";
+import { octokitHttpErrorDetails } from "./github-http-error";
 import { applyGitHubRepoRulesets } from "./github-repo-rulesets-sync";
 import {
 	type ExplicitRepositoryEnvironmentProtection,
@@ -190,7 +191,7 @@ if (scope === "secrets") {
 		}
 		githubVariables = {
 			...varPart,
-			[CF_STARTER_DEPLOY_ENABLED_VAR]: varPart[CF_STARTER_DEPLOY_ENABLED_VAR] ?? "true",
+			[MULTIWORKER_DEPLOY_ENABLED_VAR]: varPart[MULTIWORKER_DEPLOY_ENABLED_VAR] ?? "true",
 		};
 	} else if (existsSync(ENV_DOTFILE_PATH)) {
 		mergeRepoRootDotfileIntoProcessEnv(ENV_DOTFILE_PATH);
@@ -221,7 +222,7 @@ if (
 	await applyGitHubRepoRulesets({ policy: githubPolicy, owner, repository, token: githubToken });
 }
 
-const app = await alchemy(CF_STARTER_APPS.admin, {
+const app = await alchemy(ALCHEMY_APP_IDS.admin, {
 	stage: stageSlug,
 });
 
@@ -260,9 +261,14 @@ function variableAlchemyId(envTarget: string, variableName: string): string {
 }
 
 function repositoryEnvironmentPayload(protection: ExplicitRepositoryEnvironmentProtection) {
+	const hasReviewers =
+		protection.reviewers.users.length > 0 || protection.reviewers.teams.length > 0;
 	return {
-		waitTimer: protection.waitTimer,
-		preventSelfReview: protection.preventSelfReview,
+		// GitHub rejects environments that enable the wait-timer rule on private repos below Team/Pro;
+		// sending wait_timer: 0 still counts as using that rule. Omit entirely when unused (> 0 only).
+		...(protection.waitTimer > 0 ? { waitTimer: protection.waitTimer } : {}),
+		// Omit prevent_self_review when false — some plans/API paths reject false without reviewers.
+		...(protection.preventSelfReview && hasReviewers ? { preventSelfReview: true } : {}),
 		adminBypass: protection.adminBypass,
 		reviewers: protection.reviewers,
 		...(protection.deploymentBranchPolicy
@@ -274,17 +280,46 @@ function repositoryEnvironmentPayload(protection: ExplicitRepositoryEnvironmentP
 	};
 }
 
+async function syncRepositoryEnvironmentBestEffort(
+	repositoryFullName: string,
+	environmentName: string,
+	run: () => Promise<void>,
+): Promise<void> {
+	try {
+		await run();
+	} catch (error: unknown) {
+		const { httpStatus, message } = octokitHttpErrorDetails(error);
+		console.warn("[admin] GitHub Environment protection skipped — continuing sync.", {
+			githubRepositoryEnvironmentSkipped: true as const,
+			repository: repositoryFullName,
+			environment: environmentName,
+			...(httpStatus === undefined ? {} : { httpStatus }),
+			message,
+		});
+	}
+}
+
 async function upsertStagingForkRepositoryEnvironment(): Promise<void> {
 	const protection = stagingForkRepositoryEnvironmentProtectionFromRules(
 		githubPolicy.github.environments.stagingFork,
 	);
-	await RepositoryEnvironment(repositoryEnvironmentAlchemyId(PR_PREVIEW_FORK_GITHUB_ENVIRONMENT), {
-		owner,
-		repository,
-		name: PR_PREVIEW_FORK_GITHUB_ENVIRONMENT,
-		token: githubToken,
-		...repositoryEnvironmentPayload(protection),
-	});
+	const repoFullName = `${owner}/${repository}`;
+	await syncRepositoryEnvironmentBestEffort(
+		repoFullName,
+		PR_PREVIEW_FORK_GITHUB_ENVIRONMENT,
+		async () => {
+			await RepositoryEnvironment(
+				repositoryEnvironmentAlchemyId(PR_PREVIEW_FORK_GITHUB_ENVIRONMENT),
+				{
+					owner,
+					repository,
+					name: PR_PREVIEW_FORK_GITHUB_ENVIRONMENT,
+					token: githubToken,
+					...repositoryEnvironmentPayload(protection),
+				},
+			);
+		},
+	);
 }
 
 if (scope === "environment" || updateProtectionOnSecretsSync) {
@@ -294,12 +329,15 @@ if (scope === "environment" || updateProtectionOnSecretsSync) {
 			: explicitRepositoryEnvironmentProtectionFromRules(
 					githubPolicy.github.environments.production,
 				);
-	await RepositoryEnvironment(repositoryEnvironmentAlchemyId(githubEnvironment), {
-		owner,
-		repository,
-		name: githubEnvironment,
-		token: githubToken,
-		...repositoryEnvironmentPayload(protection),
+	const repoFullName = `${owner}/${repository}`;
+	await syncRepositoryEnvironmentBestEffort(repoFullName, githubEnvironment, async () => {
+		await RepositoryEnvironment(repositoryEnvironmentAlchemyId(githubEnvironment), {
+			owner,
+			repository,
+			name: githubEnvironment,
+			token: githubToken,
+			...repositoryEnvironmentPayload(protection),
+		});
 	});
 	if (scope === "secrets" && githubEnvironment === "staging") {
 		await upsertStagingForkRepositoryEnvironment();
@@ -354,7 +392,7 @@ if (scope === "secrets" && pushSecrets) {
 	}
 
 	console.log({
-		app: CF_STARTER_APPS.admin,
+		app: ALCHEMY_APP_IDS.admin,
 		alchemyStage: app.stage,
 		GITHUB_SYNC_SCOPE: scope,
 		GITHUB_SYNC_PUSH_SECRETS: pushSecrets,
@@ -367,7 +405,7 @@ if (scope === "secrets" && pushSecrets) {
 	});
 } else {
 	console.log({
-		app: CF_STARTER_APPS.admin,
+		app: ALCHEMY_APP_IDS.admin,
 		alchemyStage: app.stage,
 		GITHUB_SYNC_SCOPE: scope,
 		envFile: ENV_DOTFILE_PATH,

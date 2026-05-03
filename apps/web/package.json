@@ -1,5 +1,5 @@
 {
-	"name": "cf-starter-web",
+	"name": "@internal/web",
 	"private": true,
 	"type": "module",
 	"exports": {
@@ -37,8 +37,8 @@
 		"@fontsource-variable/fira-code": "^5.2.7",
 		"@posthog/react": "^1.9.0",
 		"alchemy-utils": "workspace:*",
-		"cf-starter-chat-contract": "workspace:*",
-		"cf-starter-db": "workspace:*",
+		"@internal/chat-contract": "workspace:*",
+		"@internal/db": "workspace:*",
 		"chatroom-do": "workspace:*",
 		"clsx": "^2.1.1",
 		"isbot": "^5.1.39",

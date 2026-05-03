@@ -36,13 +36,13 @@ The generator and post-steps (root `dev` filter, web bindings, `turbo` destroy, 
 
 ## Dependency changes
 
-- Prefer `bun add` from the repo root; scope to one app with `--filter` or `--cwd` (see [cf-starter-workflow](agents/skills/cf-starter-workflow/SKILL.md)).
+- Prefer `bun add` from the repo root; scope to one app with `--filter` or `--cwd` (see [multiworker-workflow](agents/skills/multiworker-workflow/SKILL.md)).
 - `bun run outdated`, `bun run update:interactive`, and `bun pm audit` (or your registry workflow) when upgrading.
 - **Forks** may add Renovate, Dependabot, or similar; the template does not require one.
 
 ## Deploy and destroy (contributors)
 
-- **`bun run deploy:prod`** / **`deploy:staging`** / **`deploy:preview`** — Root Turbo runs the full **`deploy:*`** graph: **`packages/state-hub`** serializes shared [Cloudflare Alchemy state](https://alchemy.run/guides/cloudflare-state-store/) first (each deploy app lists **`state-hub`** as a **`devDependency`** so Turbo **`^deploy:*`** runs hub deploy before sibling deploys), then D1 (**`CF_STARTER_APPS.database`**), workers, web — **not** a web-only filter. **`packages/alchemy-utils/src/alchemy-cli.ts`** maps **`PRODUCT_PREFIX`** / **`CF_STARTER_APPS`** keys to **`alchemy deploy|destroy|dev --app …`**. **`STAGE`** comes from **`dotenv-cli -v`** (preview: CI **`STAGE=pr-<n>`**). **`alchemy.run.ts`** literals line up with **`PRODUCT_PREFIX`** / **`CF_STARTER_APPS`** (see README **Name your product** → **Code-first infra names**); workspace **`package.json`** **`name`** fields are separate Turbo filters. Needs matching dotfiles and a stable **`ALCHEMY_PASSWORD`** for that stage.
+- **`bun run deploy:prod`** / **`deploy:staging`** / **`deploy:preview`** — Root Turbo runs the full **`deploy:*`** graph: **`packages/state-hub`** serializes shared [Cloudflare Alchemy state](https://alchemy.run/guides/cloudflare-state-store/) first (each deploy app lists **`state-hub`** as a **`devDependency`** so Turbo **`^deploy:*`** runs hub deploy before sibling deploys), then D1 (**`ALCHEMY_APP_IDS.database`**), workers, web — **not** a web-only filter. **`packages/alchemy-utils/src/alchemy-cli.ts`** maps **`PRODUCT_PREFIX`** / **`ALCHEMY_APP_IDS`** keys to **`alchemy deploy|destroy|dev --app …`**. **`STAGE`** comes from **`dotenv-cli -v`** (preview: CI **`STAGE=pr-<n>`**). **`alchemy.run.ts`** literals line up with **`PRODUCT_PREFIX`** / **`ALCHEMY_APP_IDS`** (see README **Name your product** → **Code-first infra names**); workspace **`package.json`** **`name`** fields are separate Turbo filters. Needs matching dotfiles and a stable **`ALCHEMY_PASSWORD`** for that stage.
 - **`bun run github:sync:staging`** / **`github:sync:prod`** — Local/admin-only **`stacks/admin.ts`** with **`GITHUB_SYNC_SCOPE=secrets`**: upserts **`RepositoryEnvironment`**, then GitHub Environment **secrets** and **variables** from the stage dotfile. Optional: set **`GITHUB_SYNC_UPDATE_ENVIRONMENT_PROTECTION=true`** to re-apply deployment protection from **`config/github.policy.ts`** during that run (same rules as **`github:env:*`**). Uses **`gh auth token`** / **`gh repo view`** by default. Do not run from normal CI/deploy.
 - **`bun run github:sync`** — Runs **`github:sync:staging`** then **`github:sync:prod`** (both dotfiles must exist).
 - **`bun run github:env:staging`** / **`github:env:prod`** — **`GITHUB_SYNC_SCOPE=environment`**: updates **only** the GitHub **`RepositoryEnvironment`** (deployment protection) from **`config/github.policy.ts`**; does **not** write secrets or variables. Stage dotfile is merged when present for local env only.
@@ -59,7 +59,7 @@ The generator and post-steps (root `dev` filter, web bindings, `turbo` destroy, 
 
 ## Questions
 
-- [Issues](https://github.com/firtoz/cf-multiworker-starter-kit/issues) and [README](README.md).
+- [Issues](https://github.com/your-org/cloudflare-multiworker-template/issues) and [README](README.md).
 
 ## License
 

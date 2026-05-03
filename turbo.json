@@ -80,77 +80,77 @@
 			"outputLogs": "new-only"
 		},
 		"chatroom-do#destroy:prod": {
-			"dependsOn": ["cf-starter-web#destroy:prod"],
+			"dependsOn": ["@internal/web#destroy:prod"],
 			"cache": false,
 			"outputLogs": "new-only"
 		},
 		"ping-do#destroy:prod": {
-			"dependsOn": ["cf-starter-web#destroy:prod"],
+			"dependsOn": ["@internal/web#destroy:prod"],
 			"cache": false,
 			"outputLogs": "new-only"
 		},
 		"other-worker#destroy:prod": {
-			"dependsOn": ["cf-starter-web#destroy:prod"],
+			"dependsOn": ["@internal/web#destroy:prod"],
 			"cache": false,
 			"outputLogs": "new-only"
 		},
-		"cf-starter-db#destroy:prod": {
-			"dependsOn": ["cf-starter-web#destroy:prod"],
+		"@internal/db#destroy:prod": {
+			"dependsOn": ["@internal/web#destroy:prod"],
 			"cache": false,
 			"outputLogs": "new-only"
 		},
 		"state-hub#destroy:prod": {
-			"dependsOn": ["cf-starter-web#destroy:prod"],
+			"dependsOn": ["@internal/web#destroy:prod"],
 			"cache": false,
 			"outputLogs": "new-only"
 		},
 		"chatroom-do#destroy:staging": {
-			"dependsOn": ["cf-starter-web#destroy:staging"],
+			"dependsOn": ["@internal/web#destroy:staging"],
 			"cache": false,
 			"outputLogs": "new-only"
 		},
 		"ping-do#destroy:staging": {
-			"dependsOn": ["cf-starter-web#destroy:staging"],
+			"dependsOn": ["@internal/web#destroy:staging"],
 			"cache": false,
 			"outputLogs": "new-only"
 		},
 		"other-worker#destroy:staging": {
-			"dependsOn": ["cf-starter-web#destroy:staging"],
+			"dependsOn": ["@internal/web#destroy:staging"],
 			"cache": false,
 			"outputLogs": "new-only"
 		},
-		"cf-starter-db#destroy:staging": {
-			"dependsOn": ["cf-starter-web#destroy:staging"],
+		"@internal/db#destroy:staging": {
+			"dependsOn": ["@internal/web#destroy:staging"],
 			"cache": false,
 			"outputLogs": "new-only"
 		},
 		"state-hub#destroy:staging": {
-			"dependsOn": ["cf-starter-web#destroy:staging"],
+			"dependsOn": ["@internal/web#destroy:staging"],
 			"cache": false,
 			"outputLogs": "new-only"
 		},
 		"chatroom-do#destroy:preview": {
-			"dependsOn": ["cf-starter-web#destroy:preview"],
+			"dependsOn": ["@internal/web#destroy:preview"],
 			"cache": false,
 			"outputLogs": "new-only"
 		},
 		"ping-do#destroy:preview": {
-			"dependsOn": ["cf-starter-web#destroy:preview"],
+			"dependsOn": ["@internal/web#destroy:preview"],
 			"cache": false,
 			"outputLogs": "new-only"
 		},
 		"other-worker#destroy:preview": {
-			"dependsOn": ["cf-starter-web#destroy:preview"],
+			"dependsOn": ["@internal/web#destroy:preview"],
 			"cache": false,
 			"outputLogs": "new-only"
 		},
-		"cf-starter-db#destroy:preview": {
-			"dependsOn": ["cf-starter-web#destroy:preview"],
+		"@internal/db#destroy:preview": {
+			"dependsOn": ["@internal/web#destroy:preview"],
 			"cache": false,
 			"outputLogs": "new-only"
 		},
 		"state-hub#destroy:preview": {
-			"dependsOn": ["cf-starter-web#destroy:preview"],
+			"dependsOn": ["@internal/web#destroy:preview"],
 			"cache": false,
 			"outputLogs": "new-only"
 		},
@@ -175,6 +175,7 @@
 		"ALCHEMY_STATE_TOKEN",
 		"CHATROOM_INTERNAL_SECRET",
 		"STAGE",
-		"CF_STARTER_DEPLOY_ENABLED"
+		"MULTIWORKER_DEPLOY_ENABLED",
+		"TURBO_TELEMETRY_DISABLED"
 	]
 }

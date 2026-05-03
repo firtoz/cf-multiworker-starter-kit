@@ -10,7 +10,7 @@ React Router 7 application deployed on Cloudflare Workers.
 
 **Durable Objects / services:** `chatroom-do` (WebSockets / Socka; `/chat` and `/api/ws/*` in `workers/app.ts`), `ping-do` (typed Hono DO example), and `other-worker` (service binding example).
 
-**Packages:** `cf-starter-db` (D1 + Drizzle for `/visitors`), `cf-starter-chat-contract` (shared Socka types).
+**Packages:** `@internal/db` (D1 + Drizzle for `/visitors`), `@internal/chat-contract` (shared Socka types).
 
 **How bindings work:** **`apps/web/alchemy.run.ts`** declares app bindings and imports worker/DO resources from dependency packages' `./alchemy` exports. Types: **`types/env.d.ts`** (`typeof web["Env"]`). After route edits, **`bun run typegen`** from the repo root.
 
@@ -41,7 +41,7 @@ File-based route modules are listed explicitly in `app/routes.ts`. A new `app/ro
 import { env } from "cloudflare:workers";
 import { type MaybeError, success } from "@firtoz/maybe-error";
 import type { RoutePath } from "@firtoz/router-toolkit";
-import { incrementSiteVisits } from "cf-starter-db";
+import { incrementSiteVisits } from "@internal/db";
 import type { Route } from "./+types/my-feature";
 
 export const route: RoutePath<"/my-feature"> = "/my-feature";
@@ -189,4 +189,4 @@ bun run deploy:staging   # .env.staging, STAGE=staging
 # Preview: CI sets STAGE=pr-<n> and runs deploy:preview
 ```
 
-Each deployable package runs **`alchemy deploy --app <package-id>`** with the same **`STAGE`**. See [agents/skills/cf-starter-workflow/SKILL.md](../../agents/skills/cf-starter-workflow/SKILL.md), root **`AGENTS.md`**, and root **`README.md`**.
+Each deployable package runs **`alchemy deploy --app <package-id>`** with the same **`STAGE`**. See [agents/skills/multiworker-workflow/SKILL.md](../../agents/skills/multiworker-workflow/SKILL.md), root **`AGENTS.md`**, and root **`README.md`**.

@@ -1,6 +1,6 @@
 import type { InferSockaPushHandlers } from "@firtoz/socka";
 import { useSockaSession } from "@firtoz/socka/react";
-import { type ChatMessageRow, chatContract } from "cf-starter-chat-contract";
+import { type ChatMessageRow, chatContract } from "@internal/chat-contract";
 import type { FocusEvent, KeyboardEvent as ReactKeyboardEvent } from "react";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router";

@@ -1,5 +1,8 @@
 name: Deploy staging
 
+env:
+  TURBO_TELEMETRY_DISABLED: "1"
+
 # Runs after lint / typecheck / build complete when **Quality checks** finishes on **`main`**
 # (successful **push**, same commit — not PR runs on feature branches).
 # If this workflow appears with a skipped “Deploy to staging” job, the completion was usually a **pull_request**
@@ -46,7 +49,7 @@ jobs:
         env:
           CI: true
           STAGE: staging
-          CF_STARTER_DEPLOY_ENABLED: ${{ vars.CF_STARTER_DEPLOY_ENABLED }}
+          MULTIWORKER_DEPLOY_ENABLED: ${{ vars.MULTIWORKER_DEPLOY_ENABLED }}
           ALCHEMY_PASSWORD: ${{ secrets.ALCHEMY_PASSWORD }}
           ALCHEMY_STATE_TOKEN: ${{ secrets.ALCHEMY_STATE_TOKEN }}
           CHATROOM_INTERNAL_SECRET: ${{ secrets.CHATROOM_INTERNAL_SECRET }}
@@ -73,7 +76,7 @@ jobs:
           set -o pipefail
           bun run deploy:staging 2>&1 | tee deploy-output.txt
           deploy_status=${PIPESTATUS[0]}
-          URL_FILE="$GITHUB_WORKSPACE/.alchemy/ci/cf-starter-web-deploy-url.txt"
+          URL_FILE="$GITHUB_WORKSPACE/.alchemy/ci/web-deploy-url.txt"
           WEB_URL=""
           if [[ -f "$URL_FILE" ]]; then
             IFS= read -r WEB_URL <"$URL_FILE" || true
@@ -91,7 +94,7 @@ jobs:
           DE_OUT="${{ steps.deploy.outcome }}"
           EN="${{ steps.preflight.outputs.deploy_enabled }}"
           WEB_URL="$WEB_URL_FROM_STEP"
-          URL_FILE="$GITHUB_WORKSPACE/.alchemy/ci/cf-starter-web-deploy-url.txt"
+          URL_FILE="$GITHUB_WORKSPACE/.alchemy/ci/web-deploy-url.txt"
           if [[ -z "$WEB_URL" && -f "$URL_FILE" ]]; then
             IFS= read -r WEB_URL <"$URL_FILE" || true
           fi
@@ -103,17 +106,17 @@ jobs:
             elif [[ "$PF_OUT" == "skipped" ]]; then
               echo "**Status:** an earlier step failed or was cancelled before preflight (often **Install dependencies**)."
             elif [[ "$EN" != "true" ]]; then
-              echo "**Status:** skipped — \`CF_STARTER_DEPLOY_ENABLED\` is not \`true\` on the **staging** Environment (expected on a fresh fork)."
+              echo "**Status:** skipped — \`MULTIWORKER_DEPLOY_ENABLED\` is not \`true\` on the **staging** Environment (expected on a fresh fork)."
             elif [[ "$DE_OUT" == "success" ]]; then
               echo "**Status:** success"
               echo ""
               if [[ -n "$WEB_URL" ]]; then
                 echo "**App (workers.dev):** [$WEB_URL]($WEB_URL)"
               else
-                echo "- **workers.dev URL:** artifact missing — ${GITHUB_WORKSPACE}/.alchemy/ci/cf-starter-web-deploy-url.txt _(see apps/web/alchemy.run.ts when CI runs on GitHub Actions)._"
+                echo "- **workers.dev URL:** artifact missing — ${GITHUB_WORKSPACE}/.alchemy/ci/web-deploy-url.txt _(see apps/web/alchemy.run.ts when CI runs on GitHub Actions)._"
               fi
               echo ""
-              echo "**Production:** after \`bun run onboard:prod\`, repo variable **\`CF_STARTER_AUTO_PRODUCTION_PR\`** can open or reuse a **\`main\` → \`production\`** PR on successful staging deploys. Until then, run **\`bun run onboard:prod\`** from a trusted machine."
+              echo "**Production:** after \`bun run onboard:prod\`, repo variable **\`MULTIWORKER_AUTO_PRODUCTION_PR\`** can open or reuse a **\`main\` → \`production\`** PR on successful staging deploys. Until then, run **\`bun run onboard:prod\`** from a trusted machine."
             elif [[ "$DE_OUT" == "failure" ]]; then
               echo "**Status:** Turbo deploy failed — see **Turbo deploy (staging)**."
             else
@@ -138,7 +141,7 @@ jobs:
     needs: deploy
     if: >-
       needs.deploy.outputs.did_staging_deploy == 'true' &&
-      vars.CF_STARTER_AUTO_PRODUCTION_PR == 'true'
+      vars.MULTIWORKER_AUTO_PRODUCTION_PR == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read

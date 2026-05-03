@@ -1,10 +1,17 @@
-# Trusted PR preview commenter.
+# Trusted PR preview commenter (`workflow_run` on default branch).
 #
-# The deploy workflow runs on `pull_request` so fork code can be deployed only after the protected
-# Environment gate. Fork `pull_request` runs get a read-only `GITHUB_TOKEN`, so they cannot comment
-# on PRs. This follow-up `workflow_run` executes from the default branch, downloads only the small
-# JSON artifact emitted by `deploy-pr-preview.yml`, and posts/updates the PR comment without running
-# contributor code.
+# **Deploy** runs from **`deploy-pr-preview.yml`** after **Quality checks** succeed (`workflow_run` chain); fork PR
+# code still deploys only after the protected **`staging-fork`** Environment gate. That workflow cannot post PR
+# comments with a usable writer token on fork flows, so this job runs **after PR preview completes**, downloads
+# only the small **`pr-preview-comment`** JSON artifact, and upserts the PR comment without executing contributor code.
+#
+# **`pull-requests: write`** — GitHub returns **403** “Resource not accessible” on PR issue-comment APIs when only
+# **`issues: write`** is set on some **`workflow_run`** chains; matches **`x-accepted-github-permissions:
+# pull_requests=write`** on failures.
+#
+# Artifact steps gate deploy vs destroy-only PR preview runs (close/teardown uploads no **`pr-preview-comment`** artifact).
+# Do **not** filter on **`workflow_run.event == 'pull_request'`**: when preview deploy is triggered by Quality checks,
+# the **PR preview** parent run’s event is **`workflow_run`**, not **`pull_request`**.
 
 name: PR preview comment
 
@@ -17,12 +24,11 @@ permissions:
   actions: read
   contents: read
   issues: write
-  pull-requests: read
+  pull-requests: write
 
 jobs:
   comment:
     name: Upsert PR preview comment
-    if: github.event.workflow_run.event == 'pull_request'
     runs-on: ubuntu-latest
     steps:
       - name: Locate preview comment artifact
@@ -82,10 +88,10 @@ jobs:
             const sha = String(payload.head_sha ?? "").slice(0, 7);
             const deployOutcome = String(payload.deploy_outcome ?? "").trim() || context.payload.workflow_run.conclusion || "unknown";
 
-            const marker = "<!-- cf-starter-pr-preview -->";
+            const marker = "<!-- multiworker-pr-preview -->";
             const bodyLines = [
               marker,
-              "# PR preview (cf-starter)",
+              "# PR preview (multiworker)",
               "",
               `- ${summaryLine}`,
               `- Workflow: [Actions run](${runUrl})`,

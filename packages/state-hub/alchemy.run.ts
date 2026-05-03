@@ -8,10 +8,10 @@ import alchemy from "alchemy";
 import { requireAlchemyPassword } from "alchemy-utils";
 import { alchemyCiCloudStateStoreOptions } from "alchemy-utils/alchemy-cloud-state-store";
 import { resolveStageFromEnv } from "alchemy-utils/deployment-stage";
-import { CF_STARTER_APPS } from "alchemy-utils/worker-peer-scripts";
+import { ALCHEMY_APP_IDS } from "alchemy-utils/worker-peer-scripts";
 
 const stage = resolveStageFromEnv();
-const app = await alchemy(CF_STARTER_APPS.stateHub, {
+const app = await alchemy(ALCHEMY_APP_IDS.stateHub, {
 	stage,
 	...alchemyCiCloudStateStoreOptions(stage),
 });

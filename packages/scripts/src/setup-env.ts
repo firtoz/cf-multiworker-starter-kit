@@ -11,6 +11,7 @@ import { styleText } from "node:util";
 import { confirm, intro, isCancel, note, outro, password, select, text } from "@clack/prompts";
 
 import {
+	ENV_SETUP_CATEGORY_DESCRIPTION,
 	ENV_SETUP_CATEGORY_LABEL,
 	ENV_SETUP_CATEGORY_NAV,
 	type EnvSetupCategoryId,
@@ -224,6 +225,20 @@ function emptyKeyDisplayForSetupList(defaultIfUnset: string | undefined): string
 	return `(empty · default ${defaultIfUnset})`;
 }
 
+/** Plain-language default when the key line is absent from the dotfile (setup list only). */
+const SETUP_LIST_EMPTY_DEFAULT_HINT: Readonly<Record<string, string>> = {
+	GITHUB_SYNC_PUSH_SECRETS: "true (= push secrets & Environment vars to GitHub)",
+};
+
+function setupCategoryKeySelectMessage(category: EnvSetupCategoryId): string {
+	const title = ENV_SETUP_CATEGORY_LABEL[category];
+	const blurb = ENV_SETUP_CATEGORY_DESCRIPTION[category]?.trim();
+	if (!blurb) {
+		return title;
+	}
+	return `${title}\n${blurb}`;
+}
+
 function categorySummaryLine(raw: string, group: SetupCategoryGroup, mode: SetupMode): string {
 	const { category, keys } = group;
 	const total = keys.length;
@@ -331,9 +346,10 @@ function rowLabel(raw: string, key: string, mode: SetupMode): string {
 	const reqWord = isOptionalSetupKey(key, mode) ? "optional" : "required";
 	if (!isMaskedKey(key)) {
 		const v = captureEnvAssignmentLine(raw, key) ?? "";
+		const emptyHint = SETUP_LIST_EMPTY_DEFAULT_HINT[key];
 		const show = set
 			? truncateForList(v, 42)
-			: truncateForList(emptyKeyDisplayForSetupList(undefined), 72);
+			: truncateForList(emptyKeyDisplayForSetupList(emptyHint), 72);
 		const line = `${box} ${key} · ${reqWord} · ${show}`;
 		return set ? rowLabelWhenSet(line) : line;
 	}
@@ -402,7 +418,7 @@ async function variableBrowserLoop(
 				}));
 
 				const keySel = await select<string | typeof BACK_TO_CATEGORIES>({
-					message: ENV_SETUP_CATEGORY_LABEL[group.category],
+					message: setupCategoryKeySelectMessage(group.category),
 					options: [...picks, { value: BACK_TO_CATEGORIES, label: "« Back to categories »" }],
 				});
 				if (isCancel(keySel)) {
@@ -466,7 +482,7 @@ async function variableBrowserLoop(
 				}));
 
 				const keySel = await select<string | typeof BACK_TO_CATEGORIES>({
-					message: ENV_SETUP_CATEGORY_LABEL[group.category],
+					message: setupCategoryKeySelectMessage(group.category),
 					options: [...picks, { value: BACK_TO_CATEGORIES, label: `« Back · ${nav.label} »` }],
 				});
 				if (isCancel(keySel)) {
@@ -727,7 +743,7 @@ async function interactiveMain(
 	const rel = path.relative(root, file) || path.basename(file);
 	const setupCli = setupCommandLabelForDotfileRel(rel);
 	const title = `${setupCli} — ${path.basename(file)}`;
-	intro(flagEdit ? `cf-starter · env · ${title}` : `cf-starter · env · ${title}`);
+	intro(flagEdit ? `env · ${title}` : `env · ${title}`);
 	if (mode !== "local") {
 		const extra =
 			mode === "staging"
@@ -774,7 +790,7 @@ async function main(): Promise<void> {
 			const body = existsSync(file) ? readFileSync(file, "utf8") : "";
 			const missing = requiredKeysForMode(mode).filter((k) => !hasValue(body, k));
 			if (missing.length > 0) {
-				intro("cf-starter — missing keys");
+				intro("env — missing keys");
 				note(
 					[
 						`These keys are not set in ${path.basename(file)}:`,
@@ -802,7 +818,7 @@ async function main(): Promise<void> {
 		}
 		const file = fileForMode(mode);
 		const raw = existsSync(file) ? readFileSync(file, "utf8") : "";
-		intro("cf-starter — update env");
+		intro("env — update env");
 		await variableBrowserLoop(file, mode, raw, false);
 		return;
 	}
@@ -859,13 +875,13 @@ async function main(): Promise<void> {
 
 	if (flagEdit) {
 		const raw = existsSync(file) ? readFileSync(file, "utf8") : "";
-		intro("cf-starter — update env");
+		intro("env — update env");
 		await variableBrowserLoop(file, mode, raw, false);
 		return;
 	}
 
 	if (missing.length > 0) {
-		intro("cf-starter — missing keys");
+		intro("env — missing keys");
 		note(
 			[
 				`These keys are not set in ${path.basename(file)}:`,

@@ -1,7 +1,7 @@
 /**
  * Deploy gate for GitHub Actions and local runs.
  *
- * - **CI + not yet enabled:** `CF_STARTER_DEPLOY_ENABLED` is not `true` → print a notice on stdout, write `deploy_enabled=false` to `GITHUB_OUTPUT`, exit 0.
+ * - **CI + not yet enabled:** `MULTIWORKER_DEPLOY_ENABLED` is not `true` → print a notice on stdout, write `deploy_enabled=false` to `GITHUB_OUTPUT`, exit 0.
  * - **CI + enabled:** missing required secrets → exit 1 (stderr ok).
  * - **Local:** ignores the enablement flag; checks required variables using `process.env` merged with the stage dotenv file when it exists.
  */
@@ -10,14 +10,14 @@ import { resolve } from "node:path";
 import { isPrStage, resolveStageFromEnv } from "alchemy-utils/deployment-stage";
 import { parse as parseDotenv } from "dotenv";
 import {
-	CF_STARTER_DEPLOY_ENABLED_VAR,
+	MULTIWORKER_DEPLOY_ENABLED_VAR,
 	missingDeployConfigurationKeys,
 } from "./github-environment-secrets";
 
 const MODES = ["prod", "staging", "preview"] as const;
 type PreflightMode = (typeof MODES)[number];
 
-const ENABLE_VAR = CF_STARTER_DEPLOY_ENABLED_VAR;
+const ENABLE_VAR = MULTIWORKER_DEPLOY_ENABLED_VAR;
 
 function usage(): never {
 	console.log(`Usage: bun ./deploy-preflight.ts <${MODES.join("|")}>`);
