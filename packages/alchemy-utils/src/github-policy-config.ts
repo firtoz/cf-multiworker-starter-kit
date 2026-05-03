@@ -164,8 +164,11 @@ function assertRange(label: string, n: number, min: number, max: number): void {
 /**
  * Opinionated starter template — merge settings + repository rulesets + Environment rules.
  *
- * **`main.requiredStatusCheckContexts`** matches the aggregator job in **`.github/workflows/quality-reusable.yml`**
- * (`Quality reusable / Quality checks`). If ruleset sync blocks merges, align strings with GitHub’s **Checks** UI/API.
+ * **`main.requiredStatusCheckContexts`** must match the **check context** GitHub shows on PRs — for
+ * reusable workflows that is **`{caller workflow name} / {caller job id} / {inner job name}`**, not
+ * **`{reusable workflow name} / …`**. Stock workflows: **`PR preview / Quality / Quality checks`**
+ * (pull_request) and **`Main / Quality / Quality checks`** (push to `main`). The default uses the
+ * PR path so merges via PR satisfy the rule; change it if your workflow `name:` / job id differ.
  */
 export const DEFAULT_GITHUB_POLICY: GitHubPolicyConfig = {
 	github: {
@@ -220,7 +223,7 @@ export const DEFAULT_GITHUB_POLICY: GitHubPolicyConfig = {
 					includeRefs: ["refs/heads/main"],
 					requirePullRequestBeforeMerge: true,
 					allowRepositoryAdminBypassOnMain: true,
-					requiredStatusCheckContexts: ["Quality reusable / Quality checks"],
+					requiredStatusCheckContexts: ["PR preview / Quality / Quality checks"],
 					strictRequiredStatusChecks: true,
 				},
 				production: {
