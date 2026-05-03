@@ -57,7 +57,7 @@ export const web = await ReactRouter(DEFAULT_REACT_ROUTER_WEB_RESOURCE_ID, {
 });
 
 console.log({ webUrl: web.url });
-/** GitHub Actions: write URL for deploy workflows (**`deploy-*.yml`**) — see **`CI_WEB_DEPLOY_URL_RELPATH`**. */
+/** GitHub Actions: write URL for deploy workflows — see **`CI_WEB_DEPLOY_URL_RELPATH`**. */
 if (process.env["GITHUB_ACTIONS"] === "true" && web.url) {
 	const root = process.env["GITHUB_WORKSPACE"]?.trim();
 	if (root) {

@@ -1,4 +1,4 @@
-# **Production deploy** — push **`production`** (**`workflow_dispatch`** supported). Gated by **`MULTIWORKER_DEPLOY_ENABLED`** on **`production`**.
+# **Production deploy** — push **`production`** (**`workflow_dispatch`** supported). Gated by **`DEPLOY_ENABLED`** on **`production`**.
 name: Production deploy
 
 env:
@@ -44,7 +44,7 @@ jobs:
         env:
           CI: true
           STAGE: prod
-          MULTIWORKER_DEPLOY_ENABLED: ${{ vars.MULTIWORKER_DEPLOY_ENABLED }}
+          DEPLOY_ENABLED: ${{ vars.DEPLOY_ENABLED }}
           ALCHEMY_PASSWORD: ${{ secrets.ALCHEMY_PASSWORD }}
           ALCHEMY_STATE_TOKEN: ${{ secrets.ALCHEMY_STATE_TOKEN }}
           CHATROOM_INTERNAL_SECRET: ${{ secrets.CHATROOM_INTERNAL_SECRET }}
@@ -101,7 +101,7 @@ jobs:
             elif [[ "$PF_OUT" == "skipped" ]]; then
               echo "**Status:** an earlier step failed or was cancelled before preflight (often **Install dependencies**)."
             elif [[ "$EN" != "true" ]]; then
-              echo "**Status:** skipped — \`MULTIWORKER_DEPLOY_ENABLED\` is not \`true\` on the **production** Environment."
+              echo "**Status:** skipped — \`DEPLOY_ENABLED\` is not \`true\` on the **production** Environment."
             elif [[ "$DE_OUT" == "success" ]]; then
               echo "**Status:** success"
               echo ""

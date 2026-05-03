@@ -21,7 +21,7 @@ const root = resolve(import.meta.dir, "../../..");
 const prodFile = `${root}/.env.production`;
 const stagingFile = `${root}/.env.staging`;
 
-const AUTO_PROD_PR_VAR = "MULTIWORKER_AUTO_PRODUCTION_PR";
+const AUTO_PROD_PR_VAR = "AUTO_PRODUCTION_PR";
 
 const inheritStdio: ["inherit", "inherit", "inherit"] = ["inherit", "inherit", "inherit"];
 
@@ -132,7 +132,7 @@ async function main(): Promise<void> {
 			`[onboard:prod] Could not set repository variable ${AUTO_PROD_PR_VAR}=true via gh.`,
 		);
 		console.error(
-			"Production may still be synced; set the variable manually: gh variable set MULTIWORKER_AUTO_PRODUCTION_PR (body: true)",
+			"Production may still be synced; set the variable manually: gh variable set AUTO_PRODUCTION_PR (body: true)",
 		);
 		process.exit(setVar.exitCode ?? 1);
 	}

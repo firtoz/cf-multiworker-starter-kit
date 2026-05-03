@@ -4,6 +4,6 @@
  *
  * **`.alchemy/`** is repo-**gitignored** — this never shows up as an untracked path for normal tooling.
  *
- * Deploy workflows (`deploy-*.yml`) **read this same path**; keep paths in sync with this constant.
+ * Deploy workflows **read this same path**; keep paths in sync with this constant.
  */
 export const CI_WEB_DEPLOY_URL_RELPATH = ".alchemy/ci/web-deploy-url.txt" as const;

@@ -18,7 +18,7 @@ After cloning or generating from the template, follow **README *Quick start***:
 
 - **`bun run quickstart`** — install if needed, `.env.local` regeneratable keys, then **`bun run dev`**
 - **`bun run onboard:staging`** — **`gh`**, **`.env.staging`** Cloudflare keys, **`setup:staging --yes`**, **`github:sync:staging`**
-- **`bun run onboard:prod`** — production dotfile flow, **`github:sync:prod`**, repo variable **`MULTIWORKER_AUTO_PRODUCTION_PR`**
+- **`bun run onboard:prod`** — production dotfile flow, **`github:sync:prod`**, repo variable **`AUTO_PRODUCTION_PR`**
 
 Create **Cloudflare API tokens** only in the dashboard ([`docs/github-admin.md`](../../docs/github-admin.md#cloudflare-credentials-manual)); this repo does not mint tokens via scripts or OAuth.
 
@@ -70,8 +70,8 @@ Create **Cloudflare API tokens** only in the dashboard ([`docs/github-admin.md`]
 
 **PR previews**
 
-- Same-repo PRs → Environment **`staging`**. Fork PRs → **`staging-fork`**.
-- **`github:sync:staging`** mirrors secrets/vars to both; fork Environment rules come from **`config/github.policy.ts`** (`github.environments.stagingFork` — README security table).
+- Same-repo PRs → Environment **`staging`**.
+- Fork PRs run Quality only in the stock workflows and do not receive deploy secrets. **`staging-fork`** remains in policy/sync for legacy or future use.
 
 ## Typical layout
 

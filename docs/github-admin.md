@@ -2,7 +2,7 @@
 
 This repo can set up GitHub Actions Environments, secrets, variables, repo merge settings, and branch rulesets from a trusted local machine.
 
-Most forks only need:
+**Typical setup** for this repository (and the same for a fork after you replace placeholders like `your-org`) usually comes down to:
 
 ```bash
 bun run onboard:staging
@@ -13,11 +13,11 @@ Use this page when you want to change how GitHub behaves after onboarding.
 
 ## CI and deploy workflows
 
-- **Fresh forks:** deploy jobs **no-op** until **`MULTIWORKER_DEPLOY_ENABLED=true`** exists on each GitHub Environment that runs deploys (**`staging`**, **`production`**; optional **`staging-fork`** remains in policy/sync for legacy or future use — **fork PRs no longer run preview deploy**). Running **`bun run onboard:staging`** / **`onboard:prod`** (or **`github:sync:*`**) syncs secrets/variables and typically sets this.
+- **Until deploy is enabled:** deploy jobs **no-op** until **`DEPLOY_ENABLED=true`** exists on each GitHub Environment that runs deploys (**`staging`**, **`production`**; optional **`staging-fork`** remains in policy/sync for legacy or future use — **fork PRs no longer run preview deploy**). That applies to **this** repo’s GitHub Environments as well as any fork’s. Running **`bun run onboard:staging`** / **`onboard:prod`** (or **`github:sync:*`**) syncs secrets/variables and typically sets this.
 - **Quality reusable** (`.github/workflows/quality-reusable.yml`): parallel jobs — Drizzle generated-artifact guard, lint, **`typegen`** + typecheck, **`bun run setup -- --yes`** + build. Invoked by **`Main`** (push **`main`**) and **`PR preview`** (open/sync/reopen on **`main`**).
-- **Main** (`.github/workflows/main-push.yml`): **push** **`main`** → Quality → caller-level **Quality checks** gate → **staging** deploy (`maybe_production_pr` when **`MULTIWORKER_AUTO_PRODUCTION_PR`**). Uses Environment **`staging`**.
+- **Main** (`.github/workflows/main-push.yml`): **push** **`main`** → Quality → caller-level **Quality checks** gate → **staging** deploy (`maybe_production_pr` when **`AUTO_PRODUCTION_PR`**). Uses Environment **`staging`**.
 - **Production deploy** (`.github/workflows/prod-deploy.yml`): **push** **`production`** or **`workflow_dispatch`** when the selected ref is **`production`**.
-- **PR previews** (`.github/workflows/pr-deploy.yml`): **same-repo** PRs run Quality in this workflow, then preview deploy to **`staging`** when **`MULTIWORKER_DEPLOY_ENABLED`**; sticky PR comments and optional **`preview-pr-<n>`** GitHub Deployments. **Fork PRs** run **Quality only** (no preview deploy, no **`staging-fork`** preview path). Preview stacks use **`STAGE=pr-<n>`**. **Teardown** on **`pull_request` `closed`** (same-repo only): **`verify:deploy-env:preview`**, **`destroy:preview`**, then **`cleanup:alchemy-state:preview`** to delete the per-PR Cloudflare Alchemy state Worker; checks out the **base** branch so destroy does not run untrusted PR scripts. **`alchemy destroy`** still loads **`alchemy.run.ts`** top-level **`requireEnv`** — mirror deploy **`env`** keys on **Destroy PR preview** when you add vars at module scope (see [**multiworker-gotchas** §22](../agents/skills/multiworker-gotchas/SKILL.md)).
+- **PR previews** (`.github/workflows/pr-deploy.yml`): **same-repo** PRs run Quality in this workflow, then preview deploy to **`staging`** when **`DEPLOY_ENABLED`**; sticky PR comments and optional **`preview-pr-<n>`** GitHub Deployments. **Fork PRs** run **Quality only** (no preview deploy, no **`staging-fork`** preview path). Preview stacks use **`STAGE=pr-<n>`**. **Teardown** on **`pull_request` `closed`** (same-repo only): **`verify:deploy-env:preview`**, **`destroy:preview`**, then **`cleanup:alchemy-state:preview`** to delete the per-PR Cloudflare Alchemy state Worker; checks out the **base** branch so destroy does not run untrusted PR scripts. **`alchemy destroy`** still loads **`alchemy.run.ts`** top-level **`requireEnv`** — mirror deploy **`env`** keys on **Destroy PR preview** when you add vars at module scope (see [**multiworker-gotchas** §22](../agents/skills/multiworker-gotchas/SKILL.md)).
 - **Branch protection:** the **`main`** ruleset requires the caller-level **Quality checks** gate, not an inner job from the reusable workflow. Default required context: **`Quality checks`** in [`github-policy-config.ts`](../packages/alchemy-utils/src/github-policy-config.ts). GitHub's PR UI may display this as **`PR preview / Quality checks (pull_request)`**, but the ruleset picker stores the unprefixed check context. Keep this as a normal job in [`pr-deploy.yml`](../.github/workflows/pr-deploy.yml); requiring **`PR preview / Quality / Quality checks`** (inside **`quality-reusable.yml`**) can stay stuck as **Expected — Waiting for status** even when the check run is green.
 
 Use **`bun run github:setup`** for a step-by-step printout.
@@ -30,9 +30,33 @@ bun run onboard:staging
 bun run onboard:prod
 ```
 
-**`onboard:prod`** also sets repo variable **`MULTIWORKER_AUTO_PRODUCTION_PR=true`**, after which a successful **staging** deploy may **open or reuse** a PR **`main` → `production`**. You still **merge** that PR to ship production (and remote **`production`** must exist). `bun run github:sync:staging` also enables the repository Actions workflow permission that lets **`GITHUB_TOKEN`** create the production PR; if GitHub rejects that setting, enable it at the **organization or enterprise** level, then rerun staging sync.
+**`onboard:prod`** also sets repo variable **`AUTO_PRODUCTION_PR=true`**, after which a successful **staging** deploy may **open or reuse** a PR **`main` → `production`**. You still **merge** that PR to ship production (and remote **`production`** must exist). `bun run github:sync:staging` also enables the repository Actions workflow permission that lets **`GITHUB_TOKEN`** create the production PR; if GitHub rejects that setting, enable it at the **organization or enterprise** level, then rerun staging sync.
 
 **Default repo policy** (see [`config/github.policy.ts`](../config/github.policy.ts)): **`main`** — PRs for writers, admins may bypass; **`production`** — PR from **`main`**, no admin bypass by default; approving review count defaults to **0** for solo maintainers.
+
+### Upgrading deploy-control variable names
+
+**This** repository’s workflows and sync scripts expect the generic names below. Older checkouts—including previous revisions of **this** template—may still use product-prefixed GitHub variable names. Rename and resync whether you maintain the template repo or a fork:
+
+| Old name | New name |
+| --- | --- |
+| `MULTIWORKER_DEPLOY_ENABLED` | `DEPLOY_ENABLED` |
+| `MULTIWORKER_AUTO_PRODUCTION_PR` | `AUTO_PRODUCTION_PR` |
+| `MULTIWORKER_PRODUCTION_PR_HEAD` | `PRODUCTION_PR_HEAD` |
+
+Update **this repo’s** local **`.env.staging`** / **`.env.production`** (or the same files on your machine) only if they still contain the old deploy gate:
+
+```bash
+# before
+MULTIWORKER_DEPLOY_ENABLED=true
+
+# after
+DEPLOY_ENABLED=true
+```
+
+Then run **`bun run github:sync:staging`** and **`bun run github:sync:prod`** from a trusted machine. Sync writes **`DEPLOY_ENABLED`** to the GitHub Environments and **`PRODUCTION_PR_HEAD`** to repo variables. **`bun run onboard:prod`** or **`gh variable set AUTO_PRODUCTION_PR --body true`** writes the optional production-PR automation gate.
+
+The sync does not delete old GitHub variables. You can remove stale **`MULTIWORKER_*`** variables after the new workflow names are synced and a run has succeeded.
 
 ## Custom domains (web Worker)
 

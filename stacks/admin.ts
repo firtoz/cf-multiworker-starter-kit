@@ -25,8 +25,8 @@
  * - `GITHUB_SYNC_SCOPE=environment`, or
  * - `GITHUB_SYNC_SCOPE=secrets` **and** `GITHUB_SYNC_UPDATE_ENVIRONMENT_PROTECTION=true`.
  *
- * **Staging secrets** (`STAGE=staging`, scope **`secrets`**) also mirror to **`staging-fork`** and apply fork PR
- * deployment protection from **`config/github.policy.ts`** → **`github.environments.stagingFork`**.
+ * **Staging secrets** (`STAGE=staging`, scope **`secrets`**) also mirror to **`staging-fork`** for legacy/future
+ * preview workflows and apply protection from **`config/github.policy.ts`** → **`github.environments.stagingFork`**.
  *
  * **`GITHUB_SYNC_STAGING_FORK_REVIEWERS_PRIVATE`** (optional, staging **`staging-fork`** only): when **`reviewerFallbackToActor`** is **`"auto"`** and the repo is **private**, set **`1`** / **`true`** / **`yes`** / **`on`** so sync injects the **`gh`** actor as required reviewer (plans that support Environment reviewers). **Public** and **internal** repos enable actor fallback automatically under **`"auto"`**.
  *
@@ -52,7 +52,7 @@ import { ALCHEMY_APP_IDS } from "../packages/alchemy-utils/src/worker-peer-scrip
 import {
 	buildGitHubSecretPayload,
 	buildGitHubVariablePayloadFromDotfile,
-	MULTIWORKER_DEPLOY_ENABLED_VAR,
+	DEPLOY_ENABLED_VAR,
 	setupCommandLabelForDotfileRel,
 } from "../packages/scripts/src/github-environment-secrets";
 import { PR_PREVIEW_FORK_GITHUB_ENVIRONMENT } from "../packages/scripts/src/github-pr-preview-fork-policy";
@@ -170,7 +170,7 @@ const ENV_DOTFILE_REL = path.relative(REPO_ROOT, ENV_DOTFILE_PATH) || ENV_DOTFIL
 const setupCli = setupCommandLabelForDotfileRel(ENV_DOTFILE_REL);
 const hintForMissing = `Run \`${setupCli}\` (or \`bun run github:setup\`) to prepare ${ENV_DOTFILE_REL}, then rerun the matching \`bun run github:sync:*\` command.`;
 
-/** GitHub Environment names that receive secrets/variables from this run (fork PR preview mirrors `staging`). */
+/** GitHub Environment names that receive secrets/variables from this run (`staging-fork` mirrors `staging` for legacy/future preview workflows). */
 function githubEnvironmentsForSecretSync(): readonly string[] {
 	if (scope === "secrets" && githubEnvironment === "staging") {
 		return ["staging", PR_PREVIEW_FORK_GITHUB_ENVIRONMENT];
@@ -214,7 +214,7 @@ if (scope === "secrets") {
 		}
 		githubVariables = {
 			...varPart,
-			[MULTIWORKER_DEPLOY_ENABLED_VAR]: varPart[MULTIWORKER_DEPLOY_ENABLED_VAR] ?? "true",
+			[DEPLOY_ENABLED_VAR]: varPart[DEPLOY_ENABLED_VAR] ?? "true",
 		};
 	} else if (existsSync(ENV_DOTFILE_PATH)) {
 		mergeRepoRootDotfileIntoProcessEnv(ENV_DOTFILE_PATH);

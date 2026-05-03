@@ -1,5 +1,5 @@
 /**
- * CI teardown gate: required deploy-process env (non-empty) without honoring **`MULTIWORKER_DEPLOY_ENABLED`**.
+ * CI teardown gate: required deploy-process env (non-empty) without honoring **`DEPLOY_ENABLED`**.
  * Use before **`alchemy destroy`** so preview stacks are not orphaned when deploy preflight short-circuits.
  */
 import process from "node:process";

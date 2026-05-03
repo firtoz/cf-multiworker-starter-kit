@@ -81,7 +81,7 @@ bun run onboard:staging   # sync staging → push/merge to `main` deploys stagin
 bun run onboard:prod      # sync production → deploys from `production` branch (see docs)
 ```
 
-**`bun run github:setup`** prints a fuller Actions checklist. Workflow behavior, **`MULTIWORKER_DEPLOY_ENABLED`**, fork vs same-repo PR previews, rulesets, and **`MULTIWORKER_AUTO_PRODUCTION_PR`**: [`docs/github-admin.md`](docs/github-admin.md).
+**`bun run github:setup`** prints a fuller Actions checklist. Workflow behavior, **`DEPLOY_ENABLED`**, fork vs same-repo PR previews, rulesets, and **`AUTO_PRODUCTION_PR`**: [`docs/github-admin.md`](docs/github-admin.md).
 
 ### If setup fails
 
@@ -196,7 +196,7 @@ More context: [`agents/skills/multiworker-workflow/SKILL.md`](agents/skills/mult
 
 ## Security posture
 
-Real infra + demo routes: treat as a starting point. This template uses a protected Environment for **fork** PR previews, production deploys from **`production`**, and separate workflows for untrusted PR comment posting. Add your own auth, CSP, rate limits, and least-privilege tokens before launch. See [`docs/github-admin.md`](docs/github-admin.md) and [`agents/skills/cf-workers-env-local/SKILL.md`](agents/skills/cf-workers-env-local/SKILL.md).
+Real infra + demo routes: treat as a starting point. **This** repository’s stock workflows use GitHub Environments for **same-repo** PR previews (**`staging`**), production deploys from **`production`**, and guardrails so **fork** PRs never receive preview deploy secrets. Add your own auth, CSP, rate limits, and least-privilege tokens before launch. See [`docs/github-admin.md`](docs/github-admin.md) and [`agents/skills/cf-workers-env-local/SKILL.md`](agents/skills/cf-workers-env-local/SKILL.md).
 
 ## Contributing
 

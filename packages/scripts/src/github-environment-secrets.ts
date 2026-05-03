@@ -2,9 +2,9 @@
  * GitHub Actions **environment** configuration for deploy (CI + `github:sync:*`).
  *
  * Required / optional keys are defined in `collected-env-requirements.ts` (sidecars + repo root).
- * `MULTIWORKER_DEPLOY_ENABLED` stays a special case: optional in the dotfile; `github:sync` defaults it to `"true"` on GitHub.
+ * `DEPLOY_ENABLED` stays a special case: optional in the dotfile; `github:sync` defaults it to `"true"` on GitHub.
  *
- * Keep in sync with `deploy-preflight.ts`, `.github/workflows/deploy-*.yml`, `stacks/admin.ts`, and `turbo.json` **`globalEnv`**.
+ * Keep in sync with `deploy-preflight.ts`, `.github/workflows/*-deploy.yml`, `main-push.yml`, `stacks/admin.ts`, and `turbo.json` **`globalEnv`**.
  */
 import {
 	buildGitHubOptionalSecretPayload,
@@ -16,7 +16,7 @@ import {
 import { ALL_REPO_ENV_REQUIREMENTS } from "./collected-env-requirements";
 
 /** Plaintext environment variable (not secret) — opt-in deploy gate for CI; `github:sync` sets it to `"true"`. */
-export const MULTIWORKER_DEPLOY_ENABLED_VAR = "MULTIWORKER_DEPLOY_ENABLED" as const;
+export const DEPLOY_ENABLED_VAR = "DEPLOY_ENABLED" as const;
 
 export function buildGitHubSecretPayload(env: Record<string, string | undefined>): {
 	payload: Record<string, string>;
@@ -33,7 +33,7 @@ export function buildOptionalGitHubSecretPayload(
 
 /**
  * Variables read from the stage dotfile for `stacks/admin.ts`.
- * `MULTIWORKER_DEPLOY_ENABLED` is optional in the file — sync always pushes `true` to GitHub when you run `github:sync:*` (unless the dotfile sets a value, which is preserved).
+ * `DEPLOY_ENABLED` is optional in the file — sync always pushes `true` to GitHub when you run `github:sync:*` (unless the dotfile sets a value, which is preserved).
  */
 export function buildGitHubVariablePayloadFromDotfile(env: Record<string, string | undefined>): {
 	payload: Record<string, string>;
@@ -44,11 +44,11 @@ export function buildGitHubVariablePayloadFromDotfile(env: Record<string, string
 		env,
 	);
 	const optionalPayload = buildGitHubOptionalVariablePayload(ALL_REPO_ENV_REQUIREMENTS, env);
-	const deployFlag = env[MULTIWORKER_DEPLOY_ENABLED_VAR]?.trim();
+	const deployFlag = env[DEPLOY_ENABLED_VAR]?.trim();
 	const payload = {
 		...requiredPayload,
 		...optionalPayload,
-		...(deployFlag ? { [MULTIWORKER_DEPLOY_ENABLED_VAR]: deployFlag } : {}),
+		...(deployFlag ? { [DEPLOY_ENABLED_VAR]: deployFlag } : {}),
 	};
 	return { payload, missing };
 }

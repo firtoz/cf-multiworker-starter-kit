@@ -27,7 +27,7 @@ export type GithubStagingForkReviewerFallbackMode = boolean | "auto";
 
 export type GithubStagingForkDeploymentRules = GithubEnvironmentDeploymentRules & {
 	/**
-	 * When **true** and both reviewer lists are empty, sync uses the current **`gh`** login or **`GITHUB_ACTOR`** as a required reviewer on **`staging-fork`** (fork PR previews wait for approval).
+	 * When **true** and both reviewer lists are empty, sync uses the current **`gh`** login or **`GITHUB_ACTOR`** as a required reviewer on **`staging-fork`** (legacy/future fork preview workflows would wait for approval).
 	 * **`false`** — never inject that reviewer.
 	 * **`"auto"`** — **`resolveStagingForkReviewerFallbackToActor`**: **public** / **internal** repos default **on**; **private** stays **off** unless **`GITHUB_SYNC_STAGING_FORK_REVIEWERS_PRIVATE=1`** during sync (Team+/plans that allow Environment reviewers).
 	 */

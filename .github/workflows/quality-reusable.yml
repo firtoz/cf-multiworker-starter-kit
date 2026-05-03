@@ -13,7 +13,7 @@ on:
         type: string
 
 concurrency:
-  group: multiworker-quality-${{ inputs.concurrency_group_suffix }}
+  group: quality-${{ inputs.concurrency_group_suffix }}
   cancel-in-progress: true
 
 jobs:

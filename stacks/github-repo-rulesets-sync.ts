@@ -14,7 +14,7 @@ import { Octokit } from "@octokit/rest";
 import type { GitHubPolicyConfig } from "../packages/alchemy-utils/src/github-policy-config";
 import { octokitHttpErrorDetails } from "./github-http-error";
 
-export const MULTIWORKER_PRODUCTION_PR_HEAD_VARIABLE = "MULTIWORKER_PRODUCTION_PR_HEAD";
+export const PRODUCTION_PR_HEAD_VARIABLE = "PRODUCTION_PR_HEAD";
 
 /** Built-in github.com “Repository admin” repository role id for ruleset `bypass_actors` (`RepositoryRole`). */
 const GITHUB_RULESET_BUILTIN_REPOSITORY_ROLE_ADMIN_ACTOR_ID = 5;
@@ -242,10 +242,10 @@ export async function applyGitHubRepoRulesets(opts: {
 				octokit,
 				owner,
 				repo,
-				MULTIWORKER_PRODUCTION_PR_HEAD_VARIABLE,
+				PRODUCTION_PR_HEAD_VARIABLE,
 				productionSourceBranch,
 			);
-			results.productionPrHeadVariable = `${MULTIWORKER_PRODUCTION_PR_HEAD_VARIABLE}=${productionSourceBranch}`;
+			results.productionPrHeadVariable = `${PRODUCTION_PR_HEAD_VARIABLE}=${productionSourceBranch}`;
 		}
 
 		if (mainEnabled) {

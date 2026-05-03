@@ -751,7 +751,7 @@ async function interactiveMain(
 			mode === "staging"
 				? [
 						"",
-						"**Fork PR previews** use GitHub Environment **`staging-fork`**. **`github:sync:staging`** mirrors secrets/vars there. Deployment rules for **`staging`**, **`production`**, and **`staging-fork`** are in **`config/github.policy.ts`** (not this dotfile).",
+						"**Fork PRs** run Quality only in the stock workflows and do not receive deploy secrets. **`staging-fork`** remains in policy/sync for legacy or future preview workflows. Deployment rules for **`staging`**, **`production`**, and **`staging-fork`** are in **`config/github.policy.ts`** (not this dotfile).",
 						"",
 						...GITHUB_POLICY_HINT_LINES,
 					]

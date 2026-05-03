@@ -1,7 +1,7 @@
 # **PR previews** (`STAGE=pr-<number>`): **same-repo** PRs run **Quality** then deploy to **`staging`** with inline PR comments.
 # **Fork** PRs run **Quality only** (after GitHub’s fork workflow approval gate); they do **not** deploy previews or receive deploy secrets.
 #
-# **Destroy** on **`pull_request` `closed`** for **same-repo** PRs only (immediate teardown). Uses **`verify:deploy-env:preview`** before destroy so teardown is not skipped when **`MULTIWORKER_DEPLOY_ENABLED`** is false (avoids orphaned **`pr-*`** stacks).
+# **Destroy** on **`pull_request` `closed`** for **same-repo** PRs only (immediate teardown). Uses **`verify:deploy-env:preview`** before destroy so teardown is not skipped when **`DEPLOY_ENABLED`** is false (avoids orphaned **`pr-*`** stacks).
 #
 # **`alchemy destroy`** still evaluates each **`alchemy.run.ts`** — keep **`Destroy PR preview`** **`env:`** in sync with **PR preview deploy** when you add bindings / env reads.
 #
@@ -69,7 +69,7 @@ jobs:
       issues: write
       pull-requests: write
     concurrency:
-      group: multiworker-pr-${{ github.event.pull_request.number }}
+      group: pr-preview-${{ github.event.pull_request.number }}
       cancel-in-progress: true
     environment: staging
 
@@ -97,7 +97,7 @@ jobs:
       - name: Install dependencies (trusted base branch)
         run: bun install --frozen-lockfile
 
-      # Do **not** use **`deploy:preflight:preview`** here — it exits before secret checks when **`MULTIWORKER_DEPLOY_ENABLED`** is not **`true`**, which would skip teardown and orphan **`pr-*`** Workers.
+      # Do **not** use **`deploy:preflight:preview`** here — it exits before secret checks when **`DEPLOY_ENABLED`** is not **`true`**, which would skip teardown and orphan **`pr-*`** Workers.
       - name: Verify env for teardown
         id: verify_env
         run: bun run --cwd packages/scripts verify:deploy-env:preview
@@ -165,7 +165,7 @@ jobs:
             const vf = process.env.VF_OUT ?? "";
             const ds = process.env.DS_OUT ?? "";
             const runUrl = process.env.RUN_URL ?? "";
-            const marker = "<!-- multiworker-pr-preview -->";
+            const marker = "<!-- pr-preview -->";
 
             let headline = merged
               ? "**Removed.** Preview stack destroyed after merge."
@@ -238,7 +238,7 @@ jobs:
             const prNumber = Number(process.env.PR_NUMBER);
             const headSha = (process.env.HEAD_SHA ?? "").slice(0, 7);
             const runUrl = process.env.RUN_URL ?? "";
-            const marker = "<!-- multiworker-pr-preview -->";
+            const marker = "<!-- pr-preview -->";
             const body = [
               marker,
               "# PR preview",
@@ -311,7 +311,7 @@ jobs:
             const headSha = (process.env.HEAD_SHA ?? "").slice(0, 7);
             const conclusion = process.env.QUALITY_CONC ?? "unknown";
             const runUrl = process.env.RUN_URL ?? "";
-            const marker = "<!-- multiworker-pr-preview -->";
+            const marker = "<!-- pr-preview -->";
             const body = [
               marker,
               "# PR preview",
@@ -368,7 +368,7 @@ jobs:
       github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     concurrency:
-      group: multiworker-pr-${{ github.event.pull_request.number }}
+      group: pr-preview-${{ github.event.pull_request.number }}
       cancel-in-progress: true
     environment: staging
 
@@ -409,7 +409,7 @@ jobs:
             const prNumber = Number(process.env.PR_NUMBER);
             const headSha = (process.env.HEAD_SHA ?? "").slice(0, 7);
             const runUrl = process.env.RUN_URL ?? "";
-            const marker = "<!-- multiworker-pr-preview -->";
+            const marker = "<!-- pr-preview -->";
             const body = [
               marker,
               "# PR preview",
@@ -458,7 +458,7 @@ jobs:
         env:
           CI: "true"
           STAGE: pr-${{ github.event.pull_request.number }}
-          MULTIWORKER_DEPLOY_ENABLED: ${{ vars.MULTIWORKER_DEPLOY_ENABLED }}
+          DEPLOY_ENABLED: ${{ vars.DEPLOY_ENABLED }}
           ALCHEMY_PASSWORD: ${{ secrets.ALCHEMY_PASSWORD }}
           ALCHEMY_STATE_TOKEN: ${{ secrets.ALCHEMY_STATE_TOKEN }}
           CHATROOM_INTERNAL_SECRET: ${{ secrets.CHATROOM_INTERNAL_SECRET }}
@@ -559,7 +559,7 @@ jobs:
             elif [[ "$PF_OUT" == "skipped" ]]; then
               echo "**Status:** cancelled before preflight."
             elif [[ "$EN" != "true" ]]; then
-              echo "**Status:** skipped — \`MULTIWORKER_DEPLOY_ENABLED\` is not \`true\`."
+              echo "**Status:** skipped — \`DEPLOY_ENABLED\` is not \`true\`."
             elif [[ "$DE_OUT" == "success" ]]; then
               echo "**Status:** success"
               if [[ -n "$WEB_URL" ]]; then
@@ -596,7 +596,7 @@ jobs:
           elif [[ "$PF_OUT" == "skipped" ]]; then
             SUMMARY='Run cancelled before preflight.'
           elif [[ "$EN_SET" != "true" ]]; then
-            SUMMARY='Skipped — `MULTIWORKER_DEPLOY_ENABLED` is not `true` (previews disabled).'
+            SUMMARY='Skipped — `DEPLOY_ENABLED` is not `true` (previews disabled).'
           elif [[ "$DE_OUT" == "success" ]] && [[ -n "$WEB" ]]; then
             SUMMARY='Deploy succeeded — preview URL captured.'
           elif [[ "$DE_OUT" == "success" ]]; then
@@ -689,16 +689,16 @@ jobs:
             const runUrl = process.env.RUN_URL ?? "";
             const headSha = (process.env.HEAD_SHA_FULL ?? "").slice(0, 7);
             const deployOutcome = process.env.DEPLOY_OUTCOME ?? "";
-            const marker = "<!-- multiworker-pr-preview -->";
+            const marker = "<!-- pr-preview -->";
 
             let headline = "**Finished.** See this workflow run for details.";
             let detail = summaryLine;
             if (webUrl && deployOutcome === "success") {
               headline = "**Live.** Preview deployed successfully.";
               detail = "";
-            } else if (summaryLine.includes("MULTIWORKER_DEPLOY_ENABLED")) {
+            } else if (summaryLine.includes("DEPLOY_ENABLED")) {
               headline = "**Skipped.** Repo/org flag disables preview deploys.";
-              detail = "`MULTIWORKER_DEPLOY_ENABLED` is not `true` — see workflow logs.";
+              detail = "`DEPLOY_ENABLED` is not `true` — see workflow logs.";
             } else if (summaryLine.includes("Turbo deploy failed") || deployOutcome === "failure") {
               headline = "**Deploy failed.** The preview deploy step did not succeed.";
             } else if (summaryLine.includes("Preflight failed")) {

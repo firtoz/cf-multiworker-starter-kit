@@ -319,11 +319,7 @@ export function missingDeployConfigurationKeysFromRequirements(
 		}
 	}
 	for (const r of requirements) {
-		if (
-			r.kind !== "variable" ||
-			r.githubSync !== "required" ||
-			r.key === "MULTIWORKER_DEPLOY_ENABLED"
-		) {
+		if (r.kind !== "variable" || r.githubSync !== "required" || r.key === "DEPLOY_ENABLED") {
 			continue;
 		}
 		if (!valueFromEnv(env, r.key)) {

@@ -6,7 +6,7 @@ import type { EnvRequirement } from "alchemy-utils/env-requirements";
  * **GitHub repo policy** (Environment rules, rulesets, merge settings) lives in
  * **`config/github.policy.ts`** — not here.
  *
- * `MULTIWORKER_DEPLOY_ENABLED` is handled specially in `github-environment-secrets.ts` (optional in dotfile; sync defaults to `"true"`).
+ * `DEPLOY_ENABLED` is handled specially in `github-environment-secrets.ts` (optional in dotfile; sync defaults to `"true"`).
  */
 export const REPO_ROOT_ENV_REQUIREMENTS: readonly EnvRequirement[] = [
 	{
