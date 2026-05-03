@@ -83,7 +83,7 @@ export function Welcome({ doResponsePromise }: { doResponsePromise?: Promise<str
 				<header className="flex flex-col items-center gap-6 sm:gap-9 w-full">
 					<div className="w-full max-w-[500px]">
 						<h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-center text-blue-600 dark:text-blue-400">
-							Cloudflare Multi-Worker Starter Kit
+							TESTING TESTING
 						</h1>
 					</div>
 				</header>
