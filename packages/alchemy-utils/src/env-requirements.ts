@@ -53,7 +53,7 @@ export const ENV_SETUP_CATEGORY_NAV = [
 		id: "github-sync-cli",
 		label: "GitHub admin CLI",
 		description:
-			"GITHUB_SYNC_PUSH_SECRETS: omit or blank → default true (upload secrets + Environment variables from this dotfile; needs all required keys). false → config-only sync (repo merge settings, rulesets, environment shells; no secret upload); same as bun run github:sync:config. Rulesets/policy file: config/github.policy.ts. Details: .env.example.",
+			'GITHUB_SYNC_PUSH_SECRETS: omit or blank → default true (upload secrets + Environment variables from this dotfile; needs all required keys). false → config-only sync (repo merge settings, rulesets, environment shells; no secret upload); same as bun run github:sync:config. Optional GITHUB_SYNC_STAGING_FORK_REVIEWERS_PRIVATE for private-repo staging-fork actor reviewer under reviewerFallbackToActor "auto". Rulesets/policy file: config/github.policy.ts. Details: .env.example.',
 	},
 	{
 		id: "custom-domains",

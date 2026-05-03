@@ -47,7 +47,7 @@ The generator and post-steps (root `dev` filter, web bindings, `turbo` destroy, 
 - **`bun run github:sync`** — Runs **`github:sync:staging`** then **`github:sync:prod`** (both dotfiles must exist).
 - **`bun run github:env:staging`** / **`github:env:prod`** — **`GITHUB_SYNC_SCOPE=environment`**: updates **only** the GitHub **`RepositoryEnvironment`** (deployment protection) from **`config/github.policy.ts`**; does **not** write secrets or variables. Stage dotfile is merged when present for local env only.
 - **`bun run github:env`** — Runs **`github:env:staging`** then **`github:env:prod`** (each uses its dotfile).
-- **PR preview** (`.github/workflows/deploy-pr-preview.yml`): **same-repo** PRs (branch on this repository) use **`staging`**. **Fork** PRs use **`staging-fork`** — **`github:sync:staging`** mirrors secrets/vars to both and applies fork deployment protection from **`config/github.policy.ts`** (`github.environments.stagingFork`; see **`stacks/github-repository-environment-from-env.ts`**).
+- **PR preview** (`.github/workflows/pr-deploy.yml`): **same-repo** PRs deploy previews to **`staging`**. **Fork** PRs run **Quality** only (no preview deploy). **`github:sync:staging`** may still mirror **`staging-fork`** for policy/legacy; see **`config/github.policy.ts`**.
 - **`bun run destroy:prod`** / **`destroy:staging`** / **`destroy:preview`** — Matching Turbo **`destroy:*`** graphs; order follows package config (web before dependents where set).
 
 ## Pull requests

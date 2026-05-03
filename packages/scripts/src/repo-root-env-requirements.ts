@@ -75,4 +75,16 @@ export const REPO_ROOT_ENV_REQUIREMENTS: readonly EnvRequirement[] = [
 			"**Optional.** **`true`** / **`false`**. **Default when unset, empty, or whitespace:** **`true`** (same as omitting the key)—**`github:sync:*`** uploads GitHub **secrets** and Environment **variables** and requires a complete stage dotfile. Accepted truthy strings (case-insensitive): **`true`**, **`1`**, **`yes`**, **`on`**. Falsy: **`false`**, **`0`**, **`no`**, **`off`**—then sync still updates **RepositoryEnvironment** shells and staging repo / ruleset policy from **`config/github.policy.ts`** but **does not** upload secrets or variables; dotfile optional. Other values error. Prefer **`bun run github:sync:config`** / **`github:sync:config:*`** (same as **`false`** without relying on this key).",
 		plaintextInSetup: true,
 	},
+	{
+		key: "GITHUB_SYNC_STAGING_FORK_REVIEWERS_PRIVATE",
+		setupCategory: "github-sync-cli",
+		kind: "variable",
+		requiredIn: [],
+		optionalSetupModes: ["staging", "prod"],
+		githubSync: "never",
+		title: "GitHub sync — staging-fork actor reviewer on private repos",
+		description:
+			'**Optional.** When **`github.environments.stagingFork.reviewerFallbackToActor`** is **`"auto"`** and the repo is **private**, set **`true`** / **`1`** / **`yes`** / **`on`** so **`github:sync:*`** / **`github:env:staging`** injects the current **`gh`** login as a required reviewer on **`staging-fork`** (empty reviewer lists). Omit or **`false`** on Free private repos to avoid **422** from required reviewers. **Public**/**internal** repos do not need this key.',
+		plaintextInSetup: true,
+	},
 ];

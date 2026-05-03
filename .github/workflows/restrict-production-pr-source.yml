@@ -1,6 +1,6 @@
 # Required by the **multiworker: production** ruleset as a status check (`Production merge source`).
 # PRs opened using `GITHUB_TOKEN` do not run `pull_request` workflows (GitHub suppresses those events),
-# so **Deploy staging** posts the same check via the Checks API after open/reuse — see `deploy-staging.yml`.
+# so **`Main`** (**`main-push.yml`**) posts the same check via the Checks API after open/reuse — see **`main-push.yml`**.
 # The allowed head branch is repo variable **`MULTIWORKER_PRODUCTION_PR_HEAD`** (default **main**), set by
 # the admin sync from **`github.repository.rulesets.production.sourceBranchForProductionPrs`** in
 # **`config/github.policy.ts`**.

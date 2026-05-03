@@ -48,7 +48,7 @@ async function main() {
 				"",
 				"**Same steps without the wrapper:** `bun run setup:prod` then `bun run github:sync:prod` (you can set **`MULTIWORKER_AUTO_PRODUCTION_PR`** yourself with `gh variable set`).",
 				"**Deployment rules only:** `bun run github:env:prod` — same **`config/github.policy.ts`** for **`production`** (merges **`.env.production`** if present). Tune policy in your editor; run **`bun run typecheck:root`** after edits.",
-				"Production deploys run on pushes to branch `production` (see `.github/workflows/deploy-production.yml`).",
+				"Production deploys run on pushes to branch `production` (see `.github/workflows/prod-deploy.yml`).",
 				"",
 				...GITHUB_POLICY_HINT_LINES,
 			].join("\n"),

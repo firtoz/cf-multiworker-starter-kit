@@ -1,41 +1,40 @@
-name: Deploy staging
+# **`push`** **`main`**: **Quality** (**`quality-reusable.yml`**) then **staging** deploy + optional **main → production** PR.
+#
+# Operators: **`bun run github:sync:staging`** syncs **`staging`** + repo policy from **`config/github.policy.ts`**.
+name: Main
 
 env:
   TURBO_TELEMETRY_DISABLED: "1"
 
-# Runs after lint / typecheck / build complete when **Quality checks** finishes on **`main`**
-# (successful **push**, same commit — not PR runs on feature branches).
-# If this workflow appears with a skipped “Deploy to staging” job, the completion was usually a **pull_request**
-# Quality run or a failure; inspect the triggering run’s event / conclusion in the Actions UI.
 on:
-  workflow_run:
-    workflows: ["Quality checks"]
-    types: [completed]
-    branches:
-      - main
+  push:
+    branches: [main]
 
 concurrency:
-  group: deploy-staging-${{ github.event.workflow_run.head_sha }}
+  group: staging-deploy
   cancel-in-progress: false
 
 permissions:
   contents: read
 
 jobs:
+  quality:
+    uses: ./.github/workflows/quality-reusable.yml
+    secrets: inherit
+    with:
+      concurrency_group_suffix: ${{ github.workflow }}-${{ github.ref }}
+
   deploy:
     name: Deploy to staging
+    needs: quality
     outputs:
       did_staging_deploy: ${{ steps.deploy_result.outputs.did_staging_deploy }}
-    if:
-      github.event.workflow_run.conclusion == 'success' &&
-      github.event.workflow_run.event == 'push' &&
-      github.event.workflow_run.head_branch == 'main'
     runs-on: ubuntu-latest
     environment: staging
     steps:
       - uses: actions/checkout@v6
         with:
-          ref: ${{ github.event.workflow_run.head_sha }}
+          ref: ${{ github.sha }}
 
       - uses: oven-sh/setup-bun@v2
         with:
@@ -104,23 +103,18 @@ jobs:
             if [[ "$PF_OUT" == "failure" ]]; then
               echo "**Status:** preflight failed — see **Deploy preflight**."
             elif [[ "$PF_OUT" == "skipped" ]]; then
-              echo "**Status:** an earlier step failed or was cancelled before preflight (often **Install dependencies**)."
+              echo "**Status:** skipped before preflight."
             elif [[ "$EN" != "true" ]]; then
-              echo "**Status:** skipped — \`MULTIWORKER_DEPLOY_ENABLED\` is not \`true\` on the **staging** Environment (expected on a fresh fork)."
+              echo "**Status:** skipped — \`MULTIWORKER_DEPLOY_ENABLED\` is not \`true\` on GitHub Environment **staging**."
             elif [[ "$DE_OUT" == "success" ]]; then
               echo "**Status:** success"
-              echo ""
               if [[ -n "$WEB_URL" ]]; then
                 echo "**App (workers.dev):** [$WEB_URL]($WEB_URL)"
-              else
-                echo "- **workers.dev URL:** artifact missing — ${GITHUB_WORKSPACE}/.alchemy/ci/web-deploy-url.txt _(see apps/web/alchemy.run.ts when CI runs on GitHub Actions)._"
               fi
-              echo ""
-              echo "**Production:** after \`bun run onboard:prod\`, repo variable **\`MULTIWORKER_AUTO_PRODUCTION_PR\`** can open or reuse a **\`main\` → \`production\`** PR on successful staging deploys. Until then, run **\`bun run onboard:prod\`** from a trusted machine."
             elif [[ "$DE_OUT" == "failure" ]]; then
-              echo "**Status:** Turbo deploy failed — see **Turbo deploy (staging)**."
+              echo "**Status:** Turbo deploy failed — inspect logs."
             else
-              echo "**Status:** unknown — inspect [this run]($WORKFLOW_URL)."
+              echo "**Status:** inspect [run]($WORKFLOW_URL)."
             fi
           } >> "$GITHUB_STEP_SUMMARY"
 
@@ -156,11 +150,6 @@ jobs:
           REPO="${{ github.repository }}"
           RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
 
-          # The **Production merge source** required check is normally produced by
-          # restrict-production-pr-source.yml on pull_request. Events raised with
-          # GITHUB_TOKEN (including PRs opened by Actions) do not start new workflow
-          # runs, so that check never appears. Recreate the same check conclusion via
-          # the Checks API so production rulesets can merge.
           post_production_merge_source_check() {
             local sha
             sha="$(gh pr list --repo "${REPO}" --base production --head main --state open --json headRefOid --jq '.[0].headRefOid // empty' 2>/dev/null || true)"
@@ -197,7 +186,7 @@ jobs:
             exit 0
           fi
 
-          BODY="$(printf '%s\n\n%s' "Staging deploy succeeded: ${RUN_URL}" "Merge this PR to deploy **production** (see \`.github/workflows/deploy-production.yml\`).")"
+          BODY="$(printf '%s\n\n%s' "Staging deploy succeeded: ${RUN_URL}" "Merge this PR to deploy **production** (see \`.github/workflows/prod-deploy.yml\`).")"
 
           gh pr create --repo "${REPO}" --base production --head main \
             --title "Deploy staging to production" \

@@ -228,6 +228,8 @@ function emptyKeyDisplayForSetupList(defaultIfUnset: string | undefined): string
 /** Plain-language default when the key line is absent from the dotfile (setup list only). */
 const SETUP_LIST_EMPTY_DEFAULT_HINT: Readonly<Record<string, string>> = {
 	GITHUB_SYNC_PUSH_SECRETS: "true (= push secrets & Environment vars to GitHub)",
+	GITHUB_SYNC_STAGING_FORK_REVIEWERS_PRIVATE:
+		'false (= no actor reviewer on private repos when policy reviewerFallbackToActor is "auto")',
 };
 
 function setupCategoryKeySelectMessage(category: EnvSetupCategoryId): string {

@@ -1,4 +1,5 @@
-name: Deploy production
+# **Production deploy** — push **`production`** (**`workflow_dispatch`** supported). Gated by **`MULTIWORKER_DEPLOY_ENABLED`** on **`production`**.
+name: Production deploy
 
 env:
   TURBO_TELEMETRY_DISABLED: "1"
@@ -9,7 +10,7 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: deploy-production
+  group: production-deploy-${{ github.ref }}
   cancel-in-progress: false
 
 permissions:
@@ -21,8 +22,6 @@ jobs:
     runs-on: ubuntu-latest
     environment: production
     steps:
-      # Manual dispatch must pick branch `production`; otherwise attackers with Actions permission could
-      # checkout another ref and ship arbitrary code while still reading production secrets.
       - name: Require production branch on manual dispatch
         if: github.event_name == 'workflow_dispatch'
         run: |

@@ -151,9 +151,7 @@ async function main(): Promise<void> {
 	console.log(
 		"Production is configured on GitHub. After a successful **staging** deploy, this repo may open or reuse a PR **`main` → `production`** when needed.",
 	);
-	console.log(
-		"Merge that PR to deploy production (see `.github/workflows/deploy-production.yml`).",
-	);
+	console.log("Merge that PR to deploy production (see `.github/workflows/prod-deploy.yml`).");
 	console.log("");
 	console.log(
 		`Repository variable **${AUTO_PROD_PR_VAR}** is **true** — staging can propose production PRs (still requires a \`production\` branch on the remote).`,

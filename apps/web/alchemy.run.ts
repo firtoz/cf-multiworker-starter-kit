@@ -67,7 +67,7 @@ if (process.env["GITHUB_ACTIONS"] === "true" && web.url) {
 	}
 }
 
-// PR preview comments belong in `.github/workflows/pr-preview-comment.yml`. Avoid `alchemy/github`
+// PR preview comments belong in `.github/workflows/pr-deploy.yml`. Avoid `alchemy/github`
 // `GitHubComment` here on CI + `STAGE=pr-*` — `verifyGitHubAuth` often 404s for fork/private PRs.
 
 await app.finalize();

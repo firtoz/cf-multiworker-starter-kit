@@ -28,12 +28,15 @@
  * **Staging secrets** (`STAGE=staging`, scope **`secrets`**) also mirror to **`staging-fork`** and apply fork PR
  * deployment protection from **`config/github.policy.ts`** → **`github.environments.stagingFork`**.
  *
+ * **`GITHUB_SYNC_STAGING_FORK_REVIEWERS_PRIVATE`** (optional, staging **`staging-fork`** only): when **`reviewerFallbackToActor`** is **`"auto"`** and the repo is **private**, set **`1`** / **`true`** / **`yes`** / **`on`** so sync injects the **`gh`** actor as required reviewer (plans that support Environment reviewers). **Public** and **internal** repos enable actor fallback automatically under **`"auto"`**.
+ *
  * **Repository REST + rulesets** (staging sync only, scope **`secrets`**): driven by **`config/github.policy.ts`** →
  * **`github.sync`** / **`github.repository`** — see **`stacks/github-repository-settings-sync.ts`** and
  * **`stacks/github-repo-rulesets-sync.ts`**.
  */
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
+import { Octokit } from "@octokit/rest";
 import alchemy from "alchemy";
 import { GitHubSecret, RepositoryEnvironment } from "alchemy/github";
 import { parse } from "dotenv";
@@ -41,7 +44,9 @@ import githubPolicy from "../config/github.policy";
 import { resolveStageFromEnv } from "../packages/alchemy-utils/src/deployment-stage";
 import {
 	assertGithubPolicyConfig,
+	resolveStagingForkReviewerFallbackToActor,
 	shouldApplyGithubRulesets,
+	type GithubRepoVisibility,
 } from "../packages/alchemy-utils/src/github-policy-config";
 import { ALCHEMY_APP_IDS } from "../packages/alchemy-utils/src/worker-peer-scripts";
 import {
@@ -135,6 +140,24 @@ function parsePushSecretsDefaultTrue(): boolean {
 	}
 	throw new Error(
 		`GITHUB_SYNC_PUSH_SECRETS must be "true" or "false" (got ${JSON.stringify(raw)})`,
+	);
+}
+
+/** Opt-in: **`stagingFork.reviewerFallbackToActor: "auto"`** + **private** repo → still inject actor reviewer (Team+ etc.). */
+function parseStagingForkReviewersPrivateEnv(): boolean {
+	const raw = process.env["GITHUB_SYNC_STAGING_FORK_REVIEWERS_PRIVATE"]?.trim();
+	if (raw === undefined || raw === "") {
+		return false;
+	}
+	const t = raw.toLowerCase();
+	if (t === "1" || t === "true" || t === "yes" || t === "on") {
+		return true;
+	}
+	if (t === "0" || t === "false" || t === "no" || t === "off") {
+		return false;
+	}
+	throw new Error(
+		`GITHUB_SYNC_STAGING_FORK_REVIEWERS_PRIVATE must be "true" or "false" (got ${JSON.stringify(raw)})`,
 	);
 }
 
@@ -300,14 +323,33 @@ async function syncRepositoryEnvironmentBestEffort(
 }
 
 async function upsertStagingForkRepositoryEnvironment(): Promise<void> {
-	const protection = stagingForkRepositoryEnvironmentProtectionFromRules(
-		githubPolicy.github.environments.stagingFork,
-	);
 	const repoFullName = `${owner}/${repository}`;
 	await syncRepositoryEnvironmentBestEffort(
 		repoFullName,
 		PR_PREVIEW_FORK_GITHUB_ENVIRONMENT,
 		async () => {
+			const octokit = new Octokit({ auth: githubToken });
+			const { data: repoMeta } = await octokit.rest.repos.get({ owner, repo: repository });
+			const visibility: GithubRepoVisibility =
+				repoMeta.visibility === "internal"
+					? "internal"
+					: repoMeta.visibility === "public"
+						? "public"
+						: repoMeta.private
+							? "private"
+							: "public";
+
+			const effectiveFallback = resolveStagingForkReviewerFallbackToActor(
+				githubPolicy.github.environments.stagingFork,
+				{ visibility },
+				{ forceReviewerFallbackOnPrivateRepo: parseStagingForkReviewersPrivateEnv() },
+			);
+
+			const protection = stagingForkRepositoryEnvironmentProtectionFromRules(
+				githubPolicy.github.environments.stagingFork,
+				effectiveFallback,
+			);
+
 			await RepositoryEnvironment(
 				repositoryEnvironmentAlchemyId(PR_PREVIEW_FORK_GITHUB_ENVIRONMENT),
 				{

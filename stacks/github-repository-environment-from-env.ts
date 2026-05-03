@@ -90,16 +90,19 @@ export function explicitRepositoryEnvironmentProtectionFromRules(
 
 /**
  * Protection applied to **`staging-fork`** on each **`github:sync:staging`**.
+ *
+ * @param reviewerFallbackEffective — from **`resolveStagingForkReviewerFallbackToActor`** when policy uses **`"auto"`**.
  */
 export function stagingForkRepositoryEnvironmentProtectionFromRules(
 	rules: GithubStagingForkDeploymentRules,
+	reviewerFallbackEffective: boolean,
 ): ExplicitRepositoryEnvironmentProtection {
 	const waitTimer = parseOptionalInt(rules.waitTimerMinutes, "stagingFork.waitTimerMinutes");
 	assertWaitTimerRange(waitTimer, "stagingFork.waitTimerMinutes");
 
 	let userReviewers = parseCommaList(rules.reviewerUsers);
 	const teamReviewers = parseCommaList(rules.reviewerTeams);
-	if (userReviewers.length === 0 && teamReviewers.length === 0 && rules.reviewerFallbackToActor) {
+	if (userReviewers.length === 0 && teamReviewers.length === 0 && reviewerFallbackEffective) {
 		userReviewers = [getGitHubActorLogin()];
 	}
 

@@ -102,7 +102,7 @@ These trip up new contributors and agents most often. For commands and checklist
 
 22. **Preview deploy vs destroy — top-level `requireEnv`**
    - **`alchemy destroy`** loads **`alchemy.run.ts`** the same way **`alchemy deploy`** does: any **`requireEnv("…")`** at **module scope** must be set for **`destroy:preview`** too.
-   - Locally that usually means **`.env.staging`** (see **`dotenv-cli -e …`** on **`destroy:preview`** scripts). In CI, mirror **`Turbo deploy (preview)`** **`env:`** on **`Turbo destroy (preview)`** in **[`.github/workflows/deploy-pr-preview.yml`](../../../.github/workflows/deploy-pr-preview.yml)** — otherwise post-merge teardown fails with **`… is not set`** from a worker/DO **`alchemy.run.ts`** (e.g. **`APP_PUBLIC_BASE_URL`**).
+   - Locally that usually means **`.env.staging`** (see **`dotenv-cli -e …`** on **`destroy:preview`** scripts). In CI, mirror **`Turbo deploy (preview)`** **`env:`** on **Destroy PR preview** in **[`.github/workflows/pr-deploy.yml`](../../../.github/workflows/pr-deploy.yml)** — otherwise post-merge teardown fails with **`… is not set`** from a worker/DO **`alchemy.run.ts`** (e.g. **`APP_PUBLIC_BASE_URL`**).
    - Alternatives: avoid module-scope **`requireEnv`** for vars only needed at runtime, or use a destroy-safe placeholder where appropriate.
 
 ## Also load
