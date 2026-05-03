@@ -167,7 +167,9 @@ function assertRange(label: string, n: number, min: number, max: number): void {
  * **`main.requiredStatusCheckContexts`** must match a normal caller-level job, not an inner job from
  * **`quality-reusable.yml`**. GitHub can show reusable-workflow inner checks as green while rulesets
  * keep the same visible name stuck as **Expected — Waiting for status to be reported**. Stock PRs
- * satisfy **`PR preview / Quality checks`** from **`.github/workflows/pr-deploy.yml`**.
+ * satisfy the plain **`Quality checks`** caller-level job from **`.github/workflows/pr-deploy.yml`**;
+ * GitHub's PR UI may display it as **`PR preview / Quality checks (pull_request)`**, but the ruleset
+ * picker stores the unprefixed **`Quality checks`** context.
  */
 export const DEFAULT_GITHUB_POLICY: GitHubPolicyConfig = {
 	github: {
@@ -222,7 +224,7 @@ export const DEFAULT_GITHUB_POLICY: GitHubPolicyConfig = {
 					includeRefs: ["refs/heads/main"],
 					requirePullRequestBeforeMerge: true,
 					allowRepositoryAdminBypassOnMain: true,
-					requiredStatusCheckContexts: ["PR preview / Quality checks"],
+					requiredStatusCheckContexts: ["Quality checks"],
 					strictRequiredStatusChecks: true,
 				},
 				production: {

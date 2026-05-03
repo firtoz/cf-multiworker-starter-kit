@@ -108,6 +108,10 @@ jobs:
           set -o pipefail
           bun run destroy:preview 2>&1 | tee destroy-output.txt
 
+      - name: Cleanup preview Alchemy state store
+        id: cleanup_state
+        run: bun run --cwd packages/scripts cleanup:alchemy-state:preview
+
       - name: Destroy summary
         if: always()
         env:
@@ -116,6 +120,7 @@ jobs:
           WORKFLOW_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           VF_OUT: ${{ steps.verify_env.outcome }}
           DS_OUT: ${{ steps.destroy.outcome }}
+          CS_OUT: ${{ steps.cleanup_state.outcome }}
         run: |
           merged_note="closed without merge"
           if [[ "${MERGED}" == "true" ]]; then
@@ -129,8 +134,10 @@ jobs:
               echo "**Status:** env verification failed — destroy did not run."
             elif [[ "${VF_OUT}" == "skipped" ]]; then
               echo "**Status:** cancelled before verify."
-            elif [[ "${DS_OUT}" == "success" ]]; then
-              echo "**Status:** destroy succeeded (\`STAGE=pr-${PR_NUMBER}\`)."
+            elif [[ "${DS_OUT}" == "success" && "${CS_OUT}" == "success" ]]; then
+              echo "**Status:** destroy succeeded and Alchemy state store was cleaned up (\`STAGE=pr-${PR_NUMBER}\`)."
+            elif [[ "${DS_OUT}" == "success" && "${CS_OUT}" == "failure" ]]; then
+              echo "**Status:** destroy succeeded, but Alchemy state store cleanup failed — see logs."
             elif [[ "${DS_OUT}" == "failure" ]]; then
               echo "**Status:** destroy failed — see logs."
             elif [[ "${DS_OUT}" == "skipped" ]]; then
