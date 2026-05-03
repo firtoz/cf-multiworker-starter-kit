@@ -24,9 +24,28 @@ jobs:
     with:
       concurrency_group_suffix: ${{ github.workflow }}-${{ github.ref }}
 
+  quality_ruleset_gate:
+    name: Quality checks
+    needs: quality
+    if: always()
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Require reusable Quality workflow succeeded
+        env:
+          QUALITY_RESULT: ${{ needs.quality.result }}
+        run: |
+          set -euo pipefail
+          if [[ "$QUALITY_RESULT" != "success" ]]; then
+            echo "::error::Reusable Quality workflow finished with result ${QUALITY_RESULT}."
+            exit 1
+          fi
+          echo "Quality gate: reusable workflow succeeded."
+
   deploy:
     name: Deploy to staging
-    needs: quality
+    needs: quality_ruleset_gate
     outputs:
       did_staging_deploy: ${{ steps.deploy_result.outputs.did_staging_deploy }}
     runs-on: ubuntu-latest

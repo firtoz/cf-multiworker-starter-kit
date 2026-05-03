@@ -32,6 +32,31 @@ jobs:
     with:
       concurrency_group_suffix: ${{ github.workflow }}-${{ github.event.pull_request.head.ref || github.ref }}
 
+  # Required by the **main** ruleset. Keep this as a caller-level job, not a job inside
+  # **`quality-reusable.yml`**: GitHub can leave reusable-workflow inner jobs stuck as
+  # **Expected — Waiting for status to be reported** even when their check run is green.
+  quality_ruleset_gate:
+    name: Quality checks
+    needs: quality
+    if: >-
+      always() &&
+      github.event_name == 'pull_request' &&
+      contains(fromJSON('["opened","synchronize","reopened"]'), github.event.action)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Require reusable Quality workflow succeeded
+        env:
+          QUALITY_RESULT: ${{ needs.quality.result }}
+        run: |
+          set -euo pipefail
+          if [[ "$QUALITY_RESULT" != "success" ]]; then
+            echo "::error::Reusable Quality workflow finished with result ${QUALITY_RESULT}."
+            exit 1
+          fi
+          echo "Quality gate: reusable workflow succeeded."
+
   destroy_preview:
     name: Destroy PR preview
     if: >-
@@ -252,13 +277,13 @@ jobs:
 
   preview_github_on_quality_failure:
     name: PR preview — comment when Quality fails
-    needs: [quality, seed_preview_comment]
+    needs: [quality_ruleset_gate, seed_preview_comment]
     if: >-
       always() &&
       github.event_name == 'pull_request' &&
       contains(fromJSON('["opened","synchronize","reopened"]'), github.event.action) &&
       github.event.pull_request.head.repo.full_name == github.repository &&
-      needs.quality.result != 'success'
+      needs.quality_ruleset_gate.result != 'success'
     runs-on: ubuntu-latest
     permissions:
       issues: write
@@ -269,7 +294,7 @@ jobs:
         env:
           PR_NUMBER: ${{ github.event.pull_request.number }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-          QUALITY_CONC: ${{ needs.quality.result }}
+          QUALITY_CONC: ${{ needs.quality_ruleset_gate.result }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         with:
           script: |
@@ -327,12 +352,12 @@ jobs:
 
   deploy_preview:
     name: Deploy PR preview
-    needs: [quality, seed_preview_comment]
+    needs: [quality_ruleset_gate, seed_preview_comment]
     if: >-
       always() &&
       github.event_name == 'pull_request' &&
       contains(fromJSON('["opened","synchronize","reopened"]'), github.event.action) &&
-      needs.quality.result == 'success' &&
+      needs.quality_ruleset_gate.result == 'success' &&
       github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     concurrency:

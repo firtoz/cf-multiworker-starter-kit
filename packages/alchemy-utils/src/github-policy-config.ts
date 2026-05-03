@@ -164,11 +164,10 @@ function assertRange(label: string, n: number, min: number, max: number): void {
 /**
  * Opinionated starter template — merge settings + repository rulesets + Environment rules.
  *
- * **`main.requiredStatusCheckContexts`** must match the **check context** GitHub shows on PRs — for
- * reusable workflows that is **`{caller workflow name} / {caller job id} / {inner job name}`**, not
- * **`{reusable workflow name} / …`**. Stock workflows: **`PR preview / Quality / Quality checks`**
- * (pull_request) and **`Main / Quality / Quality checks`** (push to `main`). The default uses the
- * PR path so merges via PR satisfy the rule; change it if your workflow `name:` / job id differ.
+ * **`main.requiredStatusCheckContexts`** must match a normal caller-level job, not an inner job from
+ * **`quality-reusable.yml`**. GitHub can show reusable-workflow inner checks as green while rulesets
+ * keep the same visible name stuck as **Expected — Waiting for status to be reported**. Stock PRs
+ * satisfy **`PR preview / Quality checks`** from **`.github/workflows/pr-deploy.yml`**.
  */
 export const DEFAULT_GITHUB_POLICY: GitHubPolicyConfig = {
 	github: {
@@ -223,7 +222,7 @@ export const DEFAULT_GITHUB_POLICY: GitHubPolicyConfig = {
 					includeRefs: ["refs/heads/main"],
 					requirePullRequestBeforeMerge: true,
 					allowRepositoryAdminBypassOnMain: true,
-					requiredStatusCheckContexts: ["PR preview / Quality / Quality checks"],
+					requiredStatusCheckContexts: ["PR preview / Quality checks"],
 					strictRequiredStatusChecks: true,
 				},
 				production: {
