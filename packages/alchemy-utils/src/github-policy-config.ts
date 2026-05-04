@@ -128,6 +128,12 @@ export type GithubRulesetMainExtensions = {
 export type GithubRulesetProductionExtensions = {
 	readonly requireSourceBranchStatusCheckGate: boolean;
 	readonly sourceBranchForProductionPrs: string;
+	/**
+	 * Required-status-check **context** for rulesets. For GitHub Actions workflows this must be
+	 * **`{workflow name} / {job name}`** (see GitHub ruleset troubleshooting). Must stay in sync with
+	 * **`name:`** + the job’s **`name:`** in **`.github/workflows/restrict-production-pr-source.yml`**,
+	 * and with the **`name`** field when posting check runs from **`main-push.yml`**.
+	 */
 	readonly sourceBranchStatusCheckContext: string;
 	readonly strictSourceBranchStatusChecks: boolean;
 };
@@ -233,7 +239,8 @@ export const DEFAULT_GITHUB_POLICY: GitHubPolicyConfig = {
 					includeRefs: ["refs/heads/production"],
 					requireSourceBranchStatusCheckGate: true,
 					sourceBranchForProductionPrs: "main",
-					sourceBranchStatusCheckContext: "Production merge source",
+					sourceBranchStatusCheckContext:
+						"Restrict production PR source / Production merge source",
 					strictSourceBranchStatusChecks: true,
 				},
 				pullRequest: {

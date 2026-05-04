@@ -1,4 +1,5 @@
-# Required by the **multiworker: production** ruleset as a status check (`Production merge source`).
+# Required by the **multiworker: production** ruleset as status check
+# **`Restrict production PR source / Production merge source`** (workflow `name` + job `name`; rulesets use that full string).
 # PRs opened using `GITHUB_TOKEN` do not run `pull_request` workflows (GitHub suppresses those events),
 # so **`Main`** (**`main-push.yml`**) posts the same check via the Checks API after open/reuse — see **`main-push.yml`**.
 # The allowed head branch is repo variable **`PRODUCTION_PR_HEAD`** (default **main**), set by
