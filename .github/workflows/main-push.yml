@@ -173,6 +173,11 @@ jobs:
           PROD_PR_HEAD_FILTER="${REPO_OWNER}:${PROD_PR_HEAD}"
           RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
 
+          # The **Production merge source** required check is normally produced by
+          # restrict-production-pr-source.yml on pull_request. Events raised with
+          # GITHUB_TOKEN (including PRs opened by Actions) do not start new workflow
+          # runs, so that check never appears. Recreate the same check conclusion via
+          # the Checks API so production rulesets can merge.
           post_production_merge_source_check() {
             local sha
             sha="$(gh pr list --repo "${REPO}" --base production --head "${PROD_PR_HEAD_FILTER}" --state open --json headRefOid --jq '.[0].headRefOid // empty' 2>/dev/null || true)"
