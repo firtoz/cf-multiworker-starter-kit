@@ -48,6 +48,7 @@ jobs:
     needs: quality_ruleset_gate
     outputs:
       did_staging_deploy: ${{ steps.deploy_result.outputs.did_staging_deploy }}
+      auto_production_pr: ${{ steps.deploy_result.outputs.auto_production_pr }}
     runs-on: ubuntu-latest
     environment: staging
     steps:
@@ -140,6 +141,8 @@ jobs:
       - name: Record staging deploy outcome
         id: deploy_result
         if: always()
+        env:
+          AUTO_PRODUCTION_PR: ${{ vars.AUTO_PRODUCTION_PR }}
         run: |
           pf="${{ steps.preflight.outputs.deploy_enabled }}"
           de="${{ steps.deploy.outcome }}"
@@ -148,13 +151,18 @@ jobs:
           else
             echo "did_staging_deploy=false" >> "$GITHUB_OUTPUT"
           fi
+          if [[ "${AUTO_PRODUCTION_PR:-}" == "true" ]]; then
+            echo "auto_production_pr=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "auto_production_pr=false" >> "$GITHUB_OUTPUT"
+          fi
 
   maybe_production_pr:
     name: Open or reuse production PR
     needs: deploy
     if: >-
       needs.deploy.outputs.did_staging_deploy == 'true' &&
-      vars.AUTO_PRODUCTION_PR == 'true'
+      needs.deploy.outputs.auto_production_pr == 'true'
     runs-on: ubuntu-latest
     environment: staging
     permissions:
