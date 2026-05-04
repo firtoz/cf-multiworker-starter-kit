@@ -47,6 +47,6 @@ export const ALCHEMY_APP_IDS = {
 	other: `${PRODUCT_PREFIX}-other`,
 	database: `${PRODUCT_PREFIX}-database`,
 	admin: `${PRODUCT_PREFIX}-admin`,
-	/** Provision-only app: ensures shared CI [`CloudflareStateStore`](https://alchemy.run/guides/cloudflare-state-store) exists before parallel `deploy:*`. Turbo: list **`state-hub`** (workspace **`package.json`** **name**) as a **`devDependency`** and use **`^deploy:*`** so **`stateHub` runs first**. */
+	/** Provision-only app: ensures shared [`CloudflareStateStore`](https://alchemy.run/guides/cloudflare-state-store) exists for non-local **`STAGE`** before parallel `deploy:*`. Turbo: list **`state-hub`** (workspace **`package.json`** **name**) as a **`devDependency`** and use **`^deploy:*`** so **`stateHub` runs first**. */
 	stateHub: `${PRODUCT_PREFIX}-state-hub`,
 } as const;

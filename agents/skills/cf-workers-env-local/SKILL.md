@@ -34,8 +34,8 @@ Create **Cloudflare API tokens** only in the dashboard ([`docs/github-admin.md`]
 
 3. **`ALCHEMY_PASSWORD`**, **`ALCHEMY_STATE_TOKEN`**, and CI — Two different concerns; both matter for deploys.
    - **`ALCHEMY_PASSWORD`** must match on **every** **`alchemy deploy`** for that stage ([encryption password](https://alchemy.run/concepts/secret/#encryption-password)).
-   - **`ALCHEMY_STATE_TOKEN`** is one stable token per Cloudflare account for the [Cloudflare-backed Alchemy state store](https://alchemy.run/guides/cloudflare-state-store/).
-   - In CI, apps use **`alchemyCiCloudStateStoreOptions(stage)`** on a state worker named from **`PRODUCT_PREFIX`** + **`STAGE`**. Every deploy package lists **`state-hub`** as a **`devDependency`** so Turbo **`^deploy:*`** runs the hub **before** other deploys (single creator → avoids **[10065 … already in use](https://developers.cloudflare.com/workers/configuration/durable-objects/)** on the state DO).
+   - **`ALCHEMY_STATE_TOKEN`** is one stable token per Cloudflare account for the [Cloudflare-backed Alchemy state store](https://alchemy.run/guides/cloudflare-state-store/) whenever **`STAGE` is not `local`** (CI or a laptop).
+   - For any **`STAGE` other than `local`**, apps use **`alchemyCiCloudStateStoreOptions(stage)`** on a state worker named from **`PRODUCT_PREFIX`** + **`STAGE`**. **`STAGE=local`** (`alchemy dev`) keeps Alchemy’s default filesystem **`.alchemy/`** instead. Every deploy package lists **`state-hub`** as a **`devDependency`** so Turbo **`^deploy:*`** runs the hub **before** other deploys (single creator → avoids **[10065 … already in use](https://developers.cloudflare.com/workers/configuration/durable-objects/)** on the state DO).
    - **`bun run setup`** / **`setup:staging`** / **`setup:prod`** walks both keys in the browser. **`github:sync`** / **`github:sync:*`** pushes them to the GitHub Environment with the other deploy secrets (defaults: `gh auth token` / `gh repo view`).
    - **`github:env:*`** updates **only** **`RepositoryEnvironment`** **deployment protection** from **`config/github.policy.ts`** (see [`stacks/github-repository-environment-from-env.ts`](../../../stacks/github-repository-environment-from-env.ts)); it does **not** upload secrets or Environment variables. Stage dotfile may still be merged for local process env.
 
@@ -82,7 +82,7 @@ Create **Cloudflare API tokens** only in the dashboard ([`docs/github-admin.md`]
 .env.production           # gitignored prod / CI secrets as needed (`STAGE=prod`)
 stacks/admin.ts           # local-only admin stack — GitHub Environment secrets + deploy enablement var
 packages/alchemy-utils/   # `PRODUCT_PREFIX`, `ALCHEMY_APP_IDS`, `src/alchemy-cli.ts`, `requireAlchemyPassword`, deployment-stage
-packages/state-hub/       # `alchemy.run.ts` — provisions shared CI CloudflareStateStore (`ALCHEMY_APP_IDS.stateHub`)
+packages/state-hub/       # `alchemy.run.ts` — provisions shared CloudflareStateStore for non-local stages (`ALCHEMY_APP_IDS.stateHub`)
 apps/web/
   alchemy.run.ts          # web Alchemy app
   env.d.ts                # Alchemy-derived Env (see multiworker-workflow / cf-web-alchemy-bindings)

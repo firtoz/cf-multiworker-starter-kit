@@ -63,7 +63,7 @@ After edits: **`bun run typegen`** from the repo root. **`env.d.ts`** reflects e
 - **Root** [`package.json`](../../package.json): set **`"name"`** to the fork project slug (replaces `cloudflare-multiworker-template`).
 - **`apps/web/package.json`**: set **`"name"`** (e.g. **`my-saas-web`**) — **Turbo filter** usage; **`alchemy`** app id stays in **`alchemy.run.ts`** (**`ALCHEMY_APP_IDS.frontend`** …).
 - Each DO/worker **`package.json`**: **`deploy`/`destroy`/`dev`** scripts should call **`alchemy-cli.ts`** with the **`ALCHEMY_APP_IDS`** key that matches **`alchemy("…")`** in **`alchemy.run.ts`**.
-- **`packages/state-hub`**: **`alchemy.run.ts`** stays on **`ALCHEMY_APP_IDS.stateHub`**; scripts use **`alchemy-cli.ts … stateHub`** (provision-only shared CI Cloudflare state).
+- **`packages/state-hub`**: **`alchemy.run.ts`** stays on **`ALCHEMY_APP_IDS.stateHub`**; scripts use **`alchemy-cli.ts … stateHub`** (provision-only shared Cloudflare Alchemy state for non-local **`STAGE`**).
 - **`workspace:*` dependencies:** If you rename a workspace package (**`chatroom-do`** folder / **`name`**), update every consumer and **`bun install`**.
 
 ## 4. README

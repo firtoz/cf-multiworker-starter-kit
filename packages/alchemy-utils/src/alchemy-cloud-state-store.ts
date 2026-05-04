@@ -1,9 +1,10 @@
 /**
- * Persist Alchemy deploy state outside the ephemeral CI filesystem.
+ * Persist Alchemy deploy state in Cloudflare for every non-local stage so **CI and developer laptops**
+ * share deployment state (`deploy:*`, `destroy:*`). Local dev skips this and uses the default filesystem store.
  *
- * - **CI** (`CI=true`): [`CloudflareStateStore`](https://alchemy.run/guides/cloudflare-state-store) with one
- *   **`${PRODUCT_PREFIX}-alchemy-state-${stageSlug}`** script per stage (`ALCHEMY_STATE_TOKEN`).
- * - **Local** (no CI): omit — repo **`.alchemy/`** directory.
+ * - **`STAGE !== "local"`** (staging, prod, PR preview, etc.): [`CloudflareStateStore`](https://alchemy.run/guides/cloudflare-state-store)
+ *   with one **`${PRODUCT_PREFIX}-alchemy-state-${stageSlug}`** script per stage (`ALCHEMY_STATE_TOKEN`).
+ * - **`STAGE=local`** (`alchemy dev`): omit — repo **`.alchemy/`** directory (default).
  *
  * **Concurrency:** Each deploy package lists **`state-hub`** as a **`devDependency`** and **`deploy:*`** uses **`dependsOn`** **`^deploy:*`** so the hub runs before siblings and two
  * processes never compete to create the same Durable Object namespace ([10065 … already in use](https://developers.cloudflare.com/workers/configuration/durable-objects/)).
@@ -31,11 +32,13 @@ export function sanitizeAlchemyStateStoreStageSlug(stage: string): string {
 /**
  * Spread into {@link import("alchemy").default} App options beside `stage`:
  * `{ stage, ...alchemyCiCloudStateStoreOptions(stage) }`
+ *
+ * Remote state for all stages except **`local`**; name kept for historical call sites.
  */
 export function alchemyCiCloudStateStoreOptions(stage: string): {
 	stateStore?: StateStoreType;
 } {
-	if (process.env["CI"] !== "true") {
+	if (stage.trim().toLowerCase() === "local") {
 		return {};
 	}
 	const stageSlug = sanitizeAlchemyStateStoreStageSlug(stage);

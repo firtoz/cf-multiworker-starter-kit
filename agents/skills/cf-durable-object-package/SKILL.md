@@ -43,7 +43,7 @@ description: Add or change a Durable Object worker package under durable-objects
 
    - **`dev`**: **`bunx dotenv-cli -v STAGE=local -e ../../.env.local -- bun ../../packages/alchemy-utils/src/alchemy-cli.ts dev <kebab-suffix>`** → **`alchemy dev --app ${PRODUCT_PREFIX}-<suffix>`**.
    - **`deploy` / `destroy`**: same **`dotenv-cli`** + **`alchemy-cli`** pattern for each stage.
-   - Add **`state-hub`**: **`workspace:*`** **`devDependency`** so Turbo **`^deploy:*`** runs the shared CI state hub first.
+   - Add **`state-hub`**: **`workspace:*`** **`devDependency`** so Turbo **`^deploy:*`** runs the shared remote Alchemy state hub first.
    - SQLite DOs: also expose **`db:generate`**.
 
 7. **After edits** — From repo root: `bun run typegen` and `bun run typecheck` (or package-local `typecheck:local`). If schema changed, run package-local `db:generate` first.

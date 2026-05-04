@@ -29,7 +29,7 @@ export const REPO_ROOT_ENV_REQUIREMENTS: readonly EnvRequirement[] = [
 		githubSync: "required",
 		title: "Alchemy Cloud state token",
 		description:
-			"One stable token per Cloudflare account for CI state (see https://alchemy.run/guides/cloudflare-state-store/); same value in staging + prod github:sync secrets",
+			"One stable token per Cloudflare account for Cloudflare-backed Alchemy state when STAGE≠local (see https://alchemy.run/guides/cloudflare-state-store/); same value in staging + prod github:sync secrets and local dotfiles used for deploy",
 		canAutoGenerate: true,
 	},
 	{

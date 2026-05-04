@@ -134,7 +134,7 @@ Each command runs the **full** Turbo graph (shared Alchemy state, D1 + migration
 │   ├── chat-contract/
 │   ├── db/                     # D1 schema + Drizzle migrations
 │   ├── scripts/                # quickstart, setup, onboard, GitHub sync helpers
-│   └── state-hub/              # shared CI Alchemy state
+│   └── state-hub/              # shared remote Alchemy state (non-local STAGE)
 ├── stacks/                     # admin / GitHub sync (Alchemy)
 ├── agents/                     # AI rules + skills (human playbooks too)
 ├── .cursor/                    # Cursor env + symlinks to agents/
