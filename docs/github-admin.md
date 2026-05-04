@@ -22,7 +22,16 @@ Use this page when you want to change how GitHub behaves after onboarding.
 
 ### `ALCHEMY_STATE_TOKEN` (GitHub Environments)
 
-Deploy workflows read **`ALCHEMY_STATE_TOKEN`** from the active GitHub Environment (**`staging`**, **`production`**). For the usual **one Cloudflare account** setup, that secret must be the **same value** on **`staging` and `production`** and must match repo-root **`.env.staging`** / **`.env.production`** when you deploy from a laptop. After editing dotfiles, run **`bun run github:sync:staging`** / **`github:sync:prod`** so CI stays aligned. A mismatch often fails with **`[CloudflareStateStore] The token is invalid`**. See [`agents/skills/cf-workers-env-local/SKILL.md`](../agents/skills/cf-workers-env-local/SKILL.md) (ground rules §3).
+Official rule: **[the token must be the same for all deployments on your Cloudflare account](https://alchemy.run/guides/cloudflare-state-store/)** (`alchemy-state-service` bearer).
+
+Workflows expose **`secrets.ALCHEMY_STATE_TOKEN`** to deploy/teardown jobs. For **one Cloudflare account** and the **default** state Worker:
+
+- Use the **identical secret value** everywhere it appears (e.g. **`.env.staging`**, **`.env.production`**, every GitHub Environment that runs those jobs, **`deploy` from laptops**, and **other repositories** deploying Alchemy to that account with the same store).
+- Tokens are **not** split “per staging vs prod” or “per project name” unless you deliberately use isolated state-store Workers (**not** this template).
+
+After changing dotfiles, run **`bun run github:sync:staging`** / **`bun run github:sync:prod`** so GitHub stays in sync — CI does not read your laptop files.
+
+Mismatch → **`[CloudflareStateStore] The token is invalid`**. Detail: [**cf-workers-env-local §3**](../agents/skills/cf-workers-env-local/SKILL.md).
 
 Use **`bun run github:setup`** for a step-by-step printout.
 

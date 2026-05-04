@@ -4,6 +4,7 @@
  *
  * - **`STAGE !== "local"`** (staging, prod, PR preview, etc.): [`CloudflareStateStore`](https://alchemy.run/guides/cloudflare-state-store)
  *   without a custom `scriptName`, so Alchemy uses the account default **`alchemy-state-service`** (`ALCHEMY_STATE_TOKEN`).
+ *   **Token:** [Alchemy documents](https://alchemy.run/guides/cloudflare-state-store/) the env var must be the **same for all deployments on your Cloudflare account** — every stage, every GitHub Environment secret, every laptop deploy to that account, and **every other repo** using this default store on that account.
  *   Stacks stay isolated by **app id** (`alchemy("…")`) and **`stage`** inside that store — not one state-store Worker per stage.
  * - **`STAGE=local`** (`alchemy dev`): omit — repo **`.alchemy/`** directory (default).
  *
