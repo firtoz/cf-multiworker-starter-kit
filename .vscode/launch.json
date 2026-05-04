@@ -1,33 +1,16 @@
 {
-    // Use IntelliSense to learn about possible attributes.
-    // Hover to view descriptions of existing attributes.
-    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
-    "version": "0.2.0",
-    "configurations": [
-        {
-            "type": "node",
-            "request": "launch",
-            "name": "Launch Program",
-            "skipFiles": [
-                "<node_internals>/**"
-            ],
-            "program": "${file}",
-            "outFiles": [
-                "${workspaceFolder}/**/*.js"
-            ]
-        },
-        {
-            "type": "node",
-            "request": "launch",
-            "name": "Debug web typegen (React Router)",
-            "skipFiles": [
-                "<node_internals>/**"
-            ],
-            "runtimeExecutable": "bun",
-            "runtimeArgs": ["run", "typegen:local"],
-            "cwd": "${workspaceFolder}/apps/web",
-            "console": "integratedTerminal",
-            "internalConsoleOptions": "neverOpen"
-        }
-    ]
+	"version": "0.2.0",
+	"configurations": [
+		{
+			"type": "node",
+			"request": "launch",
+			"name": "Debug root dev",
+			"runtimeExecutable": "bun",
+			"runtimeArgs": ["--inspect-wait", "run", "dev"],
+			"cwd": "${workspaceFolder}",
+			"skipFiles": ["<node_internals>/**"],
+			"console": "integratedTerminal",
+			"internalConsoleOptions": "neverOpen"
+		}
+	]
 }

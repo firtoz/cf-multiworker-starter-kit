@@ -3,7 +3,7 @@
 	"extends": ["//"],
 	"tasks": {
 		"dev": {
-			"dependsOn": ["scripts#dev:preflight", "db:generate", "typegen:local"],
+			"dependsOn": ["scripts#dev:preflight", "db:generate", "typegen"],
 			"inputs": [
 				"alchemy.run.ts",
 				"src/**/*.ts",
@@ -18,8 +18,8 @@
 			"inputs": ["drizzle.config.ts", "src/**/*.ts"],
 			"outputs": ["drizzle/**"]
 		},
-		"typegen:local": {
-			"dependsOn": ["db:generate"],
+		"typegen": {
+			"dependsOn": ["db:generate", "^typegen"],
 			"inputs": [
 				"alchemy.run.ts",
 				"drizzle.config.ts",
@@ -31,34 +31,8 @@
 			],
 			"outputs": []
 		},
-		"typegen:prod": {
-			"dependsOn": ["db:generate"],
-			"inputs": [
-				"alchemy.run.ts",
-				"drizzle.config.ts",
-				"drizzle/**",
-				"src/**/*.ts",
-				"tsconfig.json",
-				"package.json",
-				"$TURBO_ROOT$/tsconfig.base.json"
-			],
-			"outputs": []
-		},
-		"typecheck:local": {
-			"dependsOn": ["typegen:local"],
-			"inputs": [
-				"alchemy.run.ts",
-				"drizzle.config.ts",
-				"drizzle/**",
-				"src/**/*.ts",
-				"tsconfig.json",
-				"package.json",
-				"$TURBO_ROOT$/tsconfig.base.json"
-			],
-			"outputs": []
-		},
-		"typecheck:prod": {
-			"dependsOn": ["typegen:prod"],
+		"typecheck": {
+			"dependsOn": ["typegen", "^typecheck"],
 			"inputs": [
 				"alchemy.run.ts",
 				"drizzle.config.ts",
@@ -71,7 +45,7 @@
 			"outputs": []
 		},
 		"deploy:prod": {
-			"dependsOn": ["^deploy:prod", "typecheck:prod", "db:generate"],
+			"dependsOn": ["^deploy:prod", "typecheck", "db:generate"],
 			"cache": false,
 			"inputs": [
 				"alchemy.run.ts",
@@ -83,7 +57,7 @@
 			"outputs": []
 		},
 		"deploy:staging": {
-			"dependsOn": ["^deploy:staging", "typecheck:prod", "db:generate"],
+			"dependsOn": ["^deploy:staging", "typecheck", "db:generate"],
 			"cache": false,
 			"inputs": [
 				"alchemy.run.ts",
@@ -95,7 +69,7 @@
 			"outputs": []
 		},
 		"deploy:preview": {
-			"dependsOn": ["^deploy:preview", "typecheck:prod", "db:generate"],
+			"dependsOn": ["^deploy:preview", "typecheck", "db:generate"],
 			"cache": false,
 			"inputs": [
 				"alchemy.run.ts",

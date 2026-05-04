@@ -28,22 +28,7 @@
 		"typecheck": {
 			"outputLogs": "new-only"
 		},
-		"typecheck:local": {
-			"outputLogs": "new-only"
-		},
-		"typecheck:staging": {
-			"outputLogs": "new-only"
-		},
 		"typegen": {
-			"outputLogs": "new-only"
-		},
-		"typegen:local": {
-			"outputLogs": "new-only"
-		},
-		"typegen:staging": {
-			"outputLogs": "new-only"
-		},
-		"rr-typegen": {
 			"outputLogs": "new-only"
 		},
 		"dev:preflight": {

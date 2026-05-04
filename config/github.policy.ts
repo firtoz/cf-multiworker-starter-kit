@@ -6,7 +6,7 @@
  *   (branch/PR rules — `production` need not exist yet), and Environment rules
  *   when you run `bun run github:sync:staging`, `github:env:*`, etc.
  *
- * Start from the defaults below; change fields as needed. Run `bun run typecheck:root` after edits.
+ * Start from the defaults below; change fields as needed. Run `bun run typecheck` after edits.
  */
 import type { GitHubPolicyConfig } from "../packages/alchemy-utils/src/github-policy-config";
 import { DEFAULT_GITHUB_POLICY } from "../packages/alchemy-utils/src/github-policy-config";

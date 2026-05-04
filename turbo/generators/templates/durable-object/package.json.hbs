@@ -17,10 +17,8 @@
 		"destroy:staging": "bunx dotenv-cli -v STAGE=staging -e ../../.env.staging -- bun ../../packages/alchemy-utils/src/alchemy-cli.ts destroy {{ kebabCase name }}",
 		"destroy:preview": "bunx dotenv-cli -e ../../.env.staging -- bun ../../packages/alchemy-utils/src/alchemy-cli.ts destroy {{ kebabCase name }}",
 		"dev": "bunx dotenv-cli -v STAGE=local -e ../../.env.local -- bun ../../packages/alchemy-utils/src/alchemy-cli.ts dev {{ kebabCase name }}",
-		"typegen:local": "node -e \"process.exit(0)\"",
-		"typegen:prod": "node -e \"process.exit(0)\"",
-		"typecheck:local": "tsgo --noEmit -p ./tsconfig.json",
-		"typecheck:prod": "tsgo --noEmit -p ./tsconfig.json",
+		"typegen": "node -e \"process.exit(0)\"",
+		"typecheck": "tsgo --noEmit -p ./tsconfig.json",
 		"lint": "biome check --write .",
 		"lint:format": "biome format --write ."
 	},

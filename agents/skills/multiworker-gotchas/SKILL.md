@@ -18,7 +18,7 @@ These trip up new contributors and agents most often. For commands and checklist
 
 4. **Regenerate types and verify often**
    - After routes, `alchemy.run.ts`, or env changes: **`bun run typegen`** (repo root), then **`bun run typecheck`** and **`bun run lint`** during the task—not only before a PR.
-   - Prod bindings changed: **`turbo run typegen:prod`** then **`turbo run typecheck:prod`**. [multiworker-workflow](../multiworker-workflow/SKILL.md).
+   - Bindings or **`alchemy.run.ts`** changed: **`bun run typegen`** then **`bun run typecheck`** from the repo root. [multiworker-workflow](../multiworker-workflow/SKILL.md).
    - **`ALCHEMY_PASSWORD`** and **`CHATROOM_INTERNAL_SECRET`** have no in-repo defaults. **`bun run setup`** / **`setup:local`** → variable browser (TTY). **`bun run setup -- --yes`** or **`CI=true`** → auto-fill **only** regeneratable secrets into **`.env.local`**. **`setup:staging`** / **`setup:prod`** → stage dotfiles (copy from **`.env.local`** offered in the browser).
 
 5. **Loaders and actions return `Promise<MaybeError<...>>`**
@@ -38,7 +38,7 @@ These trip up new contributors and agents most often. For commands and checklist
    - Alchemy applies SQL on deploy/dev per [D1 + Drizzle](https://alchemy.run/guides/drizzle-d1/).
    - Do **not** hand-manage **`D1_DATABASE_ID`** for the default flow; do **not** add runtime **`CREATE TABLE`** fallbacks in loaders/actions—fix schema / migrations / local state instead.
 
-9. **Turbo / stale `typegen`** — If route types look wrong, run `turbo run typegen:local --force` (or `typegen:prod` after env changes). [turborepo/SKILL.md](../turborepo/SKILL.md).
+9. **Turbo / stale `typegen`** — If route types look wrong, run `bun run typegen -- --force`. [turborepo/SKILL.md](../turborepo/SKILL.md).
 
 10. **JSDoc** — Do not use `*/` inside a `/** ... */` block (it ends the comment early). General TypeScript gotcha.
 

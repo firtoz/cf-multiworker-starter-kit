@@ -3,13 +3,13 @@
 	"extends": ["//"],
 	"tasks": {
 		"dev": {
-			"dependsOn": ["scripts#dev:preflight", "typegen:local"],
+			"dependsOn": ["scripts#dev:preflight", "typegen"],
 			"inputs": ["workers/**/*.ts", "$TURBO_ROOT$/.env.local", "package.json"],
 			"persistent": true,
 			"cache": false
 		},
 		"lint": {
-			"dependsOn": ["typecheck:local"],
+			"dependsOn": ["typecheck"],
 			"inputs": ["workers/**/*.ts", "tsconfig.json", "biome.json"],
 			"outputs": []
 		},
@@ -17,8 +17,8 @@
 			"inputs": ["workers/**/*.ts", "tsconfig.json", "biome.json"],
 			"outputs": []
 		},
-		"typecheck:local": {
-			"dependsOn": ["typegen:local"],
+		"typecheck": {
+			"dependsOn": ["typegen", "^typecheck"],
 			"inputs": [
 				"alchemy.run.ts",
 				"workers/**/*.ts",
@@ -29,42 +29,25 @@
 			],
 			"outputs": []
 		},
-		"typecheck:prod": {
-			"dependsOn": ["typegen:prod"],
-			"inputs": [
-				"alchemy.run.ts",
-				"workers/**/*.ts",
-				"tsconfig.json",
-				"package.json",
-				"$TURBO_ROOT$/tsconfig.base.json",
-				"env.d.ts"
-			],
-			"outputs": []
-		},
-		"typegen:local": {
-			"dependsOn": ["^typegen:local"],
-			"inputs": ["workers/**/*.ts", "$TURBO_ROOT$/.env.local", "package.json", "env.d.ts"],
-			"outputs": []
-		},
-		"typegen:prod": {
-			"dependsOn": ["^typegen:prod"],
-			"inputs": ["workers/**/*.ts", "$TURBO_ROOT$/.env.production", "package.json", "env.d.ts"],
+		"typegen": {
+			"dependsOn": ["^typegen"],
+			"inputs": ["workers/**/*.ts", "package.json", "env.d.ts"],
 			"outputs": []
 		},
 		"deploy:prod": {
-			"dependsOn": ["^deploy:prod", "typecheck:prod", "ping-do#typecheck:prod"],
+			"dependsOn": ["^deploy:prod", "typecheck", "ping-do#typecheck"],
 			"cache": false,
 			"inputs": ["alchemy.run.ts", "workers/**/*.ts", "package.json", "tsconfig.json", "env.d.ts"],
 			"outputs": []
 		},
 		"deploy:staging": {
-			"dependsOn": ["^deploy:staging", "typecheck:prod", "ping-do#typecheck:prod"],
+			"dependsOn": ["^deploy:staging", "typecheck", "ping-do#typecheck"],
 			"cache": false,
 			"inputs": ["alchemy.run.ts", "workers/**/*.ts", "package.json", "tsconfig.json", "env.d.ts"],
 			"outputs": []
 		},
 		"deploy:preview": {
-			"dependsOn": ["^deploy:preview", "typecheck:prod", "ping-do#typecheck:prod"],
+			"dependsOn": ["^deploy:preview", "typecheck", "ping-do#typecheck"],
 			"cache": false,
 			"inputs": ["alchemy.run.ts", "workers/**/*.ts", "package.json", "tsconfig.json", "env.d.ts"],
 			"outputs": []

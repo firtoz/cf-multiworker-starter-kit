@@ -46,7 +46,7 @@ description: Add or change a Durable Object worker package under durable-objects
    - Add **`state-hub`**: **`workspace:*`** **`devDependency`** so Turbo **`^deploy:*`** runs the shared remote Alchemy state hub first.
    - SQLite DOs: also expose **`db:generate`**.
 
-7. **After edits** — From repo root: `bun run typegen` and `bun run typecheck` (or package-local `typecheck:local`). If schema changed, run package-local `db:generate` first.
+7. **After edits** — From repo root: `bun run typegen` and `bun run typecheck` (or package-local `typecheck`). If schema changed, run package-local `db:generate` first.
 
 ## Next (outside this skill)
 

@@ -3,7 +3,7 @@
 	"extends": ["//"],
 	"tasks": {
 		"dev": {
-			"dependsOn": ["scripts#dev:preflight", "db:generate", "typegen:local"],
+			"dependsOn": ["scripts#dev:preflight", "db:generate", "typegen"],
 			"inputs": ["workers/**/*.ts", "src/**/*.ts", "$TURBO_ROOT$/.env.local", "package.json"],
 			"persistent": true,
 			"cache": false
@@ -13,7 +13,7 @@
 			"outputs": ["drizzle/**"]
 		},
 		"lint": {
-			"dependsOn": ["typecheck:local"],
+			"dependsOn": ["typecheck"],
 			"inputs": ["workers/**/*.ts", "src/**/*.ts", "tsconfig.json", "biome.json"],
 			"outputs": []
 		},
@@ -21,8 +21,8 @@
 			"inputs": ["workers/**/*.ts", "src/**/*.ts", "tsconfig.json", "biome.json"],
 			"outputs": []
 		},
-		"typecheck:local": {
-			"dependsOn": ["db:generate", "typegen:local"],
+		"typecheck": {
+			"dependsOn": ["db:generate", "typegen", "^typecheck"],
 			"inputs": [
 				"workers/**/*.ts",
 				"src/**/*.ts",
@@ -34,49 +34,17 @@
 			],
 			"outputs": []
 		},
-		"typecheck:prod": {
-			"dependsOn": ["db:generate", "typegen:prod"],
-			"inputs": [
-				"workers/**/*.ts",
-				"src/**/*.ts",
-				"drizzle/migrations.js",
-				"tsconfig.json",
-				"package.json",
-				"$TURBO_ROOT$/tsconfig.base.json",
-				"env.d.ts"
-			],
-			"outputs": []
-		},
-		"typegen:local": {
-			"dependsOn": ["^typegen:local"],
-			"inputs": [
-				"workers/**/*.ts",
-				"src/**/*.ts",
-				"$TURBO_ROOT$/.env.local",
-				"package.json",
-				"tsconfig.json",
-				"env.d.ts"
-			],
-			"outputs": []
-		},
-		"typegen:prod": {
-			"dependsOn": ["^typegen:prod"],
-			"inputs": [
-				"workers/**/*.ts",
-				"src/**/*.ts",
-				"$TURBO_ROOT$/.env.production",
-				"package.json",
-				"tsconfig.json",
-				"env.d.ts"
-			],
+		"typegen": {
+			"dependsOn": ["^typegen"],
+			"inputs": ["workers/**/*.ts", "src/**/*.ts", "package.json", "tsconfig.json", "env.d.ts"],
 			"outputs": []
 		},
 		"deploy:prod": {
 			"dependsOn": [
 				"^deploy:prod",
 				"db:generate",
-				"typecheck:prod",
-				"@internal/chat-contract#typecheck:prod"
+				"typecheck",
+				"@internal/chat-contract#typecheck"
 			],
 			"cache": false,
 			"inputs": [
@@ -95,8 +63,8 @@
 			"dependsOn": [
 				"^deploy:staging",
 				"db:generate",
-				"typecheck:prod",
-				"@internal/chat-contract#typecheck:prod"
+				"typecheck",
+				"@internal/chat-contract#typecheck"
 			],
 			"cache": false,
 			"inputs": [
@@ -115,8 +83,8 @@
 			"dependsOn": [
 				"^deploy:preview",
 				"db:generate",
-				"typecheck:prod",
-				"@internal/chat-contract#typecheck:prod"
+				"typecheck",
+				"@internal/chat-contract#typecheck"
 			],
 			"cache": false,
 			"inputs": [

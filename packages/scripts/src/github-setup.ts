@@ -47,7 +47,7 @@ async function main() {
 				"3. `bun run onboard:prod` — `setup:prod --yes`, `github:sync:prod`, sets repo variable **`AUTO_PRODUCTION_PR=true`** for optional **main → production** PRs after successful staging deploys.",
 				"",
 				"**Same steps without the wrapper:** `bun run setup:prod` then `bun run github:sync:prod` (you can set **`AUTO_PRODUCTION_PR`** yourself with `gh variable set`).",
-				"**Deployment rules only:** `bun run github:env:prod` — same **`config/github.policy.ts`** for **`production`** (merges **`.env.production`** if present). Tune policy in your editor; run **`bun run typecheck:root`** after edits.",
+				"**Deployment rules only:** `bun run github:env:prod` — same **`config/github.policy.ts`** for **`production`** (merges **`.env.production`** if present). Tune policy in your editor; run **`bun run typecheck`** after edits.",
 				"Production deploys run on pushes to branch `production` (see `.github/workflows/prod-deploy.yml`).",
 				"",
 				...GITHUB_POLICY_HINT_LINES,

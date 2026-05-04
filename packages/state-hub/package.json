@@ -11,10 +11,8 @@
 		"destroy:preview": "bunx dotenv-cli -e ../../.env.staging -- bun ../alchemy-utils/src/alchemy-cli.ts destroy stateHub",
 		"lint": "biome check --write .",
 		"lint:format": "biome format --write .",
-		"typegen:local": "node -e \"process.exit(0)\"",
-		"typegen:prod": "node -e \"process.exit(0)\"",
-		"typecheck:local": "tsgo --noEmit -p .",
-		"typecheck:prod": "tsgo --noEmit -p ."
+		"typegen": "node -e \"process.exit(0)\"",
+		"typecheck": "tsgo --noEmit -p ."
 	},
 	"dependencies": {
 		"alchemy-utils": "workspace:*"

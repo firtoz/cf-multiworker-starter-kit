@@ -42,11 +42,11 @@ Turbo: resolves package order, parallelizes, caches. **Turbo `inputs`** (per-pac
 
 **How invalidation should work:** list other workspace packages in **`package.json`** `dependencies` / `devDependencies`. Use **`^task`** so Turbo runs the same task in all those packages; when a dependency’s **outputs** or **input hash** change, **dependents re-run** without listing foreign paths.
 
-**`@internal/web#typegen:*`:** `dependsOn` is **`^typecheck:*`** plus **`rr-typegen`** (React Router typegen). Upstream packages (**`@internal/db`**, **`@internal/chat-contract`**, **`chatroom-do`**) run **`typegen` → `typecheck`** locally; the web app waits on **`^typecheck`** so library types are ready before **`tsgo`**.
+**`@internal/web#typegen`:** `dependsOn` is **`^typegen`**, **`^db:generate`** (D1 migrations ahead of app codegen). The package script runs **`react-router typegen`** (see **`bun run rr-typegen`**). Upstream packages (**`@internal/db`**, **`@internal/chat-contract`**, workers) finish their own **`typegen`** (stub or no-op) **before** dependents; **`typecheck`** always runs **after** workspace **`typegen`** where the graph says so.
 
-**`@internal/web#typecheck:*`:** `dependsOn` **`typegen`**, then **`^typecheck`**, so the app typechecks after route types exist and workspace deps have typechecked.
+**`@internal/web#typecheck`:** `dependsOn` **`typegen`**, then **`^typecheck`**, so the app typechecks after `.react-router/types` exist and workspace deps have typechecked.
 
-**Durable Object packages (e.g. `chatroom-do`):** do **not** set **`typegen`** to depend on **`^typecheck:local`** (cycle risk). Use **`^typegen:local`** for upstreams (e.g. **`@internal/chat-contract`**) instead.
+**Durable Object packages (e.g. `chatroom-do`):** do **not** set **`typegen`** to depend on **`^typecheck`** (cycle risk). Use **`^typegen`** for upstreams (e.g. **`@internal/chat-contract`**) instead.
 
 **D1 / migrations:** **`packages/db/alchemy.run.ts`** defines **`D1Database`** (**alchemy app **`starter-database`**, npm workspace **`@internal/db`**). The web app imports **`mainDb`** from **`@internal/db/alchemy`**. D1 migrations are applied by Alchemy from **`migrationsDir`** during **`dev`** / **`deploy:*`**; do not add separate Wrangler migration scripts.
 
@@ -57,7 +57,7 @@ Turbo: resolves package order, parallelizes, caches. **Turbo `inputs`** (per-pac
 **Bad:**
 ```json
 // apps/web/turbo.json
-"rr-typegen": {
+"typegen": {
   "inputs": [
     "$TURBO_ROOT$/packages/some-tool/src/generator.ts"  // ❌ Direct file reference
   ]
@@ -67,11 +67,11 @@ Turbo: resolves package order, parallelizes, caches. **Turbo `inputs`** (per-pac
 **Good:**
 ```json
 // apps/web/turbo.json
-"rr-typegen": {
-  "dependsOn": ["some-tool#build"],  // ✅ Depends on package task when needed
+"typegen": {
+  "dependsOn": ["my-tool#build", "^typegen", "^db:generate"],
   "inputs": [
     "app/routes.ts",
-    "react-router.config.ts"  // ✅ Only this package's files
+    "react-router.config.ts"
   ]
 }
 ```
@@ -107,8 +107,8 @@ When a package needs files from another package to be ready:
 // apps/web/turbo.json
 {
   "tasks": {
-    "typegen:local": {
-      "dependsOn": ["my-tool#build", "^typecheck:local", "rr-typegen"]
+    "typegen": {
+      "dependsOn": ["my-tool#build", "^typegen", "^db:generate"]
     }
   }
 }
@@ -139,12 +139,12 @@ Prefix a task with `^` to depend on the **same task name** in every package list
 
 ```json
 // apps/web/turbo.json
-"typegen:local": {
-  "dependsOn": ["^typecheck:local", "rr-typegen"]
+"typegen": {
+  "dependsOn": ["^typegen", "^db:generate"]
 }
 ```
 
-This runs `typecheck:local` in `chatroom-do`, `@internal/db`, and other workspace deps before the web app’s `typegen:local`. Deploy is stage-specific at the root — e.g. **`bun run deploy:prod`** runs **`turbo run deploy:prod`**, which runs **`^deploy:prod`** (including **`@internal/db#deploy:prod`**) before the web **`alchemy deploy`** for that stage.
+This runs **`typegen`** in `chatroom-do`, `@internal/db`, and other workspace deps **before** the web package’s **`typegen`** (React Router codegen). **`^db:generate`** pulls **`@internal/db#db:generate`** when migrations affect consumers. Deploy is stage-specific at the root — e.g. **`bun run deploy:prod`** runs **`turbo run deploy:prod`**, which runs **`^deploy:prod`** (including **`@internal/db#deploy:prod`**) before the web **`alchemy deploy`** for that stage.
 
 **Limits:** `^` only follows **declared** workspace deps. Packages that are not dependencies (e.g. sibling workers with only Wrangler `script_name` links) still need explicit `other-pkg#task` in their own `turbo.json`. Verify with:
 
@@ -333,7 +333,7 @@ Tasks are defined in three places:
 "build:prod": {
   "dependsOn": [
     "^build",       // Dependencies' build
-    "typecheck:prod" // Own gate before Vite production build
+    "typecheck" // Own gate before Vite production build
   ]
 }
 ```
@@ -342,7 +342,7 @@ Tasks are defined in three places:
 
 ### This repo — project-specific pitfalls
 
-The same gotchas (index route + forms, `formSchema`, Alchemy D1, stale `typegen` → `--force`, local D1 until `bun run dev`, Biome, dev port) are in [multiworker-gotchas](../multiworker-gotchas/SKILL.md). For **Turbo-only** rules (package-local `inputs`, `^typecheck` on web `typegen`, no `^typecheck` on DO `typegen` to avoid cycles), see **Core principles** at the top of this file.
+The same gotchas (index route + forms, `formSchema`, Alchemy D1, stale `typegen` → **`bun run typegen -- --force`**, local D1 until `bun run dev`, Biome, dev port) are in [multiworker-gotchas](../multiworker-gotchas/SKILL.md). For **Turbo-only** rules (package-local `inputs`, **`^typegen`** / **`^db:generate`** on web **`typegen`**, never **`^typecheck`** on **`typegen`**, no `^typecheck` on DO `typegen` to avoid cycles), see **Core principles** at the top of this file.
 
 ### ❌ Don't: Reference Other Package's Files Directly
 ```json
@@ -407,22 +407,23 @@ bun run build --verbose
 
 ### Root turbo.json
 - Global settings: `globalDependencies`, `ui`, task defaults
-- Tasks: `build`, `build:local`, `build:prod`, `typecheck`, `typegen`, `rr-typegen`, `dev`, `lint`, `clean`, `db:generate`, `deploy:*`, `destroy:*` (output log defaults)
+- Tasks: `build`, `build:local`, `build:prod`, `typecheck`, `typegen`, `dev`, `lint`, `clean`, `db:generate`, `deploy:*`, `destroy:*` (output log defaults)
 
 - `globalEnv`: `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, `CI`, `ALCHEMY_PASSWORD`, `ALCHEMY_STATE_TOKEN`, `CHATROOM_INTERNAL_SECRET`, `STAGE`, `DEPLOY_ENABLED`
 
 ### apps/web/turbo.json
-- **`typegen:local` / `typegen:prod`** — `dependsOn`: `^typecheck`, **`rr-typegen`**; **inputs** include app sources, Vite / React Router config, package **`alchemy.run.ts`**, **`env.d.ts`**
-- **`typecheck:local` / `typecheck:prod`** — `dependsOn`: this package’s `typegen`, then `^typecheck`
-- **`lint`** — `dependsOn`: **`typecheck:local`**
-- **`build:local` / `build:prod`** — `dependsOn`: **`typecheck`**
-- **`deploy:*`** — `dependsOn`: **`typecheck:{prod|staging}`** plus **`^deploy:*`**; do **not** depend on `build:*` because Alchemy **`ReactRouter`** builds during deploy.
-- **`dev`** — `dependsOn`: **`typegen:local`**; root **`bun run dev`** runs a **filtered** Turbo **`dev`** (web + **`@internal/db`** + worker apps) so each runs **`alchemy-cli.ts dev <key>`** → **`alchemy dev --app …`**
+- **`typegen`** — `dependsOn`: **`^typegen`**, **`^db:generate`**; **outputs** **`.react-router/**`**; package script runs **`react-router typegen`** (**`bun run rr-typegen`**)
+- **`typecheck`** — `dependsOn`: this package’s **`typegen`**, then **`^typecheck`**
+- **`lint`** — `dependsOn`: **`typecheck`**
+- **`build:local` / `build:prod` / `build:staging`** — `dependsOn`: **`typecheck`**
+- **`deploy:*`** — `dependsOn`: **`typecheck`** plus **`^deploy:*`**; do **not** depend on `build:*` because Alchemy **`ReactRouter`** builds during deploy.
+- **`dev`** — `dependsOn`: **`typegen`**; root **`bun run dev`** runs a **filtered** Turbo **`dev`** (web + **`@internal/db`** + worker apps) so each runs **`alchemy-cli.ts dev <key>`** → **`alchemy dev --app …`**
 
 ### packages/db/turbo.json
 - `db:generate` — Drizzle SQL from `src/`
 - `dev` / `deploy:*` / `destroy:*` — **`packages/alchemy-utils/src/alchemy-cli.ts`** with **`ALCHEMY_APP_IDS.database`** (**`deploy database`**, **`dev database`**, …; see **`package.json`** scripts; stage via **`STAGE`** + dotfile)
-- `typegen` / `typecheck` — `tsgo` chain for `@internal/db`
+- `typegen` — Turbo **`dependsOn`** includes **`db:generate`** upstream so migrations exist before dependents; **`package.json`** script is a stub (`node -e "process.exit(0)"`).
+- `typecheck` — `tsgo --noEmit` for `@internal/db`
 
 ### Durable objects (e.g. `chatroom-do`)
 - `turbo.json` with `typegen` / `typecheck` / `lint` / **`deploy:*`** / **`destroy:*`** (**`package.json`** uses **`alchemy-cli.ts`** for **`dev`/`deploy`/`destroy`**); list **`state-hub`** as a **`devDependency`** so **`dependsOn`** **`^deploy:*`** runs the hub deploy first; no **`generate-wrangler`**
@@ -430,8 +431,8 @@ bun run build --verbose
 ### Key Dependency Chains (simplified)
 
 ```
-^typecheck in deps (db, contract, chatroom) → @internal/web#typegen (rr-typegen + upstream typechecks)
-typecheck:web → typegen:web, ^typecheck:deps
+^typegen + ^db:generate → @internal/web#typegen (react-router typegen script)
+@internal/web#typecheck → typegen, ^typecheck
 lint / build → typecheck
 dev → filtered turbo runs `alchemy-cli.ts dev …` for web + each worker package
 ```

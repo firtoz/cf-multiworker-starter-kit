@@ -1,6 +1,6 @@
 ---
 name: cf-workers-env-local
-description: Alchemy + env files — repo-root `.env.local` (dev), `.env.staging` (staging / PR preview deploys), `.env.production` (prod / CI), optional per-package `.env.local`, and package-local Alchemy apps. Use when adding secrets or non-secret vars, debugging missing env in local dev, or local vs prod typegen. Never use a plain `.env` file. `.env.example` is human documentation only — no script reads it for all keys.
+description: Alchemy + env files — repo-root `.env.local` (dev), `.env.staging` (staging / PR preview deploys), `.env.production` (prod / CI), optional per-package `.env.local`, and package-local Alchemy apps. Use when adding secrets or non-secret vars or debugging missing env in local dev. Never use a plain `.env` file. `.env.example` is human documentation only — no script reads it for all keys.
 ---
 
 # Alchemy — env files and package apps
@@ -9,7 +9,7 @@ description: Alchemy + env files — repo-root `.env.local` (dev), `.env.staging
 
 - Adding, renaming, or documenting environment variables for the web worker, chatroom worker, or D1.
 - Local dev shows missing vars for Alchemy (each app uses **`alchemy-cli.ts dev <ALCHEMY_APP_IDS key>`** → **`alchemy dev --app <id>`**; see [Alchemy Turborepo](https://alchemy.run/guides/turborepo/)).
-- Choosing **local** (`typegen:local` / `typecheck:local`) vs **prod** (`typegen:prod` / `typecheck:prod`) for CI.
+- How **`bun run typegen`** / **`bun run typecheck`** relate to infra (`alchemy.run.ts`) vs deploy-time secrets (**`.env.*`**).
 - Explaining **repo-root** `.env.local` + `.env.staging` + `.env.production` vs optional per-package `.env.local`.
 
 ## Fork onboarding (humans)
@@ -93,7 +93,7 @@ apps/web/
 - Update **repo-root `.env.example`** so contributors know which keys exist.
 - Update the relevant package **`alchemy.run.ts`**.
 - Run **`bun run typegen`** from the **repo root**.
-- For production parity: **`turbo run typegen:prod`** then **`turbo run typecheck:prod`** if prod env differs.
+- After changing **`alchemy.run.ts`** bindings or routes, run **`bun run typegen`** and **`bun run typecheck`** from the repo root (same Turbo task names everywhere; staged dotfiles do not drive React Router typegen).
 
 ## Related docs
 

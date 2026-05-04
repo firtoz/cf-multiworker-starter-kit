@@ -37,7 +37,7 @@ During feature work, test after each meaningful sub-step with the narrowest usef
 
 Whenever you change routes, `apps/web/app/routes.ts`, any `alchemy.run.ts`, or env / bindings:
 
-- `bun run typegen` (React Router + local env assumptions)
+- `bun run typegen` (Turbo **`typegen`**: React Router **`.react-router/types`** on web, stubs elsewhere)
 - `bun run typecheck`
 - `bun run lint` before calling the task done (Biome may rewrite; re-run as needed)
 
@@ -47,7 +47,7 @@ Whenever you change Drizzle schema:
 - Durable Object SQLite: package-local `db:generate` if present
 - Then run `bun run typecheck` and `bun run lint` from the repo root
 
-For **production** parity: `turbo run typegen:prod` then `turbo run typecheck:prod` if prod env differs.
+Bindings and **`alchemy.run.ts`** are the same source of truth across stages; React Router typegen does not read staged dotfiles. After route or binding changes, **`bun run typegen`** then **`bun run typecheck`** from the repo root is enough. If you edited **`apps/web/types/env.d.ts`** manually, or Alchemy resource types look wrong, confirm **`alchemy.run.ts`** and re-run **`bun run typecheck`**.
 
 ## User-facing work is more than typecheck
 

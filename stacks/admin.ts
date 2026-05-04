@@ -44,9 +44,9 @@ import githubPolicy from "../config/github.policy";
 import { resolveStageFromEnv } from "../packages/alchemy-utils/src/deployment-stage";
 import {
 	assertGithubPolicyConfig,
+	type GithubRepoVisibility,
 	resolveStagingForkReviewerFallbackToActor,
 	shouldApplyGithubRulesets,
-	type GithubRepoVisibility,
 } from "../packages/alchemy-utils/src/github-policy-config";
 import { ALCHEMY_APP_IDS } from "../packages/alchemy-utils/src/worker-peer-scripts";
 import {

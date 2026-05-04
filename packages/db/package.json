@@ -21,10 +21,8 @@
 		"dev": "bunx dotenv-cli -v STAGE=local -e ../../.env.local -- bun ../alchemy-utils/src/alchemy-cli.ts dev database",
 		"lint": "biome check --write .",
 		"lint:format": "biome format --write .",
-		"typegen:local": "tsgo --noEmit -p .",
-		"typegen:prod": "tsgo --noEmit -p .",
-		"typecheck:local": "tsgo --noEmit -p .",
-		"typecheck:prod": "tsgo --noEmit -p ."
+		"typegen": "node -e \"process.exit(0)\"",
+		"typecheck": "tsgo --noEmit -p ."
 	},
 	"dependencies": {
 		"drizzle-orm": "catalog:"

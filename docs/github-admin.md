@@ -86,7 +86,7 @@ Create tokens in the Cloudflare dashboard — **this repo does not create tokens
 After editing policy, run:
 
 ```bash
-bun run typecheck:root
+bun run typecheck
 bun run github:sync:staging
 ```
 
