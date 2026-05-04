@@ -33,6 +33,7 @@
 		"setup:local": "bun run --cwd packages/scripts setup:local",
 		"setup:prod": "bun run --cwd packages/scripts setup:prod",
 		"setup:staging": "bun run --cwd packages/scripts setup:staging",
+		"setup:account": "bun run --cwd packages/scripts setup:account",
 		"quickstart": "bun run --cwd packages/scripts quickstart",
 		"onboard:staging": "bun run --cwd packages/scripts onboard:staging",
 		"onboard:prod": "bun run --cwd packages/scripts onboard:prod",

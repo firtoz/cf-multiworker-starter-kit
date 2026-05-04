@@ -7,6 +7,10 @@
  */
 import { appendFileSync, existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import {
+	isCloudflareAlchemyAccountEnvKey,
+	mergeCloudflareAlchemyAccountEnvInto,
+} from "alchemy-utils/cloudflare-account-env";
 import { isPrStage, resolveStageFromEnv } from "alchemy-utils/deployment-stage";
 import { parse as parseDotenv } from "dotenv";
 import { DEPLOY_ENABLED_VAR, missingDeployConfigurationKeys } from "./github-environment-secrets";
@@ -73,12 +77,12 @@ function loadMergeEnv(mode: PreflightMode): Record<string, string | undefined> {
 	if (existsSync(full)) {
 		const parsed = parseDotenv(readFileSync(full, "utf8"));
 		for (const [k, v] of Object.entries(parsed)) {
-			if (v !== undefined) {
+			if (v !== undefined && !isCloudflareAlchemyAccountEnvKey(k)) {
 				out[k] = v;
 			}
 		}
 	}
-	return out;
+	return mergeCloudflareAlchemyAccountEnvInto(out);
 }
 
 function printEnablementNotice(_mode: PreflightMode) {
@@ -143,7 +147,7 @@ if (missing.length > 0) {
 	console.error(
 		isCi
 			? `deploy-preflight: GitHub Environment is marked enabled but required secrets/vars are missing: ${missing.join(", ")}`
-			: `deploy-preflight: missing required values (set in ${dotenvRelForMode(mode)} or the environment): ${missing.join(", ")}`,
+			: `deploy-preflight: missing required values (set in ${dotenvRelForMode(mode)}, the shared machine account file — see .env.example — or the environment): ${missing.join(", ")}`,
 	);
 	console.error("");
 	if (mode === "prod") {

@@ -72,7 +72,15 @@ Open the URL Vite prints (often `http://localhost:5173`). Try **`/`**, **`/visit
 
 Before meaningful deploys, [name your product](#name-your-product) so Cloudflare/Alchemy names match your app.
 
-You need a Cloudflare **API token** and **Account ID** from the dashboard (this template does not create tokens — [step-by-step](docs/github-admin.md#cloudflare-credentials-manual)). Put them in **`.env.staging`** / **`.env.production`** (or use **`bun run setup:staging`** / **`setup:prod`**). Token and account must be the **same** Cloudflare account.
+You need a Cloudflare **API token** and **Account ID** from the dashboard (this template does not create tokens — [step-by-step](docs/github-admin.md#cloudflare-credentials-manual)). Put them in **`.env.staging`** / **`.env.production`**, **or** once in the machine-wide **account** file (**`bun run setup:account`**, paths in [`.env.example`](.env.example)) so you do not duplicate **`CLOUDFLARE_*`** / **`ALCHEMY_STATE_TOKEN`** in every repo. Token and account must be the **same** Cloudflare account.
+
+**Suggested order for staging + prod:**
+
+1. **`bun run setup:account`** (optional) — shared **`CLOUDFLARE_ACCOUNT_ID`**, **`CLOUDFLARE_API_TOKEN`**, **`ALCHEMY_STATE_TOKEN`** on this machine.
+2. **`bun run setup:staging`** then **`bun run github:sync:staging`** (or **`bun run onboard:staging`**).
+3. **`bun run setup:prod`** then **`bun run github:sync:prod`** (or **`bun run onboard:prod`**).
+
+Per-environment secrets (**`ALCHEMY_PASSWORD`**, **`CHATROOM_INTERNAL_SECRET`**, optional **`WEB_*`**) stay in each stage dotfile (or GitHub Environments after sync).
 
 With [`gh`](https://cli.github.com/) authenticated and repo admin rights, from a trusted machine:
 
@@ -85,8 +93,8 @@ bun run onboard:prod      # sync production → deploys from `production` branch
 
 ### If setup fails
 
-- **Local:** Alchemy auth — `bun alchemy configure`, `bun alchemy login`; optional `CLOUDFLARE_*` in `.env.local`. Missing generated secrets — `bun run setup:local` or rerun **`quickstart`**.
-- **`onboard:staging`:** Cloudflare lines in `.env.staging` or **`setup:staging`**; **`gh auth login`**.
+- **Local:** Alchemy auth — `bun alchemy configure`, `bun alchemy login`; optional **`CLOUDFLARE_*`** in **`.env.local`** or **`setup:account`** (machine-wide file). Missing generated secrets — **`bun run setup:local`** or rerun **`quickstart`**.
+- **`onboard:staging`:** Cloudflare credentials in **`.env.staging`**, **`setup:staging`**, or the machine **account** file; **`gh auth login`**.
 - **`onboard:prod`:** same for `.env.production`, or **`ONBOARD_PROD_COPY_CF=1`** to copy token/account from `.env.staging` (non-interactive).
 - **Wrong account:** token and Account ID must match the same Cloudflare account.
 

@@ -119,6 +119,9 @@
     },
     "packages/alchemy-utils": {
       "name": "alchemy-utils",
+      "dependencies": {
+        "dotenv": "catalog:",
+      },
       "devDependencies": {
         "@biomejs/biome": "catalog:",
         "@types/node": "catalog:",

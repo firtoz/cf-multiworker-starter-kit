@@ -3,6 +3,8 @@
  * Import these from sidecar modules — not from `alchemy.run.ts` (which has Alchemy side effects).
  */
 
+import { isCloudflareAlchemyAccountEnvKey } from "./cloudflare-account-env";
+
 export type EnvSetupMode = "local" | "staging" | "prod";
 
 /** Leaf row: {@link EnvRequirement.setupCategory} matches {@link EnvSetupCategoryLeaf.id}. */
@@ -39,10 +41,10 @@ type LeafIdFromNav<R extends EnvSetupNavRoot> = R extends EnvSetupCategoryNavGro
  */
 export const ENV_SETUP_CATEGORY_NAV = [
 	{
-		id: "alchemy-chatroom",
-		label: "Alchemy & chatroom",
+		id: "core-secrets",
+		label: "Core secrets",
 		description:
-			"Alchemy password, cloud state token, and the chatroom durable-object internal secret.",
+			"Alchemy password, Cloudflare state token (via setup:account when applicable), and shared secrets for bundled workers (e.g. chatroom).",
 	},
 	{
 		id: "cloudflare",
@@ -121,6 +123,12 @@ export type EnvRequirement = {
 	readonly canAutoGenerate?: boolean;
 };
 
+/** One submenu in the setup variable browser (keys sharing a {@link EnvRequirement.setupCategory}). */
+export type SetupCategoryGroup = {
+	readonly category: EnvSetupCategoryId;
+	readonly keys: readonly string[];
+};
+
 /** Trimmed `process.env[key]` for Worker plaintext bindings (empty if unset). */
 export function readProcessEnvTrimmed(key: string): string {
 	return process.env[key]?.trim() ?? "";
@@ -160,12 +168,35 @@ export function setupNavigableKeyOrder(
 	return [...required, ...optional].map((r) => r.key);
 }
 
-/** `KEY=value` line has a non-whitespace value (same rule as setup scripts). */
+/** `KEY=value` with a trimmed, non-empty value (same rule as `setup:*` and deploy preflight). */
 export function envFileKeyLooksSet(raw: string, key: string): boolean {
-	return new RegExp(`^\\s*${key}\\s*=\\s*\\S`, "m").test(raw);
+	const re = new RegExp(`^\\s*${key}\\s*=\\s*([^\\n]*)`, "m");
+	const m = re.exec(raw);
+	const line = m?.[1]?.trim();
+	if (!line || line.startsWith("#")) {
+		return false;
+	}
+	let v = line;
+	if ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith("'") && v.endsWith("'"))) {
+		v = v.slice(1, -1);
+	}
+	return Boolean(v.trim());
 }
 
-export type SetupCategoryGroup = { category: EnvSetupCategoryId; keys: string[] };
+/** `true` if `key` is set in the stage dotfile, or — for account-level keys — **only** in shared `account.env` (stage file lines are ignored for those keys). */
+export function envKeySatisfiedInStageOrAccount(
+	key: string,
+	stageDotfileRaw: string,
+	accountEnvRaw: string,
+): boolean {
+	if (isCloudflareAlchemyAccountEnvKey(key)) {
+		return Boolean(accountEnvRaw && envFileKeyLooksSet(accountEnvRaw, key));
+	}
+	if (envFileKeyLooksSet(stageDotfileRaw, key)) {
+		return true;
+	}
+	return false;
+}
 
 export function setupNavigableKeysByCategory(
 	mode: EnvSetupMode,
@@ -193,20 +224,22 @@ export function setupNavigableKeysByCategory(
 	});
 }
 
-/** True when every key in the category that is **required** for `mode` has a non-empty value in `raw`. */
+/** True when every key in the category that is **required** for `mode` has a non-empty value in `raw` and/or shared account env. */
 export function setupCategoryRequiredSatisfied(
 	raw: string,
 	mode: EnvSetupMode,
 	requirements: readonly EnvRequirement[],
 	categoryKeys: readonly string[],
+	options?: { accountEnvRaw?: string },
 ): boolean {
 	const map = requirementByKey(requirements);
+	const accountRaw = options?.accountEnvRaw ?? "";
 	for (const k of categoryKeys) {
 		const req = map.get(k);
 		if (!req || !isRequiredInSetupMode(req, mode)) {
 			continue;
 		}
-		if (!envFileKeyLooksSet(raw, k)) {
+		if (!envKeySatisfiedInStageOrAccount(k, raw, accountRaw)) {
 			return false;
 		}
 	}

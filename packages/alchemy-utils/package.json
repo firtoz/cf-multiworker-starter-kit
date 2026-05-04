@@ -24,6 +24,9 @@
 		"typegen": "node -e \"process.exit(0)\"",
 		"typecheck": "tsgo --noEmit -p ."
 	},
+	"dependencies": {
+		"dotenv": "catalog:"
+	},
 	"devDependencies": {
 		"@biomejs/biome": "catalog:",
 		"@types/node": "catalog:",

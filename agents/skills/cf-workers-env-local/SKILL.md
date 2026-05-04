@@ -17,8 +17,9 @@ description: Alchemy + env files — repo-root `.env.local` (dev), `.env.staging
 After cloning or generating from the template, follow **README *Quick start***:
 
 - **`bun run quickstart`** — install if needed, `.env.local` regeneratable keys, then **`bun run dev`**
-- **`bun run onboard:staging`** — **`gh`**, **`.env.staging`** Cloudflare keys, **`setup:staging --yes`**, **`github:sync:staging`**
-- **`bun run onboard:prod`** — production dotfile flow, **`github:sync:prod`**, repo variable **`AUTO_PRODUCTION_PR`**
+- **`bun run setup:account`** (optional, once per machine) — **`CLOUDFLARE_ACCOUNT_ID`**, **`CLOUDFLARE_API_TOKEN`**, **`ALCHEMY_STATE_TOKEN`** in **`cloudflare-alchemy/account.env`** so **`bun run setup:staging`** / **`setup:prod`** and **`github:sync:*`** do not require repeating those keys in every repo’s **`.env.staging`** / **`.env.production`** (admin stack merges the account file when building the GitHub payload).
+- **`bun run onboard:staging`** — **`gh`**, Cloudflare credentials in **`.env.staging`** *or* the account file, **`setup:staging --yes`**, **`github:sync:staging`**
+- **`bun run onboard:prod`** — production dotfile flow (or account file for shared keys), **`github:sync:prod`**, repo variable **`AUTO_PRODUCTION_PR`**
 
 Create **Cloudflare API tokens** only in the dashboard ([`docs/github-admin.md`](../../docs/github-admin.md#cloudflare-credentials-manual)); this repo does not mint tokens via scripts or OAuth.
 
@@ -27,6 +28,7 @@ Create **Cloudflare API tokens** only in the dashboard ([`docs/github-admin.md`]
 1. **`.env.example` (repo root, optional `apps/web/.env.example`)** — **Human documentation only** for most keys. Root **`bun run dev`** and package dev scripts read the real **`.env.local`**; Alchemy docs cover [Secrets](https://alchemy.run/providers/cloudflare/secret/) and [State](https://alchemy.run/concepts/state/).
 
 2. **Real env** — Put dev values in **`.env.local`** (gitignored).
+   - **Optional machine-wide account file** — same **`CLOUDFLARE_ACCOUNT_ID`**, **`CLOUDFLARE_API_TOKEN`**, **`ALCHEMY_STATE_TOKEN`** for every local repo on one Cloudflare account: default paths in **`.env.example`**; override with **`CLOUDFLARE_ALCHEMY_ACCOUNT_ENV`**. **`bun run setup:account`** edits it. Fills gaps only — does not override shell or stage dotfiles. **GitHub Actions never reads this file** (use Environment **secrets** / **variables** or [organization secrets](https://docs.github.com/en/actions/how-tos/administering-github-actions/sharing-workflows-secrets-and-runners-with-your-organization) to share values across repos in CI).
    - **`.env.staging`** — staging + PR preview deploys (`STAGE=staging` or `STAGE=pr-<n>`).
    - **`.env.production`** — production (`STAGE=prod`).
    - **Never** use a plain **`.env`** file.

@@ -41,6 +41,7 @@ import alchemy from "alchemy";
 import { GitHubSecret, RepositoryEnvironment } from "alchemy/github";
 import { parse } from "dotenv";
 import githubPolicy from "../config/github.policy";
+import { isCloudflareAlchemyAccountEnvKey, mergeCloudflareAlchemyAccountEnvInto } from "../packages/alchemy-utils/src/cloudflare-account-env";
 import { resolveStageFromEnv } from "../packages/alchemy-utils/src/deployment-stage";
 import {
 	assertGithubPolicyConfig,
@@ -110,17 +111,23 @@ function loadStageDotfileOrThrow(resolvedPath: string, hintCli: string) {
 	const envFromDotfile: Record<string, string | undefined> = {};
 	for (const [k, v] of Object.entries(parsed)) {
 		if (typeof v === "string") {
+			if (isCloudflareAlchemyAccountEnvKey(k)) {
+				continue;
+			}
 			process.env[k] = v;
 			envFromDotfile[k] = v;
 		}
 	}
-	return envFromDotfile;
+	return mergeCloudflareAlchemyAccountEnvInto(envFromDotfile);
 }
 
 function mergeRepoRootDotfileIntoProcessEnv(resolvedPath: string): void {
 	const parsed = parse(readFileSync(resolvedPath, "utf8"));
 	for (const [k, v] of Object.entries(parsed)) {
 		if (typeof v === "string") {
+			if (isCloudflareAlchemyAccountEnvKey(k)) {
+				continue;
+			}
 			process.env[k] = v;
 		}
 	}
@@ -168,7 +175,7 @@ const ENV_DOTFILE_PATH = dotfilePathForGithubEnvironment(githubEnvironment);
 const ENV_DOTFILE_REL = path.relative(REPO_ROOT, ENV_DOTFILE_PATH) || ENV_DOTFILE_PATH;
 
 const setupCli = setupCommandLabelForDotfileRel(ENV_DOTFILE_REL);
-const hintForMissing = `Run \`${setupCli}\` (or \`bun run github:setup\`) to prepare ${ENV_DOTFILE_REL}, then rerun the matching \`bun run github:sync:*\` command.`;
+const hintForMissing = `Run \`bun run setup:account\` (shared Cloudflare + ALCHEMY_STATE_TOKEN), \`${setupCli}\` for stage-only secrets, and \`bun run github:setup\` as needed; rerun the matching \`bun run github:sync:*\`.`;
 
 /** GitHub Environment names that receive secrets/variables from this run (`staging-fork` mirrors `staging` for legacy/future preview workflows). */
 function githubEnvironmentsForSecretSync(): readonly string[] {
@@ -191,7 +198,7 @@ if (scope === "secrets") {
 		if (missingSecrets.length > 0) {
 			throw new Error(
 				[
-					`Missing non-empty GitHub **secret** keys in ${ENV_DOTFILE_REL} for environment "${githubEnvironment}":`,
+					`Missing non-empty GitHub **secret** values for environment "${githubEnvironment}" (stage dotfile **+** machine **account.env** for **CLOUDFLARE_API_TOKEN** / **ALCHEMY_STATE_TOKEN** — run **bun run setup:account**):`,
 					...missingSecrets.map((k) => `  - ${k}`),
 					"",
 					`Fix: ${hintForMissing}`,
@@ -205,7 +212,7 @@ if (scope === "secrets") {
 		if (missingVars.length > 0) {
 			throw new Error(
 				[
-					`Missing non-empty GitHub **variable** keys in ${ENV_DOTFILE_REL} for environment "${githubEnvironment}":`,
+					`Missing non-empty GitHub **variable** values for environment "${githubEnvironment}" (stage dotfile + **account.env** for **CLOUDFLARE_ACCOUNT_ID**):`,
 					...missingVars.map((k) => `  - ${k}`),
 					"",
 					`Fix: ${hintForMissing}`,

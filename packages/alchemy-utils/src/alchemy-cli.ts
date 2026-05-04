@@ -13,6 +13,7 @@
 import { spawn } from "node:child_process";
 import process from "node:process";
 
+import { loadCloudflareAlchemyAccountEnvIntoProcess } from "./cloudflare-account-env";
 import { ALCHEMY_APP_IDS, PRODUCT_PREFIX } from "./worker-peer-scripts";
 
 type AppKey = keyof typeof ALCHEMY_APP_IDS;
@@ -32,6 +33,8 @@ function isVerb(v: string | undefined): v is Verb {
 }
 
 function main(): void {
+	loadCloudflareAlchemyAccountEnvIntoProcess();
+
 	const argv = process.argv.slice(2);
 	const verb = argv[0];
 

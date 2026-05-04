@@ -88,11 +88,15 @@ Create tokens in the Cloudflare dashboard — **this repo does not create tokens
 
 1. **Account ID** — [Cloudflare dashboard](https://dash.cloudflare.com/) → your account → **Workers & Pages** or account overview → **Account ID**.
 2. **API token** — [My Profile → API Tokens](https://dash.cloudflare.com/profile/api-tokens) → **Create Token**. Quick path: **Edit Cloudflare Workers** template scoped to that account. Add **D1** if you use tighter scopes — [API tokens](https://developers.cloudflare.com/fundamentals/api/get-started/create-token/).
-3. Put **`CLOUDFLARE_API_TOKEN`** and **`CLOUDFLARE_ACCOUNT_ID`** in **`.env.staging`** / **`.env.production`** (or run **`bun run setup:staging`** / **`setup:prod`**). They must be the **same** Cloudflare account.
+3. Put **`CLOUDFLARE_API_TOKEN`** and **`CLOUDFLARE_ACCOUNT_ID`** in **`.env.staging`** / **`.env.production`**, **or** in the machine-wide **account.env** (see **.env.example**, **`bun run setup:account`**) so you do not duplicate them per repo. **`bun run github:sync:*`** merges **`account.env`** with the stage dotfile for those keys plus **`ALCHEMY_STATE_TOKEN`**. They must be the **same** Cloudflare account.
+
+## GitHub Actions — sharing values across many repositories
+
+GitHub does **not** provide a personal, account-wide default that every repo inherits. Use **organization** secrets/variables with repo access for shared CI values, or keep **per-repository** / **Environment** secrets and let **`github:sync:*`** push from your trusted machine’s dotfiles (which may omit keys satisfied by **account.env** locally when you run sync).
 
 ## Source Of Truth
 
-- Stage secrets and variables live in `.env.staging` and `.env.production`.
+- Stage secrets and variables live in `.env.staging` and `.env.production` (and in GitHub Environments after sync). Optional machine-local **`account.env`** holds **Cloudflare account ID**, **API token**, and **`ALCHEMY_STATE_TOKEN`** for all projects on one machine — see **`.env.example`**.
 - Repo policy lives in [`config/github.policy.ts`](../config/github.policy.ts).
 - Sync code lives in [`stacks/admin.ts`](../stacks/admin.ts), [`stacks/github-repository-settings-sync.ts`](../stacks/github-repository-settings-sync.ts), and [`stacks/github-repo-rulesets-sync.ts`](../stacks/github-repo-rulesets-sync.ts).
 

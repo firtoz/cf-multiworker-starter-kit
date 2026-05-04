@@ -7,7 +7,7 @@ description: Repo-root commands, typegen and typecheck cadence, lint, deploy, ad
 
 ## Run from repo root
 
-**New fork?** README **Quick start** — **`bun run quickstart`**, **`onboard:staging`**, **`onboard:prod`**. Env files: [cf-workers-env-local/SKILL.md](../cf-workers-env-local/SKILL.md).
+**New fork?** README **Quick start** — **`bun run quickstart`**, **`bun run setup:account`** (optional shared Cloudflare keys), **`onboard:staging`**, **`onboard:prod`**. Env files: [cf-workers-env-local/SKILL.md](../cf-workers-env-local/SKILL.md).
 
 Build, typecheck, lint, and typegen from the **workspace root** so Turbo can order work across packages.
 

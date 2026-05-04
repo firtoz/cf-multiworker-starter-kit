@@ -108,7 +108,9 @@ async function main(): Promise<void> {
 	}
 
 	if (!prodCf) {
-		console.error("[onboard:prod] Missing Cloudflare credentials in `.env.production`.");
+		console.error(
+			"[onboard:prod] Missing Cloudflare credentials in `.env.production` (or shared account file).",
+		);
 		console.error("");
 		printCloudflareManualHints("production");
 		console.error("");
