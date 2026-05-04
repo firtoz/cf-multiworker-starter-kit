@@ -56,6 +56,7 @@ import { ALCHEMY_APP_IDS } from "../packages/alchemy-utils/src/worker-peer-scrip
 import {
 	buildGitHubSecretPayload,
 	buildGitHubVariablePayloadFromDotfile,
+	AUTO_PRODUCTION_PR_VAR,
 	DEPLOY_ENABLED_VAR,
 	setupCommandLabelForDotfileRel,
 } from "../packages/scripts/src/github-environment-secrets";
@@ -225,6 +226,7 @@ if (scope === "secrets") {
 		githubVariables = {
 			...varPart,
 			[DEPLOY_ENABLED_VAR]: varPart[DEPLOY_ENABLED_VAR] ?? "true",
+			[AUTO_PRODUCTION_PR_VAR]: varPart[AUTO_PRODUCTION_PR_VAR] ?? "true",
 		};
 	} else if (existsSync(ENV_DOTFILE_PATH)) {
 		mergeRepoRootDotfileIntoProcessEnv(ENV_DOTFILE_PATH);
@@ -432,6 +434,9 @@ if (scope === "secrets" && pushSecrets) {
 			if (value === undefined) {
 				continue;
 			}
+			if (envTarget === PR_PREVIEW_FORK_GITHUB_ENVIRONMENT && varName === AUTO_PRODUCTION_PR_VAR) {
+				continue;
+			}
 			await GitHubEnvironmentVariable(variableAlchemyId(envTarget, varName), {
 				owner,
 				repository,
@@ -439,6 +444,23 @@ if (scope === "secrets" && pushSecrets) {
 				name: varName,
 				value,
 				token: githubToken,
+			});
+		}
+	}
+
+	if (githubEnvironment === "production") {
+		const autoProd = githubVariables[AUTO_PRODUCTION_PR_VAR]?.trim();
+		if (autoProd) {
+			const repoFullName = `${owner}/${repository}`;
+			await syncRepositoryEnvironmentBestEffort(repoFullName, "staging", async () => {
+				await GitHubEnvironmentVariable(variableAlchemyId("staging", AUTO_PRODUCTION_PR_VAR), {
+					owner,
+					repository,
+					environment: "staging",
+					name: AUTO_PRODUCTION_PR_VAR,
+					value: autoProd,
+					token: githubToken,
+				});
 			});
 		}
 	}

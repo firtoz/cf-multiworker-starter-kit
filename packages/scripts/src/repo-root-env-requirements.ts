@@ -7,6 +7,7 @@ import type { EnvRequirement } from "alchemy-utils/env-requirements";
  * **`config/github.policy.ts`** — not here.
  *
  * `DEPLOY_ENABLED` is handled specially in `github-environment-secrets.ts` (optional in dotfile; sync defaults to `"true"`).
+ * **`AUTO_PRODUCTION_PR`** is optional in **`.env.staging`** / **`.env.production`** (`githubSync: optional`); sync pushes it to GitHub Environment **staging** (production sync mirrors from the prod dotfile so **`main-push`** can read it).
  */
 export const REPO_ROOT_ENV_REQUIREMENTS: readonly EnvRequirement[] = [
 	{
@@ -90,6 +91,18 @@ export const REPO_ROOT_ENV_REQUIREMENTS: readonly EnvRequirement[] = [
 		title: "GitHub sync — staging-fork actor reviewer on private repos",
 		description:
 			'**Optional.** When **`github.environments.stagingFork.reviewerFallbackToActor`** is **`"auto"`** and the repo is **private**, set **`true`** / **`1`** / **`yes`** / **`on`** so **`github:sync:*`** / **`github:env:staging`** injects the current **`gh`** login as a required reviewer on **`staging-fork`** (empty reviewer lists). Omit or **`false`** on Free private repos to avoid **422** from required reviewers. **Public**/**internal** repos do not need this key.',
+		plaintextInSetup: true,
+	},
+	{
+		key: "AUTO_PRODUCTION_PR",
+		setupCategory: "github-sync-cli",
+		kind: "variable",
+		requiredIn: [],
+		optionalSetupModes: ["staging", "prod"],
+		githubSync: "optional",
+		title: "Auto open main → production PR after staging deploy",
+		description:
+			"**Optional.** Defaults to **`true`** on **`github:sync:*`** when unset (like **`DEPLOY_ENABLED`**). Set **`false`** to disable: **`main-push`** will not open/reuse **main → production** after staging deploy. Edit in **`.env.staging`** or **`.env.production`**; sync uploads to GitHub Environment **staging** (prod dotfile values are mirrored to **staging** on **`github:sync:prod`**).",
 		plaintextInSetup: true,
 	},
 ];

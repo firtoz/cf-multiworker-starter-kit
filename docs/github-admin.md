@@ -43,7 +43,7 @@ bun run onboard:staging
 bun run onboard:prod
 ```
 
-**`onboard:prod`** also sets repo variable **`AUTO_PRODUCTION_PR=true`**, after which a successful **staging** deploy may **open or reuse** a PR **`main` → `production`**. You still **merge** that PR to ship production (and remote **`production`** must exist). `bun run github:sync:staging` also enables the repository Actions workflow permission that lets **`GITHUB_TOKEN`** create the production PR; if GitHub rejects that setting, enable it at the **organization or enterprise** level, then rerun staging sync.
+**`onboard:prod`** runs **`github:sync:prod`**, which defaults **`AUTO_PRODUCTION_PR=true`** on GitHub Environment **staging** when the key is omitted from dotfiles (set **`false`** in **`.env.staging`** or **`.env.production`** to disable auto **main → production** PRs). You still **merge** that PR to ship production (and remote **`production`** must exist). `bun run github:sync:staging` also enables the repository Actions workflow permission that lets **`GITHUB_TOKEN`** create the production PR; if GitHub rejects that setting, enable it at the **organization or enterprise** level, then rerun staging sync.
 
 **Default repo policy** (see [`config/github.policy.ts`](../config/github.policy.ts)): **`main`** — PRs for writers, admins may bypass; **`production`** — PR from **`main`**, no admin bypass by default; approving review count defaults to **0** for solo maintainers.
 
@@ -67,7 +67,7 @@ MULTIWORKER_DEPLOY_ENABLED=true
 DEPLOY_ENABLED=true
 ```
 
-Then run **`bun run github:sync:staging`** and **`bun run github:sync:prod`** from a trusted machine. Sync writes **`DEPLOY_ENABLED`** to the GitHub Environments and **`PRODUCTION_PR_HEAD`** to repo variables. **`bun run onboard:prod`** or **`gh variable set AUTO_PRODUCTION_PR --body true`** writes the optional production-PR automation gate.
+Then run **`bun run github:sync:staging`** and **`bun run github:sync:prod`** from a trusted machine. Sync writes **`DEPLOY_ENABLED`** to the GitHub Environments and **`PRODUCTION_PR_HEAD`** to repo variables. **`AUTO_PRODUCTION_PR`** defaults to **`true`** on Environment **staging** when omitted (set **`false`** to disable); optional row in **`bun run setup:*`** under **GitHub admin CLI**.
 
 The sync does not delete old GitHub variables. You can remove stale **`MULTIWORKER_*`** variables after the new workflow names are synced and a run has succeeded.
 

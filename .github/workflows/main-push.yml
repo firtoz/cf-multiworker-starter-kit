@@ -156,6 +156,7 @@ jobs:
       needs.deploy.outputs.did_staging_deploy == 'true' &&
       vars.AUTO_PRODUCTION_PR == 'true'
     runs-on: ubuntu-latest
+    environment: staging
     permissions:
       contents: read
       pull-requests: write

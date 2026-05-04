@@ -247,6 +247,8 @@ const SETUP_LIST_EMPTY_DEFAULT_HINT: Readonly<Record<string, string>> = {
 	GITHUB_SYNC_PUSH_SECRETS: "true (= push secrets & Environment vars to GitHub)",
 	GITHUB_SYNC_STAGING_FORK_REVIEWERS_PRIVATE:
 		'false (= no actor reviewer on private repos when policy reviewerFallbackToActor is "auto")',
+	AUTO_PRODUCTION_PR:
+		'omit → github:sync defaults true on Environment "staging"; set false to disable auto main→production PR',
 };
 
 function setupCategoryKeySelectMessage(category: EnvSetupCategoryId): string {
