@@ -41,7 +41,10 @@ import alchemy from "alchemy";
 import { GitHubSecret, RepositoryEnvironment } from "alchemy/github";
 import { parse } from "dotenv";
 import githubPolicy from "../config/github.policy";
-import { isCloudflareAlchemyAccountEnvKey, mergeCloudflareAlchemyAccountEnvInto } from "../packages/alchemy-utils/src/cloudflare-account-env";
+import {
+	isCloudflareAlchemyAccountEnvKey,
+	mergeCloudflareAlchemyAccountEnvInto,
+} from "../packages/alchemy-utils/src/cloudflare-account-env";
 import { resolveStageFromEnv } from "../packages/alchemy-utils/src/deployment-stage";
 import {
 	assertGithubPolicyConfig,
