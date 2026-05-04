@@ -30,9 +30,15 @@ jobs:
         run: |
           set -euo pipefail
           head="${{ github.head_ref }}"
+          head_repo="${{ github.event.pull_request.head.repo.full_name }}"
+          base_repo="${{ github.repository }}"
           want="${WANT_RAW:-}"
           want="${want:-main}"
+          if [ -z "$head_repo" ] || [ "$head_repo" != "$base_repo" ]; then
+            echo "::error::Pull requests into \`production\` must come from the same repository (head repo: \`${head_repo:-<missing>}\`, expected: \`$base_repo\`). Fork PRs are not allowed."
+            exit 1
+          fi
           if [ "$head" != "$want" ]; then
-            echo "::error::Pull requests into \`production\` must use head branch \`$want\` (got: \`$head\`)."
+            echo "::error::Pull requests into \`production\` must use head branch \`$want\` from this repo (got: \`$head\`)."
             exit 1
           fi

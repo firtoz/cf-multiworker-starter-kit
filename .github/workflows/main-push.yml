@@ -164,14 +164,18 @@ jobs:
       - name: Create or note existing PR (main → production)
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PRODUCTION_PR_HEAD_RAW: ${{ vars.PRODUCTION_PR_HEAD }}
         run: |
           set -euo pipefail
           REPO="${{ github.repository }}"
+          REPO_OWNER="${REPO%%/*}"
+          PROD_PR_HEAD="${PRODUCTION_PR_HEAD_RAW:-main}"
+          PROD_PR_HEAD_FILTER="${REPO_OWNER}:${PROD_PR_HEAD}"
           RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
 
           post_production_merge_source_check() {
             local sha
-            sha="$(gh pr list --repo "${REPO}" --base production --head main --state open --json headRefOid --jq '.[0].headRefOid // empty' 2>/dev/null || true)"
+            sha="$(gh pr list --repo "${REPO}" --base production --head "${PROD_PR_HEAD_FILTER}" --state open --json headRefOid --jq '.[0].headRefOid // empty' 2>/dev/null || true)"
             if [[ -z "${sha}" ]]; then
               echo "::warning::Production merge source: could not resolve PR head SHA; check run not posted."
               return 0
@@ -193,7 +197,7 @@ jobs:
             exit 0
           fi
 
-          EXISTING="$(gh pr list --repo "${REPO}" --base production --head main --state open --json url --jq '.[0].url // empty' || true)"
+          EXISTING="$(gh pr list --repo "${REPO}" --base production --head "${PROD_PR_HEAD_FILTER}" --state open --json url --jq '.[0].url // empty' || true)"
           if [[ -n "${EXISTING}" ]]; then
             {
               echo "## Production PR"
@@ -207,17 +211,17 @@ jobs:
 
           BODY="$(printf '%s\n\n%s' "Staging deploy succeeded: ${RUN_URL}" "Merge this PR to deploy **production** (see \`.github/workflows/prod-deploy.yml\`).")"
 
-          gh pr create --repo "${REPO}" --base production --head main \
+          gh pr create --repo "${REPO}" --base production --head "${PROD_PR_HEAD}" \
             --title "Deploy staging to production" \
             --body "${BODY}"
 
-          PR_URL="$(gh pr list --repo "${REPO}" --base production --head main --state open --json url --jq '.[0].url // empty' || true)"
+          PR_URL="$(gh pr list --repo "${REPO}" --base production --head "${PROD_PR_HEAD_FILTER}" --state open --json url --jq '.[0].url // empty' || true)"
           {
             echo "## Production PR"
             if [[ -n "${PR_URL}" ]]; then
-              echo "**Opened:** [${PR_URL}](${PR_URL}) (**main** → **production**)."
+              echo "**Opened:** [${PR_URL}](${PR_URL}) (**${PROD_PR_HEAD}** → **production**)."
             else
-              echo "Opened **main** → **production** (PR URL unavailable — check the **Pull requests** tab)."
+              echo "Opened **${PROD_PR_HEAD}** → **production** (PR URL unavailable — check the **Pull requests** tab)."
             fi
             echo ""
             echo "Merge this PR to deploy **production**."
