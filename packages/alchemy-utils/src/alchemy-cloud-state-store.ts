@@ -3,7 +3,8 @@
  * share deployment state (`deploy:*`, `destroy:*`). Local dev skips this and uses the default filesystem store.
  *
  * - **`STAGE !== "local"`** (staging, prod, PR preview, etc.): [`CloudflareStateStore`](https://alchemy.run/guides/cloudflare-state-store)
- *   with one **`${PRODUCT_PREFIX}-alchemy-state-${stageSlug}`** script per stage (`ALCHEMY_STATE_TOKEN`).
+ *   without a custom `scriptName`, so Alchemy uses the account default **`alchemy-state-service`** (`ALCHEMY_STATE_TOKEN`).
+ *   Stacks stay isolated by **app id** (`alchemy("…")`) and **`stage`** inside that store — not one state-store Worker per stage.
  * - **`STAGE=local`** (`alchemy dev`): omit — repo **`.alchemy/`** directory (default).
  *
  * **Concurrency:** Each deploy package lists **`state-hub`** as a **`devDependency`** and **`deploy:*`** uses **`dependsOn`** **`^deploy:*`** so the hub runs before siblings and two
@@ -13,27 +14,12 @@
  */
 import type { StateStoreType } from "alchemy";
 import { CloudflareStateStore } from "alchemy/state";
-import { PRODUCT_PREFIX } from "./worker-peer-scripts";
-
-function sanitizeCfScriptSegment(segment: string, maxLen = 52): string {
-	const s = segment
-		.trim()
-		.toLowerCase()
-		.replace(/[^a-z0-9-]+/g, "-")
-		.replace(/^-+|-+$/g, "");
-	const slug = (s || "stage").slice(0, maxLen);
-	return slug.length > 0 ? slug : "stage";
-}
-
-export function sanitizeAlchemyStateStoreStageSlug(stage: string): string {
-	return sanitizeCfScriptSegment(stage, 48);
-}
 
 /**
  * Spread into {@link import("alchemy").default} App options beside `stage`:
  * `{ stage, ...alchemyCiCloudStateStoreOptions(stage) }`
  *
- * Remote state for all stages except **`local`**; name kept for historical call sites.
+ * Remote state for all stages except **`local`**.
  */
 export function alchemyCiCloudStateStoreOptions(stage: string): {
 	stateStore?: StateStoreType;
@@ -41,11 +27,7 @@ export function alchemyCiCloudStateStoreOptions(stage: string): {
 	if (stage.trim().toLowerCase() === "local") {
 		return {};
 	}
-	const stageSlug = sanitizeAlchemyStateStoreStageSlug(stage);
 	return {
-		stateStore: (scope) =>
-			new CloudflareStateStore(scope, {
-				scriptName: `${PRODUCT_PREFIX}-alchemy-state-${stageSlug}`,
-			}),
+		stateStore: (scope) => new CloudflareStateStore(scope),
 	};
 }

@@ -22,7 +22,6 @@
 		"deploy:preflight:staging": "bunx dotenv-cli -v STAGE=staging -- bun ./src/deploy-preflight.ts staging",
 		"deploy:preflight:preview": "bun ./src/deploy-preflight.ts preview",
 		"verify:deploy-env:preview": "bun ./src/verify-deploy-env.ts",
-		"cleanup:alchemy-state:preview": "bun ./src/cleanup-preview-alchemy-state.ts",
 		"lint": "biome check --write .",
 		"lint:format": "biome format --write ."
 	},
