@@ -12,6 +12,7 @@
         "@types/bun": "^1.3.13",
         "@typescript/native-preview": "catalog:",
         "alchemy": "catalog:",
+        "alchemy-utils": "workspace:*",
         "dotenv": "catalog:",
         "dotenv-cli": "^11.0.0",
         "turbo": "^2.9.8",
@@ -119,6 +120,9 @@
     },
     "packages/alchemy-utils": {
       "name": "alchemy-utils",
+      "bin": {
+        "alchemy-cli": "./src/alchemy-cli.ts",
+      },
       "dependencies": {
         "dotenv": "catalog:",
       },

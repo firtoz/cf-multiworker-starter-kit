@@ -2,6 +2,9 @@
 	"name": "alchemy-utils",
 	"private": true,
 	"type": "module",
+	"bin": {
+		"alchemy-cli": "./src/alchemy-cli.ts"
+	},
 	"exports": {
 		".": {
 			"types": "./src/password.ts",

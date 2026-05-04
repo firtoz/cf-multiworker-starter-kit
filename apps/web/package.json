@@ -2,6 +2,9 @@
 	"name": "@internal/web",
 	"private": true,
 	"type": "module",
+	"alchemy": {
+		"app": "frontend"
+	},
 	"exports": {
 		"./alchemy": "./alchemy.run.ts"
 	},
@@ -12,13 +15,13 @@
 		"build:dev": "react-router build --mode development",
 		"typegen": "bun run rr-typegen",
 		"rr-typegen": "react-router typegen",
-		"deploy:prod": "bunx dotenv-cli -v STAGE=prod -e ../../.env.production -- bun ../../packages/alchemy-utils/src/alchemy-cli.ts deploy frontend",
-		"deploy:staging": "bunx dotenv-cli -v STAGE=staging -e ../../.env.staging -- bun ../../packages/alchemy-utils/src/alchemy-cli.ts deploy frontend",
-		"deploy:preview": "bunx dotenv-cli -e ../../.env.staging -- bun ../../packages/alchemy-utils/src/alchemy-cli.ts deploy frontend",
-		"destroy:prod": "bunx dotenv-cli -v STAGE=prod -e ../../.env.production -- bun ../../packages/alchemy-utils/src/alchemy-cli.ts destroy frontend",
-		"destroy:staging": "bunx dotenv-cli -v STAGE=staging -e ../../.env.staging -- bun ../../packages/alchemy-utils/src/alchemy-cli.ts destroy frontend",
-		"destroy:preview": "bunx dotenv-cli -e ../../.env.staging -- bun ../../packages/alchemy-utils/src/alchemy-cli.ts destroy frontend",
-		"dev": "bunx dotenv-cli -v STAGE=local -e ../../.env.local -- bun ../../packages/alchemy-utils/src/alchemy-cli.ts dev frontend",
+		"deploy:prod": "alchemy-cli --stage prod deploy",
+		"deploy:staging": "alchemy-cli --stage staging deploy",
+		"deploy:preview": "alchemy-cli --stage preview deploy",
+		"destroy:prod": "alchemy-cli --stage prod destroy",
+		"destroy:staging": "alchemy-cli --stage staging destroy",
+		"destroy:preview": "alchemy-cli --stage preview destroy",
+		"dev": "alchemy-cli --stage local dev",
 		"preview": "bun run build:local && vite preview",
 		"typecheck": "concurrently -n cloudflare,node -c auto --success all \"tsgo --noEmit -p ./tsconfig.cloudflare.json\" \"tsgo --noEmit -p ./tsconfig.node.json\"",
 		"lint": "biome check --write .",

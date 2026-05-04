@@ -12,7 +12,7 @@ Use this skill when someone is building **their** app on top of this starter kit
 **Note — infra naming is code-first**
 
 - Set **`PRODUCT_PREFIX`** once in **[`worker-peer-scripts.ts`](../../packages/alchemy-utils/src/worker-peer-scripts.ts)** (**`ALCHEMY_APP_IDS`** derives each Alchemy **`appId`**).
-- **`deploy` / `destroy` / `dev`** scripts use **[`alchemy-cli.ts`](../../packages/alchemy-utils/src/alchemy-cli.ts)** with those keys — don’t duplicate **`--app`** strings by hand.
+- **`deploy` / `destroy` / `dev`** scripts use the **`alchemy-cli`** workspace bin with **`alchemy.app`** in each **`package.json`** — don’t duplicate **`--app`** strings by hand.
 - Keep **`await alchemy("…")`** literals in each **`alchemy.run.ts`** aligned with that table, then **`bun run typegen`**.
 - Worker branding lives in **TypeScript**, not env vars. See [multiworker-workflow](../multiworker-workflow/SKILL.md) and [multiworker-gotchas](../multiworker-gotchas/SKILL.md).
 
@@ -30,17 +30,17 @@ Ask the user (or infer from context):
 - **Workspace package names (`package.json` `name`)** — often **`skybook-web`**, **`skybook-db`**, … — separate from Alchemy **`--app`** — used mainly for **`turbo run … --filter=…`**.
 - **One-line description** — README, meta tags, home hero copy.
 - **Chatroom DO** — `durable-objects/chatroom-do`; web binds **`ChatroomDo`**; internal secret **`CHATROOM_INTERNAL_SECRET`** (already in env flows).
-- **D1** — `packages/db` + optional **`D1_DATABASE_NAME`** / **`D1_DATABASE_ID`** in **`.env.local`** / **`.env.production`** for remote/local debugging; **`ALCHEMY_APP_IDS.database`** (**[`packages/db/alchemy.run.ts`](../../packages/db/alchemy.run.ts)**) drives migrations (**`alchemy-cli.ts deploy database`**).
+- **D1** — `packages/db` + optional **`D1_DATABASE_NAME`** / **`D1_DATABASE_ID`** in **`.env.local`** / **`.env.production`** for remote/local debugging; **`ALCHEMY_APP_IDS.database`** (**[`packages/db/alchemy.run.ts`](../../packages/db/alchemy.run.ts)**) drives migrations (**`alchemy-cli --stage prod deploy`** from **`packages/db`**, etc.).
 
 ## 2. Code-first Alchemy ids and Workers
 
-- Each deployable **`alchemy.run.ts`** has one **`await alchemy(<appId>, { … })`**; **`STAGE`** comes from **`package.json`** scripts (**`dotenv-cli -v STAGE=…`** or CI).
+- Each deployable **`alchemy.run.ts`** has one **`await alchemy(<appId>, { … })`**; **`STAGE`** comes from **`alchemy-cli --stage`** (or CI **`STAGE`**).
 - **`alchemy("…")`** must match **`ALCHEMY_APP_IDS`** for that package (**`frontend`**, **`chatroom`**, …).
-- **`alchemy-cli.ts`** resolves **`alchemy dev|deploy|destroy --app …`** from the **same** keys — avoid extra hard-coded **`--app`** strings that can drift.
+- **`alchemy-cli`** resolves **`alchemy dev|deploy|destroy --app …`** from **`package.json` → `alchemy.app`** (same keys as **`ALCHEMY_APP_IDS`**) — avoid extra hard-coded **`--app`** strings that can drift.
 
 ### Where **`PRODUCT_PREFIX`** drives ids
 
-- **[**`ALCHEMY_APP_IDS`** + **`PRODUCT_PREFIX`**](../../packages/alchemy-utils/src/worker-peer-scripts.ts)** — Canonical Alchemy **`appId`** strings. **`alchemy-cli.ts`** accepts these keys (**`frontend`**, **`chatroom`**, **`ping`**, **`other`**, **`database`**, **`stateHub`**, **`admin`**) plus arbitrary **suffix** segments for **`${PRODUCT_PREFIX}-<suffix>`** (generator-created DO packages). Forks change **`PRODUCT_PREFIX`** once.
+- **[**`ALCHEMY_APP_IDS`** + **`PRODUCT_PREFIX`**](../../packages/alchemy-utils/src/worker-peer-scripts.ts)** — Canonical Alchemy **`appId`** strings. **`package.json` → `alchemy.app`** uses those keys (**`frontend`**, **`chatroom`**, **`ping`**, **`other`**, **`database`**, **`stateHub`**, **`admin`**) plus arbitrary **suffix** segments for **`${PRODUCT_PREFIX}-<suffix>`** (generator-created DO packages). Forks change **`PRODUCT_PREFIX`** once.
 
 | Package folder | Typical **`appId`** (**`PRODUCT_PREFIX = starter`**) | Turbo **`--filter`** uses workspace **`name`** (starter) |
 |----------------|----------------------------------------------------------|--------------------------------------------------------|
@@ -61,9 +61,9 @@ After edits: **`bun run typegen`** from the repo root. **`env.d.ts`** reflects e
 ## 3. Package names (`package.json`)
 
 - **Root** [`package.json`](../../package.json): set **`"name"`** to the fork project slug (replaces `cloudflare-multiworker-template`).
-- **`apps/web/package.json`**: set **`"name"`** (e.g. **`my-saas-web`**) — **Turbo filter** usage; **`alchemy`** app id stays in **`alchemy.run.ts`** (**`ALCHEMY_APP_IDS.frontend`** …).
-- Each DO/worker **`package.json`**: **`deploy`/`destroy`/`dev`** scripts should call **`alchemy-cli.ts`** with the **`ALCHEMY_APP_IDS`** key that matches **`alchemy("…")`** in **`alchemy.run.ts`**.
-- **`packages/state-hub`**: **`alchemy.run.ts`** stays on **`ALCHEMY_APP_IDS.stateHub`**; scripts use **`alchemy-cli.ts … stateHub`** (provision-only shared Cloudflare Alchemy state for non-local **`STAGE`**).
+- **`apps/web/package.json`**: set **`"name"`** (e.g. **`my-saas-web`**) — **Turbo filter** usage; add **`"alchemy": { "app": "frontend" }`** (id still matches **`alchemy.run.ts`** + **`ALCHEMY_APP_IDS.frontend`** …).
+- Each DO/worker **`package.json`**: **`alchemy.app`** must match **`ALCHEMY_APP_IDS`** ↔ **`alchemy("…")`** in **`alchemy.run.ts`**; **`deploy`/`destroy`/`dev`** run **`alchemy-cli --stage …`**.
+- **`packages/state-hub`**: **`alchemy.run.ts`** stays on **`ALCHEMY_APP_IDS.stateHub`**; **`alchemy.app`** is **`stateHub`** and scripts use **`alchemy-cli --stage …`** (provision-only shared Cloudflare Alchemy state for non-local **`STAGE`**).
 - **`workspace:*` dependencies:** If you rename a workspace package (**`chatroom-do`** folder / **`name`**), update every consumer and **`bun install`**.
 
 ## 4. README

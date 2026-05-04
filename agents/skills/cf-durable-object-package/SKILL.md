@@ -22,7 +22,7 @@ description: Add or change a Durable Object worker package under durable-objects
 
 2. **`alchemy.run.ts`**
 
-   - **`await alchemy(…)`** string must match **`alchemy-cli.ts`** / **`${PRODUCT_PREFIX}-<suffix>`** (**`PRODUCT_PREFIX`** + **`ALCHEMY_APP_IDS`** → **`alchemy-utils/worker-peer-scripts`**).
+   - **`await alchemy(…)`** string must match **`alchemy-cli`** / **`package.json` → `alchemy.app`** (**`${PRODUCT_PREFIX}-<suffix>`** from **`ALCHEMY_APP_IDS`** → **`alchemy-utils/worker-peer-scripts`**).
    - **`requireAlchemyPassword(app)`** from **`alchemy-utils`**.
    - Export **`DurableObjectNamespace<YourDoRpc>`** (types from **`./workers/rpc`**).
    - **`Worker(...)`**: use **`DEFAULT_WORKER_RESOURCE_ID`** (**`worker`**); omit **`name:`** unless you need an override. Cyclic **`WorkerRef`** pairs: **`omitDefaultPhysicalWorkerScriptName`** ([cf-worker-rpc-turbo](../cf-worker-rpc-turbo/SKILL.md)).
@@ -41,8 +41,9 @@ description: Add or change a Durable Object worker package under durable-objects
 
 6. **Scripts**
 
-   - **`dev`**: **`bunx dotenv-cli -v STAGE=local -e ../../.env.local -- bun ../../packages/alchemy-utils/src/alchemy-cli.ts dev <kebab-suffix>`** → **`alchemy dev --app ${PRODUCT_PREFIX}-<suffix>`**.
-   - **`deploy` / `destroy`**: same **`dotenv-cli`** + **`alchemy-cli`** pattern for each stage.
+   - **`alchemy`** in **`package.json`**: **`"alchemy": { "app": "<ALCHEMY_APP_IDS key>", "entry": "alchemy.run.ts" }`** (omit **`entry`** when it is **`alchemy.run.ts`**).
+   - **`dev`** / **`deploy:*`** / **`destroy:*`**: **`alchemy-cli --stage local|staging|prod|preview <dev|deploy|destroy>`** — **`alchemy-cli`** loads repo-root dotfiles, sets **`STAGE`**, and passes **`--app`** from **`alchemy.app`**.
+   - Add **`"alchemy-utils": "workspace:*"`** so **`alchemy-cli`** is on script **`PATH`**.
    - Add **`state-hub`**: **`workspace:*`** **`devDependency`** so Turbo **`^deploy:*`** runs the shared remote Alchemy state hub first.
    - SQLite DOs: also expose **`db:generate`**.
 

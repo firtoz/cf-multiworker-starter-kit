@@ -8,7 +8,7 @@ description: Alchemy + env files — repo-root `.env.local` (dev), `.env.staging
 ## When to use this skill
 
 - Adding, renaming, or documenting environment variables for the web worker, chatroom worker, or D1.
-- Local dev shows missing vars for Alchemy (each app uses **`alchemy-cli.ts dev <ALCHEMY_APP_IDS key>`** → **`alchemy dev --app <id>`**; see [Alchemy Turborepo](https://alchemy.run/guides/turborepo/)).
+- Local dev shows missing vars for Alchemy (each package runs **`alchemy-cli --stage local dev`** from its **`package.json`**, using **`alchemy.app`** → **`alchemy dev --app <id>`**; see [Alchemy Turborepo](https://alchemy.run/guides/turborepo/)).
 - How **`bun run typegen`** / **`bun run typecheck`** relate to infra (`alchemy.run.ts`) vs deploy-time secrets (**`.env.*`**).
 - Explaining **repo-root** `.env.local` + `.env.staging` + `.env.production` vs optional per-package `.env.local`.
 
@@ -50,8 +50,8 @@ Create **Cloudflare API tokens** only in the dashboard ([`docs/github-admin.md`]
 4. **Infra source of truth** — Package-local **`alchemy.run.ts`** files. Changing bindings means updating the relevant package app. `env.d.ts` files use the exported package worker resource's `Env`.
 
 5. **Turbo + stage files**
-   - **`bun run dev`** — filtered Turbo **`dev`**: web + worker packages run **`alchemy-cli.ts dev …`** ([Alchemy Turborepo](https://alchemy.run/guides/turborepo/)).
-   - **`deploy:*`** / **`destroy:*`** — stage-specific graphs; **`--app`** comes from **`alchemy-cli.ts`** + **`ALCHEMY_APP_IDS`**.
+   - **`bun run dev`** — filtered Turbo **`dev`**: web + worker packages run **`alchemy-cli --stage local dev`** ([Alchemy Turborepo](https://alchemy.run/guides/turborepo/)).
+   - **`deploy:*`** / **`destroy:*`** — stage-specific graphs; **`alchemy-cli --stage …`** sets **`STAGE`**, loads repo dotfiles + **`account.env`**, and passes **`--app`** from each package’s **`package.json` → `alchemy.app`** (backs onto **`ALCHEMY_APP_IDS`** in **`worker-peer-scripts.ts`**).
    - **`dotenv-cli`** — `bunx dotenv-cli -v STAGE=… -e .env.staging|.env.production -- …`. Locally, the stage file loads when present; in CI, missing repo dotfiles → values from **GitHub Environment** via **`process.env`**.
    - Infra that belongs in git: **`alchemy.run.ts`**, not env files.
 
@@ -89,7 +89,7 @@ Create **Cloudflare API tokens** only in the dashboard ([`docs/github-admin.md`]
 .env.staging              # gitignored — staging + PR preview deploy inputs (`STAGE=staging` or `pr-<n>`)
 .env.production           # gitignored prod / CI secrets as needed (`STAGE=prod`)
 stacks/admin.ts           # local-only admin stack — GitHub Environment secrets + deploy enablement var
-packages/alchemy-utils/   # `PRODUCT_PREFIX`, `ALCHEMY_APP_IDS`, `src/alchemy-cli.ts`, `requireAlchemyPassword`, deployment-stage
+packages/alchemy-utils/   # `PRODUCT_PREFIX`, `ALCHEMY_APP_IDS`, `alchemy-cli` bin, `requireAlchemyPassword`, deployment-stage
 packages/state-hub/       # `alchemy.run.ts` — provisions shared CloudflareStateStore for non-local stages (`ALCHEMY_APP_IDS.stateHub`)
 apps/web/
   alchemy.run.ts          # web Alchemy app

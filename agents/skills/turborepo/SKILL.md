@@ -50,7 +50,7 @@ Turbo: resolves package order, parallelizes, caches. **Turbo `inputs`** (per-pac
 
 **D1 / migrations:** **`packages/db/alchemy.run.ts`** defines **`D1Database`** (**alchemy app **`starter-database`**, npm workspace **`@internal/db`**). The web app imports **`mainDb`** from **`@internal/db/alchemy`**. D1 migrations are applied by Alchemy from **`migrationsDir`** during **`dev`** / **`deploy:*`**; do not add separate Wrangler migration scripts.
 
-**Package Alchemy apps:** Each deployable package owns **`alchemy.run.ts`** and package **`dev` / `deploy:*` / `destroy:*`** use **`alchemy dev|deploy|destroy --app <package-id>`** with **`STAGE`** from **`dotenv-cli -v STAGE=…`** or CI (see [Alchemy Turborepo](https://alchemy.run/guides/turborepo/)). Root **`bun run dev`** filters Turbo to web + **`@internal/db`** + worker apps. **`deploy:*`** uses **`cache: false`** so Turbo always runs Alchemy deploy; **`destroy:*`** is also **`cache: false`**.
+**Package Alchemy apps:** Each deployable package owns **`alchemy.run.ts`**, declares **`alchemy.app`** in **`package.json`**, and **`dev` / `deploy:*` / `destroy:*`** run **`alchemy-cli --stage local|staging|prod|preview …`** (**`alchemy dev|deploy|destroy --app …`** internally; **`STAGE`** from **`--stage`** or CI — see [Alchemy Turborepo](https://alchemy.run/guides/turborepo/)). Root **`bun run dev`** filters Turbo to web + **`@internal/db`** + worker apps. **`deploy:*`** uses **`cache: false`** so Turbo always runs Alchemy deploy; **`destroy:*`** is also **`cache: false`**.
 
 ### 1. Task Dependencies Should Use Outputs, Not Inputs
 
@@ -417,16 +417,16 @@ bun run build --verbose
 - **`lint`** — `dependsOn`: **`typecheck`**
 - **`build:local` / `build:prod` / `build:staging`** — `dependsOn`: **`typecheck`**
 - **`deploy:*`** — `dependsOn`: **`typecheck`** plus **`^deploy:*`**; do **not** depend on `build:*` because Alchemy **`ReactRouter`** builds during deploy.
-- **`dev`** — `dependsOn`: **`typegen`**; root **`bun run dev`** runs a **filtered** Turbo **`dev`** (web + **`@internal/db`** + worker apps) so each runs **`alchemy-cli.ts dev <key>`** → **`alchemy dev --app …`**
+- **`dev`** — `dependsOn`: **`typegen`**; root **`bun run dev`** runs a **filtered** Turbo **`dev`** (web + **`@internal/db`** + worker apps) so each runs **`alchemy-cli --stage local dev`**
 
 ### packages/db/turbo.json
 - `db:generate` — Drizzle SQL from `src/`
-- `dev` / `deploy:*` / `destroy:*` — **`packages/alchemy-utils/src/alchemy-cli.ts`** with **`ALCHEMY_APP_IDS.database`** (**`deploy database`**, **`dev database`**, …; see **`package.json`** scripts; stage via **`STAGE`** + dotfile)
+- `dev` / `deploy:*` / `destroy:*` — **`alchemy-cli --stage …`** with **`package.json` → `alchemy.app`** + **`ALCHEMY_APP_IDS.database`** (**`deploy database`**, **`dev database`**, …; see **`package.json`** scripts)
 - `typegen` — Turbo **`dependsOn`** includes **`db:generate`** upstream so migrations exist before dependents; **`package.json`** script is a stub (`node -e "process.exit(0)"`).
 - `typecheck` — `tsgo --noEmit` for `@internal/db`
 
 ### Durable objects (e.g. `chatroom-do`)
-- `turbo.json` with `typegen` / `typecheck` / `lint` / **`deploy:*`** / **`destroy:*`** (**`package.json`** uses **`alchemy-cli.ts`** for **`dev`/`deploy`/`destroy`**); list **`state-hub`** as a **`devDependency`** so **`dependsOn`** **`^deploy:*`** runs the hub deploy first; no **`generate-wrangler`**
+- `turbo.json` with `typegen` / `typecheck` / `lint` / **`deploy:*`** / **`destroy:*`** (**`package.json`** uses **`alchemy-cli`** for **`dev`/`deploy`/`destroy`**); list **`state-hub`** as a **`devDependency`** so **`dependsOn`** **`^deploy:*`** runs the hub deploy first; no **`generate-wrangler`**
 
 ### Key Dependency Chains (simplified)
 
@@ -434,7 +434,7 @@ bun run build --verbose
 ^typegen + ^db:generate → @internal/web#typegen (react-router typegen script)
 @internal/web#typecheck → typegen, ^typecheck
 lint / build → typecheck
-dev → filtered turbo runs `alchemy-cli.ts dev …` for web + each worker package
+dev → filtered turbo runs `alchemy-cli --stage local dev` for web + each worker package
 ```
 
 ## Resources
