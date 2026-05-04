@@ -173,20 +173,20 @@ jobs:
           PROD_PR_HEAD_FILTER="${REPO_OWNER}:${PROD_PR_HEAD}"
           RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
 
-          # Required ruleset context: **Restrict production PR source / Production merge source** (see GitHub ruleset docs).
-          # That check is normally produced by **restrict-production-pr-source.yml** on **pull_request**.
-          # Events raised with GITHUB_TOKEN (including PRs opened by Actions) do not start new workflow
+          # The **Production merge source** required check is normally produced by
+          # restrict-production-pr-source.yml on pull_request. Events raised with
+          # GITHUB_TOKEN (including PRs opened by Actions) do not start new workflow
           # runs, so that check never appears. Recreate the same check conclusion via
           # the Checks API so production rulesets can merge.
           post_production_merge_source_check() {
             local sha
             sha="$(gh pr list --repo "${REPO}" --base production --head "${PROD_PR_HEAD_FILTER}" --state open --json headRefOid --jq '.[0].headRefOid // empty' 2>/dev/null || true)"
             if [[ -z "${sha}" ]]; then
-              echo "::warning::Production merge source check: could not resolve PR head SHA; check run not posted."
+              echo "::warning::Production merge source: could not resolve PR head SHA; check run not posted."
               return 0
             fi
             gh api --method POST "/repos/${REPO}/check-runs" \
-              -f name="Restrict production PR source / Production merge source" \
+              -f name="Production merge source" \
               -f head_sha="${sha}" \
               -f status="completed" \
               -f conclusion="success"

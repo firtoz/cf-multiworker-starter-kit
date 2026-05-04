@@ -123,7 +123,7 @@ bun run github:sync:staging
 - Requires pull requests.
 - Has no admin bypass by default.
 - Blocks force-push.
-- Requires the status check **`Restrict production PR source / Production merge source`** (GitHub’s ruleset context is **`{workflow name} / {job name}`** for Actions — see [troubleshooting rulesets](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-rulesets/troubleshooting-rules)). That check is produced by [`restrict-production-pr-source.yml`](../.github/workflows/restrict-production-pr-source.yml) on **normal** `pull_request` events. **PRs opened by Actions using `GITHUB_TOKEN` do not start other workflows**, so [`main-push.yml`](../.github/workflows/main-push.yml) posts the same **name** via the Checks API after it opens or reuses the **main → production** PR. If merge is stuck on **Expected — Waiting for status**, the ruleset context likely does not match the workflow/job names — rerun **`bun run github:sync:staging`** after policy changes, or pick the exact name from the **Checks** tab on a green workflow run.
+- Requires the `Production merge source` status check, which is produced by [`restrict-production-pr-source.yml`](../.github/workflows/restrict-production-pr-source.yml) on **normal** `pull_request` events (humans / PAT-opened PRs). **PRs opened by Actions using `GITHUB_TOKEN` do not start other workflows**, so [`main-push.yml`](../.github/workflows/main-push.yml) also posts that check via the Checks API after it opens or reuses the **main → production** PR.
 - That workflow only passes when the PR into `production` comes from the configured source branch, default `main`.
 
 ## Common Tweaks
