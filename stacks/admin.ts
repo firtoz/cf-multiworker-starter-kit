@@ -54,9 +54,9 @@ import {
 } from "../packages/alchemy-utils/src/github-policy-config";
 import { ALCHEMY_APP_IDS } from "../packages/alchemy-utils/src/worker-peer-scripts";
 import {
+	AUTO_PRODUCTION_PR_VAR,
 	buildGitHubSecretPayload,
 	buildGitHubVariablePayloadFromDotfile,
-	AUTO_PRODUCTION_PR_VAR,
 	DEPLOY_ENABLED_VAR,
 	setupCommandLabelForDotfileRel,
 } from "../packages/scripts/src/github-environment-secrets";
