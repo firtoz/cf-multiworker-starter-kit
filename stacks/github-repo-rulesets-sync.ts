@@ -1,6 +1,7 @@
 /**
  * GitHub **repository rulesets** (REST) — complements **`github-repository-settings-sync.ts`**.
  * Runs on **`github:sync:staging`** when **`config/github.policy.ts`** has **`github.sync.applyRulesets`** set.
+ * Best-effort: API failures (including 403 without rulesets entitlement on private repos) log a warning and do not abort the sync.
  *
  * Defaults: **`main`** — PR-only for **Write** and **Maintain** roles; **Repository admin** may bypass (direct push).
  * Optional status checks. **`production`** — PR rules for everyone, no admin bypass in defaults, plus an optional
@@ -11,8 +12,9 @@
 
 import { Octokit } from "@octokit/rest";
 import type { GitHubPolicyConfig } from "../packages/alchemy-utils/src/github-policy-config";
+import { octokitHttpErrorDetails } from "./github-http-error";
 
-export const CF_STARTER_PRODUCTION_PR_HEAD_VARIABLE = "CF_STARTER_PRODUCTION_PR_HEAD";
+export const PRODUCTION_PR_HEAD_VARIABLE = "PRODUCTION_PR_HEAD";
 
 /** Built-in github.com “Repository admin” repository role id for ruleset `bypass_actors` (`RepositoryRole`). */
 const GITHUB_RULESET_BUILTIN_REPOSITORY_ROLE_ADMIN_ACTOR_ID = 5;
@@ -199,17 +201,6 @@ export async function applyGitHubRepoRulesets(opts: {
 		productionRuleset?: string;
 	} = {};
 
-	if (productionEnabled && requireProductionSourceGate) {
-		await upsertRepoVariable(
-			octokit,
-			owner,
-			repo,
-			CF_STARTER_PRODUCTION_PR_HEAD_VARIABLE,
-			productionSourceBranch,
-		);
-		results.productionPrHeadVariable = `${CF_STARTER_PRODUCTION_PR_HEAD_VARIABLE}=${productionSourceBranch}`;
-	}
-
 	function branchRulesWithoutOptionalChecks(
 		which: "main" | "production",
 	): Record<string, unknown>[] {
@@ -246,6 +237,17 @@ export async function applyGitHubRepoRulesets(opts: {
 	}
 
 	try {
+		if (productionEnabled && requireProductionSourceGate) {
+			await upsertRepoVariable(
+				octokit,
+				owner,
+				repo,
+				PRODUCTION_PR_HEAD_VARIABLE,
+				productionSourceBranch,
+			);
+			results.productionPrHeadVariable = `${PRODUCTION_PR_HEAD_VARIABLE}=${productionSourceBranch}`;
+		}
+
 		if (mainEnabled) {
 			const rs = [...branchRulesWithoutOptionalChecks("main"), ...mainStatusCheckRules(rules.main)];
 			await upsertRuleset(octokit, owner, repo, {
@@ -273,16 +275,14 @@ export async function applyGitHubRepoRulesets(opts: {
 			results.productionRuleset = productionName;
 		}
 	} catch (error: unknown) {
-		const err = error as { status?: number; message?: string };
-		if (err.status === 401) {
-			throw new Error("GitHub authentication failed while updating repository rulesets.");
-		}
-		if (err.status === 403) {
-			throw new Error(
-				"Insufficient permissions to manage repository rulesets or Actions variables (need admin on the repository).",
-			);
-		}
-		throw error;
+		const { httpStatus, message } = octokitHttpErrorDetails(error);
+		console.warn("[github-repo-rulesets] Rulesets sync skipped — continuing staging sync.", {
+			githubRepoRulesetsSkipped: true as const,
+			repository: `${owner}/${repo}`,
+			...(httpStatus === undefined ? {} : { httpStatus }),
+			message,
+		});
+		return;
 	}
 
 	console.log({

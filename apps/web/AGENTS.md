@@ -12,13 +12,13 @@ Use the Cloudflare Workers virtual module only:
 import { env } from "cloudflare:workers";
 ```
 
-Do **not** use `context.cloudflare.env` (or similar) from React Router for bindings — types and runtime expect `cloudflare:workers`. See root [AGENTS.md](../../AGENTS.md) (skill index) and [agents/skills/cf-starter-gotchas/SKILL.md](../../agents/skills/cf-starter-gotchas/SKILL.md).
+Do **not** use `context.cloudflare.env` (or similar) from React Router for bindings — types and runtime expect `cloudflare:workers`. See root [AGENTS.md](../../AGENTS.md) (skill index) and [agents/skills/multiworker-gotchas/SKILL.md](../../agents/skills/multiworker-gotchas/SKILL.md).
 
 ## Package Alchemy app
 
 - Source: **`apps/web/alchemy.run.ts`** for web bindings and imported Worker/DO resources.
 - Provider packages export resources through their package **`./alchemy`** export.
-- Root scripts use Turbo; web dev/deploy/destroy uses **`alchemy-cli.ts`** with **`frontend`** (see **`CF_STARTER_APPS`** / **`PRODUCT_PREFIX`** in root README — **Name your product** → **Code-first infra names**).
+- Root scripts use Turbo; web **`dev`/`deploy:*`/`destroy:*`** use **`alchemy-cli --stage …`** with **`alchemy.app`** **`frontend`** (see **`ALCHEMY_APP_IDS`** / **`PRODUCT_PREFIX`** in root README — **Name your product** → **Code-first infra names**).
 
 ## Routes
 
@@ -72,8 +72,8 @@ When you want to add or edit routes:
 
 ## General guidelines
 
-Follow the root [AGENTS.md](../../AGENTS.md) skill index and [cf-starter-workflow](../../agents/skills/cf-starter-workflow/SKILL.md) for:
+Follow the root [AGENTS.md](../../AGENTS.md) skill index and [multiworker-workflow](../../agents/skills/multiworker-workflow/SKILL.md) for:
 - Linting and completion checklist
 - Environment variable management ([cf-workers-env-local](../../agents/skills/cf-workers-env-local/SKILL.md))
-- Alchemy / worker package conventions ([cf-starter-gotchas](../../agents/skills/cf-starter-gotchas/SKILL.md) and the `cf-` skills linked there)
+- Alchemy / worker package conventions ([multiworker-gotchas](../../agents/skills/multiworker-gotchas/SKILL.md) and the `cf-` skills linked there)
 - **WebSocket / `/api/ws` / chat:** [cf-socka-realtime](../../agents/skills/cf-socka-realtime/SKILL.md) and [cf-realtime-websockets](../../agents/rules/cf-realtime-websockets.mdc) (Socka, SSR-safe URLs, `workers/app.ts` forwarding)

@@ -1,5 +1,5 @@
 {
-	"name": "cf-starter-chat-contract",
+	"name": "@internal/chat-contract",
 	"private": true,
 	"type": "module",
 	"exports": {
@@ -21,10 +21,8 @@
 		"destroy:preview": "node -e \"process.exit(0)\"",
 		"lint": "biome check --write .",
 		"lint:format": "biome format --write .",
-		"typegen:local": "tsgo --noEmit -p .",
-		"typegen:prod": "tsgo --noEmit -p .",
-		"typecheck:local": "tsgo --noEmit -p .",
-		"typecheck:prod": "tsgo --noEmit -p ."
+		"typegen": "node -e \"process.exit(0)\"",
+		"typecheck": "tsgo --noEmit -p ."
 	},
 	"devDependencies": {
 		"@biomejs/biome": "catalog:",

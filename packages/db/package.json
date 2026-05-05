@@ -1,7 +1,10 @@
 {
-	"name": "cf-starter-db",
+	"name": "@internal/db",
 	"private": true,
 	"type": "module",
+	"alchemy": {
+		"app": "database"
+	},
 	"exports": {
 		".": {
 			"types": "./src/index.ts",
@@ -12,19 +15,17 @@
 	"scripts": {
 		"db:generate": "drizzle-kit generate",
 		"db:studio": "drizzle-kit studio",
-		"deploy:prod": "bunx dotenv-cli -v STAGE=prod -e ../../.env.production -- bun ../alchemy-utils/src/alchemy-cli.ts deploy database",
-		"deploy:staging": "bunx dotenv-cli -v STAGE=staging -e ../../.env.staging -- bun ../alchemy-utils/src/alchemy-cli.ts deploy database",
-		"deploy:preview": "bunx dotenv-cli -e ../../.env.staging -- bun ../alchemy-utils/src/alchemy-cli.ts deploy database",
-		"destroy:prod": "bunx dotenv-cli -v STAGE=prod -e ../../.env.production -- bun ../alchemy-utils/src/alchemy-cli.ts destroy database",
-		"destroy:staging": "bunx dotenv-cli -v STAGE=staging -e ../../.env.staging -- bun ../alchemy-utils/src/alchemy-cli.ts destroy database",
-		"destroy:preview": "bunx dotenv-cli -e ../../.env.staging -- bun ../alchemy-utils/src/alchemy-cli.ts destroy database",
-		"dev": "bunx dotenv-cli -v STAGE=local -e ../../.env.local -- bun ../alchemy-utils/src/alchemy-cli.ts dev database",
+		"deploy:prod": "alchemy-cli --stage prod deploy",
+		"deploy:staging": "alchemy-cli --stage staging deploy",
+		"deploy:preview": "alchemy-cli --stage preview deploy",
+		"destroy:prod": "alchemy-cli --stage prod destroy",
+		"destroy:staging": "alchemy-cli --stage staging destroy",
+		"destroy:preview": "alchemy-cli --stage preview destroy",
+		"dev": "alchemy-cli --stage local dev",
 		"lint": "biome check --write .",
 		"lint:format": "biome format --write .",
-		"typegen:local": "tsgo --noEmit -p .",
-		"typegen:prod": "tsgo --noEmit -p .",
-		"typecheck:local": "tsgo --noEmit -p .",
-		"typecheck:prod": "tsgo --noEmit -p ."
+		"typegen": "node -e \"process.exit(0)\"",
+		"typecheck": "tsgo --noEmit -p ."
 	},
 	"dependencies": {
 		"drizzle-orm": "catalog:"

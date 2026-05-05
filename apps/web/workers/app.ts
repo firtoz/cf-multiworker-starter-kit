@@ -1,5 +1,5 @@
 import { WorkerEntrypoint } from "cloudflare:workers";
-import { CHATROOM_INTERNAL_SECRET_HEADER } from "cf-starter-chat-contract";
+import { CHATROOM_INTERNAL_SECRET_HEADER } from "@internal/chat-contract";
 import { createRequestHandler } from "react-router";
 import type { CloudflareEnv } from "../types/env.d.ts";
 

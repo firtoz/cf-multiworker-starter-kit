@@ -3,13 +3,13 @@
 	"extends": ["//"],
 	"tasks": {
 		"dev": {
-			"dependsOn": ["typegen:local"],
+			"dependsOn": ["scripts#dev:preflight"{{#if usesSqlite}}, "db:generate", "typegen"{{else}}, "typegen"{{/if}}],
 			"inputs": ["workers/**/*.ts", "src/**/*.ts", "alchemy.run.ts", "$TURBO_ROOT$/.env.local", "package.json"],
 			"persistent": true,
 			"cache": false
 		},
 		"lint": {
-			"dependsOn": ["typecheck:local"],
+			"dependsOn": ["typecheck"],
 			"inputs": ["workers/**/*.ts", "src/**/*.ts", "tsconfig.json", "tsconfig.cloudflare.json", "biome.json"],
 			"outputs": []
 		},
@@ -17,8 +17,8 @@
 			"inputs": ["workers/**/*.ts", "src/**/*.ts", "tsconfig.json", "tsconfig.cloudflare.json", "biome.json"],
 			"outputs": []
 		},
-		"typecheck:local": {
-			"dependsOn": ["db:generate", "typegen:local"],
+		"typecheck": {
+			"dependsOn": [{{#if usesSqlite}}"db:generate", {{/if}}"typegen", "^typecheck"],
 			"inputs": [
 				"workers/**/*.ts",
 				"src/**/*.ts",
@@ -32,64 +32,32 @@
 			],
 			"outputs": []
 		},
-		"typecheck:prod": {
-			"dependsOn": ["db:generate", "typegen:prod"],
-			"inputs": [
-				"workers/**/*.ts",
-				"src/**/*.ts",
-				"drizzle/**",
-				"alchemy.run.ts",
-				"tsconfig.json",
-				"tsconfig.cloudflare.json",
-				"package.json",
-				"$TURBO_ROOT$/tsconfig.base.json",
-				"env.d.ts"
-			],
-			"outputs": []
-		},
-		"typegen:local": {
-			"dependsOn": ["^typegen:local"],
-			"inputs": [
-				"workers/**/*.ts",
-				"src/**/*.ts",
-				"alchemy.run.ts",
-				"$TURBO_ROOT$/.env.local",
-				"package.json",
-				"env.d.ts"
-			],
-			"outputs": []
-		},
-		"typegen:prod": {
-			"dependsOn": ["^typegen:prod"],
-			"inputs": [
-				"workers/**/*.ts",
-				"src/**/*.ts",
-				"alchemy.run.ts",
-				"$TURBO_ROOT$/.env.production",
-				"package.json",
-				"env.d.ts"
-			],
+		"typegen": {
+			"dependsOn": ["^typegen"],
+			"inputs": ["workers/**/*.ts", "src/**/*.ts", "alchemy.run.ts", "package.json", "env.d.ts"],
 			"outputs": []
 		},
 		"deploy:prod": {
-			"dependsOn": ["^deploy:prod", "db:generate", "typecheck:prod"],
+			"dependsOn": ["^deploy:prod"{{#if usesSqlite}}, "db:generate", "typecheck"{{else}}, "typecheck"{{/if}}],
 			"cache": false,
 			"outputs": []
 		},
 		"deploy:staging": {
-			"dependsOn": ["^deploy:staging", "db:generate", "typecheck:prod"],
+			"dependsOn": ["^deploy:staging"{{#if usesSqlite}}, "db:generate", "typecheck"{{else}}, "typecheck"{{/if}}],
 			"cache": false,
 			"outputs": []
 		},
 		"deploy:preview": {
-			"dependsOn": ["^deploy:preview", "db:generate", "typecheck:prod"],
+			"dependsOn": ["^deploy:preview"{{#if usesSqlite}}, "db:generate", "typecheck"{{else}}, "typecheck"{{/if}}],
 			"cache": false,
 			"outputs": []
 		},
+{{#if usesSqlite}}
 		"db:generate": {
 			"inputs": ["drizzle.config.ts", "src/**/*.ts"],
 			"outputs": ["drizzle/**"]
 		},
+{{/if}}
 		"destroy:prod": {
 			"cache": false,
 			"outputs": []

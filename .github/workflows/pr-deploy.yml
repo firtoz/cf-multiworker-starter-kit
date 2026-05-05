@@ -1,0 +1,758 @@
+# **PR previews** (`STAGE=pr-<number>`): **same-repo** PRs run **Quality** then deploy to **`staging`** with inline PR comments.
+# **Fork** PRs run **Quality only** (after GitHub’s fork workflow approval gate); they do **not** deploy previews or receive deploy secrets.
+#
+# **Destroy** on **`pull_request` `closed`** for **same-repo** PRs only (immediate teardown). Uses **`verify:deploy-env:preview`** before destroy so teardown is not skipped when **`DEPLOY_ENABLED`** is false (avoids orphaned **`pr-*`** stacks).
+#
+# **`alchemy destroy`** still evaluates each **`alchemy.run.ts`** — keep **`Destroy PR preview`** **`env:`** in sync with **PR preview deploy** when you add bindings / env reads.
+#
+# Operators: **`bun run github:sync:staging`** syncs the **`staging`** Environment.
+name: PR preview
+
+env:
+  TURBO_TELEMETRY_DISABLED: "1"
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, closed]
+
+permissions:
+  contents: read
+  pull-requests: read
+  actions: read
+
+jobs:
+  quality:
+    name: Quality
+    if: >-
+      github.event_name == 'pull_request' &&
+      contains(fromJSON('["opened","synchronize","reopened"]'), github.event.action)
+    uses: ./.github/workflows/quality-reusable.yml
+    secrets: inherit
+    with:
+      concurrency_group_suffix: ${{ github.workflow }}-${{ github.event.pull_request.head.ref || github.ref }}
+
+  # Required by the **main** ruleset. Keep this as a caller-level job, not a job inside
+  # **`quality-reusable.yml`**: GitHub can leave reusable-workflow inner jobs stuck as
+  # **Expected — Waiting for status to be reported** even when their check run is green.
+  quality_ruleset_gate:
+    name: Quality checks
+    needs: quality
+    if: >-
+      always() &&
+      github.event_name == 'pull_request' &&
+      contains(fromJSON('["opened","synchronize","reopened"]'), github.event.action)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Require reusable Quality workflow succeeded
+        env:
+          QUALITY_RESULT: ${{ needs.quality.result }}
+        run: |
+          set -euo pipefail
+          if [[ "$QUALITY_RESULT" != "success" ]]; then
+            echo "::error::Reusable Quality workflow finished with result ${QUALITY_RESULT}."
+            exit 1
+          fi
+          echo "Quality gate: reusable workflow succeeded."
+
+  destroy_preview:
+    name: Destroy PR preview
+    if: >-
+      github.event_name == 'pull_request' &&
+      github.event.action == 'closed' &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
+    concurrency:
+      group: pr-preview-${{ github.event.pull_request.number }}
+      cancel-in-progress: true
+    environment: staging
+
+    env:
+      CI: "true"
+      STAGE: pr-${{ github.event.pull_request.number }}
+      ALCHEMY_PASSWORD: ${{ secrets.ALCHEMY_PASSWORD }}
+      ALCHEMY_STATE_TOKEN: ${{ secrets.ALCHEMY_STATE_TOKEN }}
+      CHATROOM_INTERNAL_SECRET: ${{ secrets.CHATROOM_INTERNAL_SECRET }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+      WEB_DOMAINS: ${{ vars.WEB_DOMAINS }}
+      WEB_ROUTES: ${{ vars.WEB_ROUTES }}
+      WEB_ZONE_ID: ${{ vars.WEB_ZONE_ID }}
+      WEB_DOMAIN_OVERRIDE_EXISTING_ORIGIN: ${{ vars.WEB_DOMAIN_OVERRIDE_EXISTING_ORIGIN }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.base.ref }}
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.13
+
+      - name: Install dependencies (trusted base branch)
+        run: bun install --frozen-lockfile
+
+      # Do **not** use **`deploy:preflight:preview`** here — it exits before secret checks when **`DEPLOY_ENABLED`** is not **`true`**, which would skip teardown and orphan **`pr-*`** Workers.
+      - name: Verify env for teardown
+        id: verify_env
+        run: bun run --cwd packages/scripts verify:deploy-env:preview
+
+      - name: Destroy preview stage
+        id: destroy
+        run: |
+          set -o pipefail
+          bun run destroy:preview 2>&1 | tee destroy-output.txt
+
+      - name: Destroy summary
+        if: always()
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          MERGED: ${{ github.event.pull_request.merged }}
+          WORKFLOW_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          VF_OUT: ${{ steps.verify_env.outcome }}
+          DS_OUT: ${{ steps.destroy.outcome }}
+        run: |
+          merged_note="closed without merge"
+          if [[ "${MERGED}" == "true" ]]; then
+            merged_note="merged"
+          fi
+          {
+            echo "## PR #${PR_NUMBER} preview teardown"
+            echo ""
+            echo "**PR:** ${merged_note}"
+            if [[ "${VF_OUT}" == "failure" ]]; then
+              echo "**Status:** env verification failed — destroy did not run."
+            elif [[ "${VF_OUT}" == "skipped" ]]; then
+              echo "**Status:** cancelled before verify."
+            elif [[ "${DS_OUT}" == "success" ]]; then
+              echo "**Status:** destroy succeeded (\`STAGE=pr-${PR_NUMBER}\`)."
+            elif [[ "${DS_OUT}" == "failure" ]]; then
+              echo "**Status:** destroy failed — see logs."
+            elif [[ "${DS_OUT}" == "skipped" ]]; then
+              echo "**Status:** destroy step skipped."
+            else
+              echo "**Status:** unknown — [run](${WORKFLOW_URL})"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upsert preview comment — teardown
+        if: always()
+        uses: actions/github-script@v7
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          MERGED: ${{ github.event.pull_request.merged }}
+          VF_OUT: ${{ steps.verify_env.outcome }}
+          DS_OUT: ${{ steps.destroy.outcome }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        with:
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const prNumber = Number(process.env.PR_NUMBER);
+            const merged = process.env.MERGED === "true";
+            const vf = process.env.VF_OUT ?? "";
+            const ds = process.env.DS_OUT ?? "";
+            const runUrl = process.env.RUN_URL ?? "";
+            const marker = "<!-- pr-preview -->";
+
+            let headline = merged
+              ? "**Removed.** Preview stack destroyed after merge."
+              : "**Removed.** Preview stack destroyed after close.";
+            if (vf === "failure") headline = "**Teardown blocked.** Env verification failed.";
+            else if (ds === "failure") headline = "**Teardown failed.** See workflow logs.";
+            else if (ds === "cancelled") headline = "**Teardown cancelled.**";
+
+            const body = [
+              marker,
+              "# PR preview",
+              "",
+              "**Status**",
+              "",
+              headline,
+              "",
+              "**Links**",
+              "",
+              `- This **PR preview** run — [workflow run](${runUrl})`,
+              "",
+              "---",
+              "",
+              "_Updates automatically while the same-repo PR preview workflow runs._",
+            ].join("\n");
+
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner,
+              repo,
+              issue_number: prNumber,
+              per_page: 100,
+            });
+            const existing = comments.find((comment) => comment.body?.includes(marker));
+            if (existing?.id != null) {
+              await github.rest.issues.updateComment({
+                owner,
+                repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner,
+                repo,
+                issue_number: prNumber,
+                body,
+              });
+            }
+
+  seed_preview_comment:
+    name: PR preview — seed preview comment
+    if: >-
+      github.event_name == 'pull_request' &&
+      contains(fromJSON('["opened","synchronize","reopened"]'), github.event.action) &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      pull-requests: write
+    steps:
+      - name: Upsert preview comment — waiting
+        uses: actions/github-script@v7
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        with:
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const prNumber = Number(process.env.PR_NUMBER);
+            const headSha = (process.env.HEAD_SHA ?? "").slice(0, 7);
+            const runUrl = process.env.RUN_URL ?? "";
+            const marker = "<!-- pr-preview -->";
+            const body = [
+              marker,
+              "# PR preview",
+              "",
+              "**Status**",
+              "",
+              "**Running Quality.** Lint / typecheck / build must pass before same-repo preview deploy.",
+              "",
+              "**Links**",
+              "",
+              `- This **PR preview** run — [workflow run](${runUrl})`,
+              `- All checks on **PR #${prNumber}** — [checks tab](https://github.com/${owner}/${repo}/pull/${prNumber}/checks)`,
+              "",
+              `**Commit:** \`${headSha || "?"}\``,
+              "",
+              "---",
+              "",
+              "_Updates automatically while the same-repo PR preview workflow runs._",
+            ].join("\n");
+
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner,
+              repo,
+              issue_number: prNumber,
+              per_page: 100,
+            });
+            const existing = comments.find((comment) => comment.body?.includes(marker));
+            if (existing?.id != null) {
+              await github.rest.issues.updateComment({
+                owner,
+                repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner,
+                repo,
+                issue_number: prNumber,
+                body,
+              });
+            }
+
+  preview_github_on_quality_failure:
+    name: PR preview — comment when Quality fails
+    needs: [quality_ruleset_gate, seed_preview_comment]
+    if: >-
+      always() &&
+      github.event_name == 'pull_request' &&
+      contains(fromJSON('["opened","synchronize","reopened"]'), github.event.action) &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      needs.quality_ruleset_gate.result != 'success'
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      pull-requests: write
+    steps:
+      - name: Upsert preview comment — Quality blocked
+        uses: actions/github-script@v7
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          QUALITY_CONC: ${{ needs.quality_ruleset_gate.result }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        with:
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const prNumber = Number(process.env.PR_NUMBER);
+            const headSha = (process.env.HEAD_SHA ?? "").slice(0, 7);
+            const conclusion = process.env.QUALITY_CONC ?? "unknown";
+            const runUrl = process.env.RUN_URL ?? "";
+            const marker = "<!-- pr-preview -->";
+            const body = [
+              marker,
+              "# PR preview",
+              "",
+              "**Status**",
+              "",
+              "**Not deployed.** **Quality** did not succeed for this commit.",
+              "",
+              `Workflow conclusion: **${conclusion}**.`,
+              "",
+              "**Links**",
+              "",
+              `- This **PR preview** run — [workflow run](${runUrl})`,
+              `- All checks on **PR #${prNumber}** — [checks tab](https://github.com/${owner}/${repo}/pull/${prNumber}/checks)`,
+              "",
+              `**Commit:** \`${headSha || "?"}\``,
+              "",
+              "---",
+              "",
+              "_Updates automatically while the same-repo PR preview workflow runs._",
+            ].join("\n");
+
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner,
+              repo,
+              issue_number: prNumber,
+              per_page: 100,
+            });
+            const existing = comments.find((comment) => comment.body?.includes(marker));
+            if (existing?.id != null) {
+              await github.rest.issues.updateComment({
+                owner,
+                repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner,
+                repo,
+                issue_number: prNumber,
+                body,
+              });
+            }
+
+  deploy_preview:
+    name: Deploy PR preview
+    needs: [quality_ruleset_gate, seed_preview_comment]
+    if: >-
+      always() &&
+      github.event_name == 'pull_request' &&
+      contains(fromJSON('["opened","synchronize","reopened"]'), github.event.action) &&
+      needs.quality_ruleset_gate.result == 'success' &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    concurrency:
+      group: pr-preview-${{ github.event.pull_request.number }}
+      cancel-in-progress: true
+    environment: staging
+
+    permissions:
+      deployments: write
+      contents: read
+      issues: write
+      pull-requests: write
+
+    outputs:
+      web_url: ${{ steps.preview_outputs.outputs.web_url }}
+      deploy_enabled: ${{ steps.preview_outputs.outputs.deploy_enabled }}
+      summary_line: ${{ steps.preview_outputs.outputs.summary_line }}
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.13
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Upsert preview comment — deploying
+        if: success()
+        uses: actions/github-script@v7
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        with:
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const prNumber = Number(process.env.PR_NUMBER);
+            const headSha = (process.env.HEAD_SHA ?? "").slice(0, 7);
+            const runUrl = process.env.RUN_URL ?? "";
+            const marker = "<!-- pr-preview -->";
+            const body = [
+              marker,
+              "# PR preview",
+              "",
+              "**Status**",
+              "",
+              "**Building.** **Quality** passed; running preflight and preview deploy.",
+              "",
+              "**Links**",
+              "",
+              `- This **PR preview** run — [workflow run](${runUrl})`,
+              `- All checks on **PR #${prNumber}** — [checks tab](https://github.com/${owner}/${repo}/pull/${prNumber}/checks)`,
+              "",
+              `**Commit:** \`${headSha || "?"}\``,
+              "",
+              "---",
+              "",
+              "_Updates automatically while the same-repo PR preview workflow runs._",
+            ].join("\n");
+
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner,
+              repo,
+              issue_number: prNumber,
+              per_page: 100,
+            });
+            const existing = comments.find((comment) => comment.body?.includes(marker));
+            if (existing?.id != null) {
+              await github.rest.issues.updateComment({
+                owner,
+                repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner,
+                repo,
+                issue_number: prNumber,
+                body,
+              });
+            }
+
+      - name: Deploy preflight
+        id: preflight
+        env:
+          CI: "true"
+          STAGE: pr-${{ github.event.pull_request.number }}
+          DEPLOY_ENABLED: ${{ vars.DEPLOY_ENABLED }}
+          ALCHEMY_PASSWORD: ${{ secrets.ALCHEMY_PASSWORD }}
+          ALCHEMY_STATE_TOKEN: ${{ secrets.ALCHEMY_STATE_TOKEN }}
+          CHATROOM_INTERNAL_SECRET: ${{ secrets.CHATROOM_INTERNAL_SECRET }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+        run: bun run deploy:preflight:preview
+
+      - name: Preview — GitHub deployment (registered)
+        id: gh_deploy_start
+        if: success() && steps.preflight.outputs.deploy_enabled == 'true'
+        env:
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const headSha = process.env.HEAD_SHA;
+            const prNumber = process.env.PR_NUMBER;
+            try {
+              const { data: deployment } = await github.rest.repos.createDeployment({
+                owner,
+                repo,
+                ref: headSha,
+                environment: `preview-pr-${prNumber}`,
+                description: `PR ${prNumber} preview`,
+                auto_merge: false,
+                required_contexts: [],
+                transient_environment: true,
+                production_environment: false,
+                payload: JSON.stringify({ pr_number: Number(prNumber) }),
+              });
+              if (!deployment?.id) {
+                core.setOutput("deployment_id", "");
+                return;
+              }
+              await github.rest.repos.createDeploymentStatus({
+                owner,
+                repo,
+                deployment_id: deployment.id,
+                state: "in_progress",
+                description: "Deploying preview…",
+              });
+              core.setOutput("deployment_id", String(deployment.id));
+            } catch (e) {
+              core.warning(`GitHub deployment API: ${String(e)}`);
+              core.setOutput("deployment_id", "");
+            }
+
+      - name: Turbo deploy (preview)
+        id: deploy
+        if: steps.preflight.outputs.deploy_enabled == 'true'
+        env:
+          CI: "true"
+          STAGE: pr-${{ github.event.pull_request.number }}
+          ALCHEMY_PASSWORD: ${{ secrets.ALCHEMY_PASSWORD }}
+          ALCHEMY_STATE_TOKEN: ${{ secrets.ALCHEMY_STATE_TOKEN }}
+          CHATROOM_INTERNAL_SECRET: ${{ secrets.CHATROOM_INTERNAL_SECRET }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          WEB_DOMAINS: ${{ vars.WEB_DOMAINS }}
+          WEB_ROUTES: ${{ vars.WEB_ROUTES }}
+          WEB_ZONE_ID: ${{ vars.WEB_ZONE_ID }}
+          WEB_DOMAIN_OVERRIDE_EXISTING_ORIGIN: ${{ vars.WEB_DOMAIN_OVERRIDE_EXISTING_ORIGIN }}
+        run: |
+          set -o pipefail
+          bun run deploy:preview 2>&1 | tee deploy-output.txt
+          deploy_status=${PIPESTATUS[0]}
+          URL_FILE="$GITHUB_WORKSPACE/.alchemy/ci/web-deploy-url.txt"
+          WEB_URL=""
+          if [[ -f "$URL_FILE" ]]; then
+            IFS= read -r WEB_URL <"$URL_FILE" || true
+          fi
+          echo "web_url=$WEB_URL" >> "$GITHUB_OUTPUT"
+          exit "$deploy_status"
+
+      - name: Deploy summary
+        if: always()
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          WORKFLOW_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          WEB_URL_FROM_STEP: ${{ steps.deploy.outputs.web_url }}
+        run: |
+          PF_OUT="${{ steps.preflight.outcome }}"
+          DE_OUT="${{ steps.deploy.outcome }}"
+          EN="${{ steps.preflight.outputs.deploy_enabled }}"
+          WEB_URL="$WEB_URL_FROM_STEP"
+          URL_FILE="$GITHUB_WORKSPACE/.alchemy/ci/web-deploy-url.txt"
+          if [[ -z "$WEB_URL" && -f "$URL_FILE" ]]; then
+            IFS= read -r WEB_URL <"$URL_FILE" || true
+          fi
+          {
+            echo "## PR #${PR_NUMBER} preview"
+            echo ""
+            if [[ "$PF_OUT" == "failure" ]]; then
+              echo "**Status:** preflight failed."
+            elif [[ "$PF_OUT" == "skipped" ]]; then
+              echo "**Status:** cancelled before preflight."
+            elif [[ "$EN" != "true" ]]; then
+              echo "**Status:** skipped — \`DEPLOY_ENABLED\` is not \`true\`."
+            elif [[ "$DE_OUT" == "success" ]]; then
+              echo "**Status:** success"
+              if [[ -n "$WEB_URL" ]]; then
+                echo "**URL:** [$WEB_URL]($WEB_URL)"
+              fi
+            elif [[ "$DE_OUT" == "failure" ]]; then
+              echo "**Status:** Turbo deploy failed."
+            elif [[ "$DE_OUT" == "skipped" ]]; then
+              echo "**Status:** deploy skipped."
+            else
+              echo "**Status:** unknown — [$WORKFLOW_URL]($WORKFLOW_URL)"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - id: preview_outputs
+        if: always()
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          WORKFLOW_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          PF_OUT: ${{ steps.preflight.outcome }}
+          DE_OUT: ${{ steps.deploy.outcome }}
+          DE_WEB: ${{ steps.deploy.outputs.web_url }}
+          EN_SET: ${{ steps.preflight.outputs.deploy_enabled }}
+          URL_FILE_PATH: ${{ github.workspace }}/.alchemy/ci/web-deploy-url.txt
+        run: |
+          set -euo pipefail
+          WEB="$DE_WEB"
+          if [[ -z "$WEB" && -f "$URL_FILE_PATH" ]]; then
+            IFS= read -r WEB <"$URL_FILE_PATH" || WEB=""
+          fi
+          SUMMARY=""
+          if [[ "$PF_OUT" == "failure" ]]; then
+            SUMMARY='Preflight failed — see Deploy preflight logs.'
+          elif [[ "$PF_OUT" == "skipped" ]]; then
+            SUMMARY='Run cancelled before preflight.'
+          elif [[ "$EN_SET" != "true" ]]; then
+            SUMMARY='Skipped — `DEPLOY_ENABLED` is not `true` (previews disabled).'
+          elif [[ "$DE_OUT" == "success" ]] && [[ -n "$WEB" ]]; then
+            SUMMARY='Deploy succeeded — preview URL captured.'
+          elif [[ "$DE_OUT" == "success" ]]; then
+            SUMMARY='Deploy succeeded — preview URL artifact missing.'
+          elif [[ "$DE_OUT" == "failure" ]]; then
+            SUMMARY='Turbo deploy failed — see Actions logs.'
+          elif [[ "$DE_OUT" == "skipped" ]]; then
+            SUMMARY='Deploy step skipped.'
+          else
+            SUMMARY="Unknown — [workflow run]($WORKFLOW_URL)"
+          fi
+          {
+            echo "deploy_enabled=${EN_SET:-}"
+            echo "summary_line<<PSUM"
+            echo "$SUMMARY"
+            echo "PSUM"
+            echo "web_url<<WURL"
+            echo "${WEB}"
+            echo "WURL"
+          } >>"$GITHUB_OUTPUT"
+
+      - name: Preview — GitHub deployment (finalize)
+        if: always()
+        env:
+          DEPLOYMENT_ID: ${{ steps.gh_deploy_start.outputs.deployment_id }}
+          PF_OUT: ${{ steps.preflight.outcome }}
+          DE_OUT: ${{ steps.deploy.outcome }}
+          EN_SET: ${{ steps.preflight.outputs.deploy_enabled }}
+          WEB_URL: ${{ steps.preview_outputs.outputs.web_url }}
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const deploymentIdRaw = process.env.DEPLOYMENT_ID ?? "";
+            const deploymentId = deploymentIdRaw ? Number(deploymentIdRaw) : NaN;
+            const pf = process.env.PF_OUT ?? "";
+            const de = process.env.DE_OUT ?? "";
+            const en = process.env.EN_SET ?? "";
+            const webUrl = (process.env.WEB_URL ?? "").trim();
+
+            let deploymentState = "failure";
+            let description = "Preview failed";
+
+            if (pf === "failure") {
+              description = "Preflight failed";
+            } else if (pf === "skipped") {
+              deploymentState = "inactive";
+              description = "Preview cancelled";
+            } else if (en !== "true") {
+              deploymentState = "inactive";
+              description = "Preview disabled";
+            } else if (de === "failure") {
+              description = "Deploy failed";
+            } else if (de === "success") {
+              deploymentState = "success";
+              description = webUrl ? "Preview URL ready" : "Deployed";
+            } else if (de === "skipped") {
+              description = "Deploy step skipped";
+            }
+
+            if (!Number.isNaN(deploymentId)) {
+              await github.rest.repos.createDeploymentStatus({
+                owner,
+                repo,
+                deployment_id: deploymentId,
+                state: deploymentState,
+                environment_url: deploymentState === "success" ? webUrl || undefined : undefined,
+                description,
+              });
+            }
+
+      - name: Upsert preview comment — deploy result
+        if: always()
+        uses: actions/github-script@v7
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PREVIEW_WEB_URL: ${{ steps.preview_outputs.outputs.web_url }}
+          PREVIEW_SUMMARY_LINE: ${{ steps.preview_outputs.outputs.summary_line }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          HEAD_SHA_FULL: ${{ github.event.pull_request.head.sha }}
+          DEPLOY_OUTCOME: ${{ steps.deploy.outcome }}
+        with:
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const prNumber = Number(process.env.PR_NUMBER);
+            const webUrl = (process.env.PREVIEW_WEB_URL ?? "").trim();
+            const summaryLine = (process.env.PREVIEW_SUMMARY_LINE ?? "").trim();
+            const runUrl = process.env.RUN_URL ?? "";
+            const headSha = (process.env.HEAD_SHA_FULL ?? "").slice(0, 7);
+            const deployOutcome = process.env.DEPLOY_OUTCOME ?? "";
+            const marker = "<!-- pr-preview -->";
+
+            let headline = "**Finished.** See this workflow run for details.";
+            let detail = summaryLine;
+            if (webUrl && deployOutcome === "success") {
+              headline = "**Live.** Preview deployed successfully.";
+              detail = "";
+            } else if (summaryLine.includes("DEPLOY_ENABLED")) {
+              headline = "**Skipped.** Repo/org flag disables preview deploys.";
+              detail = "`DEPLOY_ENABLED` is not `true` — see workflow logs.";
+            } else if (summaryLine.includes("Turbo deploy failed") || deployOutcome === "failure") {
+              headline = "**Deploy failed.** The preview deploy step did not succeed.";
+            } else if (summaryLine.includes("Preflight failed")) {
+              headline = "**Blocked.** Deploy preflight failed (secrets/env validation).";
+            } else if (summaryLine.includes("cancelled before preflight") || summaryLine.includes("Run cancelled")) {
+              headline = "**Cancelled** before deploy finished.";
+            } else if (summaryLine.includes("URL artifact missing") || (deployOutcome === "success" && !webUrl)) {
+              headline = "**Deployed** (Turbo reported success) but no preview URL was captured.";
+              detail = "";
+            } else if (deployOutcome === "skipped") {
+              headline = "**Deploy skipped** inside the workflow.";
+            }
+
+            const bodyParts = [
+              marker,
+              "# PR preview",
+              "",
+              "**Status**",
+              "",
+              headline,
+            ];
+            if (detail) bodyParts.push("", detail);
+            bodyParts.push(
+              "",
+              "**Links**",
+              "",
+              `- This **PR preview** run — [workflow run](${runUrl})`,
+              `- All checks on **PR #${prNumber}** — [checks tab](https://github.com/${owner}/${repo}/pull/${prNumber}/checks)`,
+              "",
+              `**Commit:** \`${headSha || "?"}\``,
+            );
+            if (webUrl) {
+              bodyParts.push("", `**App:** [Open preview](${webUrl})`);
+            }
+            bodyParts.push(
+              "",
+              "---",
+              "",
+              "_Updates automatically while the same-repo PR preview workflow runs._",
+            );
+            const body = bodyParts.join("\n");
+
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner,
+              repo,
+              issue_number: prNumber,
+              per_page: 100,
+            });
+            const existing = comments.find((comment) => comment.body?.includes(marker));
+            if (existing?.id != null) {
+              await github.rest.issues.updateComment({
+                owner,
+                repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner,
+                repo,
+                issue_number: prNumber,
+                body,
+              });
+            }

@@ -3,10 +3,10 @@ import { DurableObjectNamespace, Worker } from "alchemy/cloudflare";
 import { requireAlchemyPassword, requireEnv } from "alchemy-utils";
 import { alchemyCiCloudStateStoreOptions } from "alchemy-utils/alchemy-cloud-state-store";
 import { resolveStageFromEnv } from "alchemy-utils/deployment-stage";
-import { CF_STARTER_APPS, DEFAULT_WORKER_RESOURCE_ID } from "alchemy-utils/worker-peer-scripts";
+import { ALCHEMY_APP_IDS, DEFAULT_WORKER_RESOURCE_ID } from "alchemy-utils/worker-peer-scripts";
 
 const stage = resolveStageFromEnv();
-const app = await alchemy(CF_STARTER_APPS.chatroom, {
+const app = await alchemy(ALCHEMY_APP_IDS.chatroom, {
 	stage,
 	...alchemyCiCloudStateStoreOptions(stage),
 });

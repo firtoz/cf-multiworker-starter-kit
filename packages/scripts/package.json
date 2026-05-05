@@ -11,7 +11,7 @@
 		"setup": "bun ./src/setup-env.ts",
 		"setup:local": "bun ./src/setup-env.ts --local",
 		"setup:prod": "bun ./src/setup-env.ts --prod",
-		"setup:staging": "bun ./src/setup-env.ts --staging",
+		"setup:account": "bun ./src/setup-env.ts --account",
 		"quickstart": "bun ./src/quickstart.ts",
 		"onboard:staging": "bun ./src/onboard-staging.ts",
 		"onboard:prod": "bun ./src/onboard-prod.ts",
@@ -21,6 +21,7 @@
 		"deploy:preflight:prod": "bunx dotenv-cli -v STAGE=prod -- bun ./src/deploy-preflight.ts prod",
 		"deploy:preflight:staging": "bunx dotenv-cli -v STAGE=staging -- bun ./src/deploy-preflight.ts staging",
 		"deploy:preflight:preview": "bun ./src/deploy-preflight.ts preview",
+		"verify:deploy-env:preview": "bun ./src/verify-deploy-env.ts",
 		"lint": "biome check --write .",
 		"lint:format": "biome format --write ."
 	},

@@ -2,36 +2,28 @@
 	"$schema": "../../node_modules/turbo/schema.json",
 	"extends": ["//"],
 	"tasks": {
-		"typegen:local": {
+		"typegen": {
+			"dependsOn": ["^typegen"],
 			"inputs": ["src/**/*.ts", "tsconfig.json", "package.json", "$TURBO_ROOT$/tsconfig.base.json"],
 			"outputs": []
 		},
-		"typegen:prod": {
-			"inputs": ["src/**/*.ts", "tsconfig.json", "package.json", "$TURBO_ROOT$/tsconfig.base.json"],
-			"outputs": []
-		},
-		"typecheck:local": {
-			"dependsOn": ["typegen:local"],
-			"inputs": ["src/**/*.ts", "tsconfig.json", "package.json", "$TURBO_ROOT$/tsconfig.base.json"],
-			"outputs": []
-		},
-		"typecheck:prod": {
-			"dependsOn": ["typegen:prod"],
+		"typecheck": {
+			"dependsOn": ["typegen", "^typecheck"],
 			"inputs": ["src/**/*.ts", "tsconfig.json", "package.json", "$TURBO_ROOT$/tsconfig.base.json"],
 			"outputs": []
 		},
 		"deploy:prod": {
-			"dependsOn": ["typecheck:prod"],
+			"dependsOn": ["typecheck"],
 			"cache": false,
 			"outputs": []
 		},
 		"deploy:staging": {
-			"dependsOn": ["typecheck:prod"],
+			"dependsOn": ["typecheck"],
 			"cache": false,
 			"outputs": []
 		},
 		"deploy:preview": {
-			"dependsOn": ["typecheck:prod"],
+			"dependsOn": ["typecheck"],
 			"cache": false,
 			"outputs": []
 		},

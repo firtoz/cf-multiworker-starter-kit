@@ -6,8 +6,8 @@ Short index for AI agents. **Details live in skills** under **[`agents/skills/`]
 
 | Topic | Where |
 | -------- | ------ |
-| Fork gotchas, forms, D1, dev port, new DO packages | [agents/skills/cf-starter-gotchas/SKILL.md](agents/skills/cf-starter-gotchas/SKILL.md) |
-| Root commands, typegen/lint cadence, deploy, checklist, `bun add` | [agents/skills/cf-starter-workflow/SKILL.md](agents/skills/cf-starter-workflow/SKILL.md) |
+| Fork gotchas, forms, D1, dev port, new DO packages | [agents/skills/multiworker-gotchas/SKILL.md](agents/skills/multiworker-gotchas/SKILL.md) |
+| Root commands, typegen/lint cadence, deploy, checklist, `bun add` | [agents/skills/multiworker-workflow/SKILL.md](agents/skills/multiworker-workflow/SKILL.md) |
 | Env files, `.env.local` / `.env.production`, secrets | [agents/skills/cf-workers-env-local/SKILL.md](agents/skills/cf-workers-env-local/SKILL.md) |
 | Turbo tasks, `^`, cache, `inputs` | [agents/skills/turborepo/SKILL.md](agents/skills/turborepo/SKILL.md) |
 | Web ↔ worker bindings, `apps/web/alchemy.run.ts` | [agents/skills/cf-web-alchemy-bindings/SKILL.md](agents/skills/cf-web-alchemy-bindings/SKILL.md) |
@@ -45,7 +45,7 @@ Setup is normally applied via `.cursor/environment.json`.
 
 - Bindings in app code: `import { env } from "cloudflare:workers"` (not React Router `context.cloudflare.env`).
 - Drizzle migrations: edit `packages/db/src/schema.ts` or `durable-objects/<name>/src/schema.ts`, then run `bun run db:generate` or the package-local `db:generate`. Use the correct Drizzle driver (`d1-http` for D1, `durable-sqlite` for DO SQLite). Do not write SQL/meta snapshots or migration wrappers by hand.
-- Maintenance loop: run the narrowest useful check frequently (`bun run typegen` after routes/env/Alchemy, `bun run typecheck` after TypeScript/API edits, `bun run lint` before finishing) from the **repo root**. Full checklist: [cf-starter-workflow](agents/skills/cf-starter-workflow/SKILL.md).
+- Maintenance loop: run the narrowest useful check frequently (`bun run typegen` after routes/env/Alchemy, `bun run typecheck` after TypeScript/API edits, `bun run lint` before finishing) from the **repo root**. Full checklist: [multiworker-workflow](agents/skills/multiworker-workflow/SKILL.md).
 - Alchemy infra naming: literals in **`alchemy.run.ts`** (**`await alchemy`**) and **[`packages/alchemy-utils/src/worker-peer-scripts.ts`](packages/alchemy-utils/src/worker-peer-scripts.ts)** — no env-var branding. README explains **`--filter`** vs **`--app`**.
 
 ## Creating new skills

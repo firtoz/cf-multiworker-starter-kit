@@ -9,14 +9,22 @@ import path from "node:path";
 import * as readline from "node:readline";
 import { styleText } from "node:util";
 import { confirm, intro, isCancel, note, outro, password, select, text } from "@clack/prompts";
-
 import {
+	CLOUDFLARE_ALCHEMY_ACCOUNT_ENV_KEYS,
+	ensureCloudflareAlchemyAccountEnvDir,
+	loadCloudflareAlchemyAccountEnvIntoProcess,
+	readCloudflareAlchemyAccountEnvFile,
+	resolveCloudflareAlchemyAccountEnvPath,
+} from "alchemy-utils/cloudflare-account-env";
+import {
+	ENV_SETUP_CATEGORY_DESCRIPTION,
 	ENV_SETUP_CATEGORY_LABEL,
 	ENV_SETUP_CATEGORY_NAV,
 	type EnvSetupCategoryId,
 	type EnvSetupCategoryNavGroup,
 	type EnvSetupMode,
 	envFileKeyLooksSet,
+	envKeySatisfiedInStageOrAccount,
 	isEnvSetupCategoryNavGroup,
 	isOptionalInSetupMode,
 	isRequiredInSetupMode,
@@ -34,8 +42,9 @@ const argv = process.argv;
 const isProd = argv.includes("--prod");
 const isStaging = argv.includes("--staging");
 const isLocalFlag = argv.includes("--local");
-if ((isProd ? 1 : 0) + (isStaging ? 1 : 0) + (isLocalFlag ? 1 : 0) > 1) {
-	console.error("[setup] Pass at most one of --prod, --staging, or --local.");
+const isAccount = argv.includes("--account");
+if ((isProd ? 1 : 0) + (isStaging ? 1 : 0) + (isLocalFlag ? 1 : 0) + (isAccount ? 1 : 0) > 1) {
+	console.error("[setup] Pass at most one of --prod, --staging, --local, or --account.");
 	process.exit(2);
 }
 
@@ -151,8 +160,17 @@ function gen(): string {
 	return randomBytes(32).toString("base64url");
 }
 
+let accountEnvRawCache: string | undefined;
+
+function accountEnvRawForSetup(): string {
+	if (accountEnvRawCache === undefined) {
+		accountEnvRawCache = readCloudflareAlchemyAccountEnvFile();
+	}
+	return accountEnvRawCache;
+}
+
 function hasValue(envText: string, key: string): boolean {
-	return envFileKeyLooksSet(envText, key);
+	return envKeySatisfiedInStageOrAccount(key, envText, accountEnvRawForSetup());
 }
 
 function captureEnvAssignmentLine(raw: string, key: string): string | undefined {
@@ -224,11 +242,31 @@ function emptyKeyDisplayForSetupList(defaultIfUnset: string | undefined): string
 	return `(empty · default ${defaultIfUnset})`;
 }
 
+/** Plain-language default when the key line is absent from the dotfile (setup list only). */
+const SETUP_LIST_EMPTY_DEFAULT_HINT: Readonly<Record<string, string>> = {
+	GITHUB_SYNC_PUSH_SECRETS: "true (= push secrets & Environment vars to GitHub)",
+	GITHUB_SYNC_STAGING_FORK_REVIEWERS_PRIVATE:
+		'false (= no actor reviewer on private repos when policy reviewerFallbackToActor is "auto")',
+	AUTO_PRODUCTION_PR:
+		'omit → github:sync defaults true on Environment "staging"; set false to disable auto main→production PR',
+};
+
+function setupCategoryKeySelectMessage(category: EnvSetupCategoryId): string {
+	const title = ENV_SETUP_CATEGORY_LABEL[category];
+	const blurb = ENV_SETUP_CATEGORY_DESCRIPTION[category]?.trim();
+	if (!blurb) {
+		return title;
+	}
+	return `${title}\n${blurb}`;
+}
+
 function categorySummaryLine(raw: string, group: SetupCategoryGroup, mode: SetupMode): string {
 	const { category, keys } = group;
 	const total = keys.length;
 	const set = keys.filter((k) => hasValue(raw, k)).length;
-	const requiredOk = setupCategoryRequiredSatisfied(raw, mode, ALL_REPO_ENV_REQUIREMENTS, keys);
+	const requiredOk = setupCategoryRequiredSatisfied(raw, mode, ALL_REPO_ENV_REQUIREMENTS, keys, {
+		accountEnvRaw: accountEnvRawForSetup(),
+	});
 	const title = ENV_SETUP_CATEGORY_LABEL[category];
 	const frac = `${set}/${total}`;
 	const line = requiredOk ? `${title} · ${frac}` : `${title} · ${frac} (incomplete)`;
@@ -253,7 +291,9 @@ function navGroupSummaryLine(
 	const allKeys = nested.flatMap((g) => g.keys);
 	const total = allKeys.length;
 	const set = allKeys.filter((k) => hasValue(raw, k)).length;
-	const requiredOk = setupCategoryRequiredSatisfied(raw, mode, ALL_REPO_ENV_REQUIREMENTS, allKeys);
+	const requiredOk = setupCategoryRequiredSatisfied(raw, mode, ALL_REPO_ENV_REQUIREMENTS, allKeys, {
+		accountEnvRaw: accountEnvRawForSetup(),
+	});
 	const title = nav.label;
 	const frac = `${set}/${total}`;
 	const line = requiredOk ? `${title} · ${frac}` : `${title} · ${frac} (incomplete)`;
@@ -331,9 +371,10 @@ function rowLabel(raw: string, key: string, mode: SetupMode): string {
 	const reqWord = isOptionalSetupKey(key, mode) ? "optional" : "required";
 	if (!isMaskedKey(key)) {
 		const v = captureEnvAssignmentLine(raw, key) ?? "";
+		const emptyHint = SETUP_LIST_EMPTY_DEFAULT_HINT[key];
 		const show = set
 			? truncateForList(v, 42)
-			: truncateForList(emptyKeyDisplayForSetupList(undefined), 72);
+			: truncateForList(emptyKeyDisplayForSetupList(emptyHint), 72);
 		const line = `${box} ${key} · ${reqWord} · ${show}`;
 		return set ? rowLabelWhenSet(line) : line;
 	}
@@ -402,7 +443,7 @@ async function variableBrowserLoop(
 				}));
 
 				const keySel = await select<string | typeof BACK_TO_CATEGORIES>({
-					message: ENV_SETUP_CATEGORY_LABEL[group.category],
+					message: setupCategoryKeySelectMessage(group.category),
 					options: [...picks, { value: BACK_TO_CATEGORIES, label: "« Back to categories »" }],
 				});
 				if (isCancel(keySel)) {
@@ -466,7 +507,7 @@ async function variableBrowserLoop(
 				}));
 
 				const keySel = await select<string | typeof BACK_TO_CATEGORIES>({
-					message: ENV_SETUP_CATEGORY_LABEL[group.category],
+					message: setupCategoryKeySelectMessage(group.category),
 					options: [...picks, { value: BACK_TO_CATEGORIES, label: `« Back · ${nav.label} »` }],
 				});
 				if (isCancel(keySel)) {
@@ -643,12 +684,23 @@ function upsertEnvLines(
 	return out;
 }
 
+function keyEligibleForStageDotfileProvision(key: string): boolean {
+	return REQ_BY_KEY.get(key)?.setup !== false;
+}
+
 function maybeProvisionNoninteractive(
 	missingKeys: readonly string[],
 	body: string,
 	file: string,
 ): void {
-	const unmakable = missingKeys.filter((k) => !canAutoGenerateKey(k));
+	const stageKeys = missingKeys.filter(keyEligibleForStageDotfileProvision);
+	if (stageKeys.length === 0 && missingKeys.length > 0) {
+		console.error(
+			"[setup] Non-interactive (--yes): set shared Cloudflare + ALCHEMY_STATE_TOKEN in machine account.env — run: bun run setup:account",
+		);
+		process.exit(1);
+	}
+	const unmakable = stageKeys.filter((k) => !canAutoGenerateKey(k));
 	if (unmakable.length > 0) {
 		const rel = path.basename(file);
 		console.error(
@@ -657,7 +709,7 @@ function maybeProvisionNoninteractive(
 		process.exit(1);
 	}
 	let out = body;
-	for (const k of missingKeys) {
+	for (const k of stageKeys) {
 		out = upsertPlainEnvKv(out, k, gen());
 	}
 	writeFileSync(file, out, "utf8");
@@ -666,13 +718,126 @@ function maybeProvisionNoninteractive(
 	);
 }
 
-async function chooseSetupModeInteractive(): Promise<SetupMode | null> {
-	const choice = await select<SetupMode>({
+const ACCOUNT_SETUP_DONE = "__account_setup_done__";
+
+function rowLabelAccount(raw: string, key: string): string {
+	const set = envFileKeyLooksSet(raw, key);
+	const box = set ? "[x]" : "[ ]";
+	const reqWord = "required";
+	if (!isMaskedKey(key)) {
+		const v = captureEnvAssignmentLine(raw, key) ?? "";
+		const show = set ? truncateForList(v, 42) : "unset";
+		const line = `${box} ${key} · ${reqWord} · ${show}`;
+		return set ? rowLabelWhenSet(line) : line;
+	}
+	const line = `${box} ${key} · ${reqWord} · ${set ? "set (masked)" : "unset"}`;
+	return set ? rowLabelWhenSet(line) : line;
+}
+
+async function runInteractiveCloudflareAlchemyAccountSession(
+	startRaw: string,
+	file: string,
+): Promise<void> {
+	let raw = startRaw;
+	while (true) {
+		raw = existsSync(file) ? readFileSync(file, "utf8") : raw;
+		const sel = await select<string | typeof ACCOUNT_SETUP_DONE>({
+			message: `${path.basename(file)} — shared Cloudflare / Alchemy account keys`,
+			options: [
+				...CLOUDFLARE_ALCHEMY_ACCOUNT_ENV_KEYS.map((k) => ({
+					value: k,
+					label: rowLabelAccount(raw, k),
+				})),
+				{ value: ACCOUNT_SETUP_DONE, label: "« Done »" },
+			],
+		});
+		if (isCancel(sel)) {
+			if (cancelWasEscape()) {
+				outro(
+					existsSync(file) && readFileSync(file, "utf8").trim() ? "Saved account env." : "Exited.",
+				);
+				return;
+			}
+			exitSetupInterrupted();
+		}
+		if (sel === ACCOUNT_SETUP_DONE) {
+			accountEnvRawCache = undefined;
+			outro(
+				existsSync(file) && readFileSync(file, "utf8").trim()
+					? "Saved account env."
+					: "No keys written yet.",
+			);
+			return;
+		}
+		const updated = await editOneVariableInteractive(file, raw, "staging", sel);
+		raw = existsSync(file) ? readFileSync(file, "utf8") : (updated ?? raw);
+		accountEnvRawCache = undefined;
+		loadCloudflareAlchemyAccountEnvIntoProcess();
+	}
+}
+
+async function handleAccountOnlyArgv(): Promise<void> {
+	const interactive = useInteractivePrompt();
+	ensureCloudflareAlchemyAccountEnvDir();
+	const file = resolveCloudflareAlchemyAccountEnvPath();
+	const raw = existsSync(file) ? readFileSync(file, "utf8") : "";
+
+	if (interactive) {
+		intro("Shared account env (all repos on this Cloudflare account)");
+		note(
+			[
+				`Path: \`${file}\``,
+				"",
+				"Same **CLOUDFLARE_ACCOUNT_ID**, **CLOUDFLARE_API_TOKEN**, and **ALCHEMY_STATE_TOKEN** for every project — override path with **`CLOUDFLARE_ALCHEMY_ACCOUNT_ENV`**. Per-repo secrets stay in **.env.staging** / **.env.production**.",
+				"",
+				"See **.env.example** (account-level section).",
+			].join("\n"),
+			"cloudflare-alchemy",
+		);
+		await runInteractiveCloudflareAlchemyAccountSession(raw, file);
+		return;
+	}
+
+	if (forceNonInteractive) {
+		let out = raw;
+		for (const k of CLOUDFLARE_ALCHEMY_ACCOUNT_ENV_KEYS) {
+			if (!envFileKeyLooksSet(out, k) && k === "ALCHEMY_STATE_TOKEN") {
+				out = upsertPlainEnvKv(out, k, gen());
+			}
+		}
+		writeFileSync(file, out, "utf8");
+		accountEnvRawCache = undefined;
+		loadCloudflareAlchemyAccountEnvIntoProcess();
+		const missing = CLOUDFLARE_ALCHEMY_ACCOUNT_ENV_KEYS.filter((k) => !envFileKeyLooksSet(out, k));
+		if (missing.length > 0) {
+			console.error(
+				`[setup:account] Non-interactive (--yes): still missing ${missing.join(", ")} in ${file}. Paste values or run interactively.`,
+			);
+			process.exit(1);
+		}
+		console.log(
+			`[setup:account] Updated ${file} (--yes generated ALCHEMY_STATE_TOKEN if it was missing).`,
+		);
+		return;
+	}
+
+	console.error(
+		"[setup:account] Open a terminal for prompts, or use --yes to generate a missing ALCHEMY_STATE_TOKEN (Cloudflare keys must be set manually).",
+	);
+	process.exit(1);
+}
+
+async function chooseSetupModeInteractive(): Promise<SetupMode | "account" | null> {
+	const choice = await select<SetupMode | "account">({
 		message: "Which environment do you want to set up?",
 		options: [
 			{
 				value: "local" as const,
 				label: "Local dev (.env.local) — no Cloudflare keys required",
+			},
+			{
+				value: "account" as const,
+				label: "Shared Cloudflare account (machine-wide account.env)",
 			},
 			{
 				value: "staging" as const,
@@ -727,21 +892,21 @@ async function interactiveMain(
 	const rel = path.relative(root, file) || path.basename(file);
 	const setupCli = setupCommandLabelForDotfileRel(rel);
 	const title = `${setupCli} — ${path.basename(file)}`;
-	intro(flagEdit ? `cf-starter · env · ${title}` : `cf-starter · env · ${title}`);
+	intro(flagEdit ? `env · ${title}` : `env · ${title}`);
 	if (mode !== "local") {
 		const extra =
 			mode === "staging"
 				? [
 						"",
-						"**Fork PR previews** use GitHub Environment **`staging-fork`**. **`github:sync:staging`** mirrors secrets/vars there. Deployment rules for **`staging`**, **`production`**, and **`staging-fork`** are in **`config/github.policy.ts`** (not this dotfile).",
+						"**Fork PRs** run Quality only in the stock workflows and do not receive deploy secrets. **`staging-fork`** remains in policy/sync for legacy or future preview workflows. Deployment rules for **`staging`**, **`production`**, and **`staging-fork`** are in **`config/github.policy.ts`** (not this dotfile).",
 						"",
 						...GITHUB_POLICY_HINT_LINES,
 					]
 				: ["", ...GITHUB_POLICY_HINT_LINES];
 		note(
 			[
-				"GitHub sync uses **secrets** for Alchemy password, **`ALCHEMY_STATE_TOKEN`** (Cloudflare-backed deploy state), chatroom secret, and Cloudflare API token.",
-				"**CLOUDFLARE_ACCOUNT_ID** is stored as a GitHub Environment **variable** (`github:sync:*`).",
+				"GitHub sync uses **secrets** for Alchemy password, **`ALCHEMY_STATE_TOKEN`** (from machine **account.env** when you run sync locally), chatroom secret, and Cloudflare API token.",
+				"**CLOUDFLARE_ACCOUNT_ID** is stored as a GitHub Environment **variable** (value taken from **account.env** when pushing from this repo).",
 				"",
 				"**GitHub repo policy** — merge buttons, **repository rulesets**, and Environment deployment protection — is edited in **`config/github.policy.ts`** (TypeScript). It is applied when you run **`bun run github:env:*`** or during **`github:sync:staging`** (repo + rulesets).",
 				"Optional **`GITHUB_SYNC_PUSH_SECRETS`**: omit or leave empty → **`true`** (pushes secrets/vars). Set **`false`** or use **`bun run github:sync:config`** for shells + policy only (**`GITHUB_SYNC_UPDATE_ENVIRONMENT_PROTECTION`** defaults **`false`**; only **`true`** reapplies deployment rules during sync — see **`.env.example`**).",
@@ -758,6 +923,13 @@ async function interactiveMain(
 }
 
 async function main(): Promise<void> {
+	loadCloudflareAlchemyAccountEnvIntoProcess();
+
+	if (isAccount) {
+		await handleAccountOnlyArgv();
+		return;
+	}
+
 	const interactive = useInteractivePrompt();
 	if (interactive) {
 		attachClackKeyMetaCapture();
@@ -770,18 +942,36 @@ async function main(): Promise<void> {
 			if (mode == null) {
 				exitSetupFinished();
 			}
+			if (mode === "account") {
+				ensureCloudflareAlchemyAccountEnvDir();
+				const af = resolveCloudflareAlchemyAccountEnvPath();
+				const ar = existsSync(af) ? readFileSync(af, "utf8") : "";
+				intro("env — shared Cloudflare / Alchemy account");
+				note(
+					[
+						`File: \`${af}\``,
+						"",
+						"Same **CLOUDFLARE_ACCOUNT_ID**, **CLOUDFLARE_API_TOKEN**, and **ALCHEMY_STATE_TOKEN** for every project on this machine that shares one Cloudflare account (override path with **`CLOUDFLARE_ALCHEMY_ACCOUNT_ENV`**).",
+						"Per-repo values stay in **.env.staging** / **.env.production** — see **.env.example**.",
+					].join("\n"),
+					"account.env",
+				);
+				await runInteractiveCloudflareAlchemyAccountSession(ar, af);
+				accountEnvRawCache = undefined;
+				continue;
+			}
 			const file = fileForMode(mode);
 			const body = existsSync(file) ? readFileSync(file, "utf8") : "";
 			const missing = requiredKeysForMode(mode).filter((k) => !hasValue(body, k));
 			if (missing.length > 0) {
-				intro("cf-starter — missing keys");
+				intro("env — missing keys");
 				note(
 					[
-						`These keys are not set in ${path.basename(file)}:`,
+						`These keys are not set (or Cloudflare / state token missing in account.env):`,
 						"",
 						...missing.map((k) => `• ${keyTitle(k)} — \`${k}\``),
 						"",
-						"You can generate random values for Alchemy + chatroom secrets from the next screens.",
+						"You can generate random values from the next screens, or run **`bun run setup:account`** for shared Cloudflare keys and **`ALCHEMY_STATE_TOKEN`**.",
 					].join("\n"),
 					"Incomplete file",
 				);
@@ -800,9 +990,18 @@ async function main(): Promise<void> {
 		if (mode == null) {
 			exitSetupFinished();
 		}
+		if (mode === "account") {
+			ensureCloudflareAlchemyAccountEnvDir();
+			const af = resolveCloudflareAlchemyAccountEnvPath();
+			const ar = existsSync(af) ? readFileSync(af, "utf8") : "";
+			intro("env — shared Cloudflare / Alchemy account");
+			await runInteractiveCloudflareAlchemyAccountSession(ar, af);
+			accountEnvRawCache = undefined;
+			return;
+		}
 		const file = fileForMode(mode);
 		const raw = existsSync(file) ? readFileSync(file, "utf8") : "";
-		intro("cf-starter — update env");
+		intro("env — update env");
 		await variableBrowserLoop(file, mode, raw, false);
 		return;
 	}
@@ -824,7 +1023,9 @@ async function main(): Promise<void> {
 			process.exit(1);
 		}
 		if (flagEdit && forceNonInteractive) {
-			const rotatable = requiredKeys.filter(canAutoGenerateKey);
+			const rotatable = requiredKeys
+				.filter(keyEligibleForStageDotfileProvision)
+				.filter(canAutoGenerateKey);
 			if (rotatable.length === 0) {
 				console.error("[setup] --edit --yes: no auto-regeneratable keys — run interactively.");
 				process.exit(1);
@@ -847,7 +1048,9 @@ async function main(): Promise<void> {
 			`[setup] ${file}`,
 			`[setup] All required keys are present. Open a TTY for the variable browser, or:`,
 		];
-		for (const k of requiredKeys.filter(canAutoGenerateKey)) {
+		for (const k of requiredKeys
+			.filter(keyEligibleForStageDotfileProvision)
+			.filter(canAutoGenerateKey)) {
 			lines.push(`[setup] • ${keyTitle(k)} (${k})`);
 		}
 		lines.push(`[setup] ${setupCommandLabel(mode)} -- --edit --yes`);
@@ -859,20 +1062,20 @@ async function main(): Promise<void> {
 
 	if (flagEdit) {
 		const raw = existsSync(file) ? readFileSync(file, "utf8") : "";
-		intro("cf-starter — update env");
+		intro("env — update env");
 		await variableBrowserLoop(file, mode, raw, false);
 		return;
 	}
 
 	if (missing.length > 0) {
-		intro("cf-starter — missing keys");
+		intro("env — missing keys");
 		note(
 			[
-				`These keys are not set in ${path.basename(file)}:`,
+				`These keys are not set (or Cloudflare / state token missing in account.env):`,
 				"",
 				...missing.map((k) => `• ${keyTitle(k)} — \`${k}\``),
 				"",
-				"You can generate random values for Alchemy + chatroom secrets from the next screens.",
+				"You can generate random values from the next screens, or run **`bun run setup:account`** for shared Cloudflare keys and **`ALCHEMY_STATE_TOKEN`**.",
 			].join("\n"),
 			"Incomplete file",
 		);

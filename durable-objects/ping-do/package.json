@@ -2,23 +2,24 @@
 	"name": "ping-do",
 	"private": true,
 	"type": "module",
+	"alchemy": {
+		"app": "ping"
+	},
 	"exports": {
 		"./alchemy": "./alchemy.run.ts",
 		"./workers/ping-do": "./workers/ping-do.ts",
 		"./workers/rpc": "./workers/rpc.ts"
 	},
 	"scripts": {
-		"deploy:prod": "bunx dotenv-cli -v STAGE=prod -e ../../.env.production -- bun ../../packages/alchemy-utils/src/alchemy-cli.ts deploy ping",
-		"deploy:staging": "bunx dotenv-cli -v STAGE=staging -e ../../.env.staging -- bun ../../packages/alchemy-utils/src/alchemy-cli.ts deploy ping",
-		"deploy:preview": "bunx dotenv-cli -e ../../.env.staging -- bun ../../packages/alchemy-utils/src/alchemy-cli.ts deploy ping",
-		"destroy:prod": "bunx dotenv-cli -v STAGE=prod -e ../../.env.production -- bun ../../packages/alchemy-utils/src/alchemy-cli.ts destroy ping",
-		"destroy:staging": "bunx dotenv-cli -v STAGE=staging -e ../../.env.staging -- bun ../../packages/alchemy-utils/src/alchemy-cli.ts destroy ping",
-		"destroy:preview": "bunx dotenv-cli -e ../../.env.staging -- bun ../../packages/alchemy-utils/src/alchemy-cli.ts destroy ping",
-		"dev": "bunx dotenv-cli -v STAGE=local -e ../../.env.local -- bun ../../packages/alchemy-utils/src/alchemy-cli.ts dev ping",
-		"typegen:local": "node -e \"process.exit(0)\"",
-		"typegen:prod": "node -e \"process.exit(0)\"",
-		"typecheck:local": "tsgo --noEmit -p ./tsconfig.json",
-		"typecheck:prod": "tsgo --noEmit -p ./tsconfig.json",
+		"deploy:prod": "alchemy-cli --stage prod deploy",
+		"deploy:staging": "alchemy-cli --stage staging deploy",
+		"deploy:preview": "alchemy-cli --stage preview deploy",
+		"destroy:prod": "alchemy-cli --stage prod destroy",
+		"destroy:staging": "alchemy-cli --stage staging destroy",
+		"destroy:preview": "alchemy-cli --stage preview destroy",
+		"dev": "alchemy-cli --stage local dev",
+		"typegen": "node -e \"process.exit(0)\"",
+		"typecheck": "tsgo --noEmit -p ./tsconfig.json",
 		"lint": "biome check --write .",
 		"lint:format": "biome format --write ."
 	},

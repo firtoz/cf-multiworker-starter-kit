@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /**
- * Production CI bootstrap: gh auth, Cloudflare keys in `.env.production`, generated secrets, `github:sync:prod`, repo variable for auto production PR gate.
+ * Production CI bootstrap: gh auth, Cloudflare keys in `.env.production`, generated secrets, **`github:sync:prod`** (**`AUTO_PRODUCTION_PR`** defaults to **`true`** on GitHub Environment **staging** unless the dotfile sets **`false`**).
  */
 import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
@@ -20,8 +20,6 @@ import { assertGhAuthenticated } from "./onboarding/gh-auth";
 const root = resolve(import.meta.dir, "../../..");
 const prodFile = `${root}/.env.production`;
 const stagingFile = `${root}/.env.staging`;
-
-const AUTO_PROD_PR_VAR = "CF_STARTER_AUTO_PRODUCTION_PR";
 
 const inheritStdio: ["inherit", "inherit", "inherit"] = ["inherit", "inherit", "inherit"];
 
@@ -108,7 +106,9 @@ async function main(): Promise<void> {
 	}
 
 	if (!prodCf) {
-		console.error("[onboard:prod] Missing Cloudflare credentials in `.env.production`.");
+		console.error(
+			"[onboard:prod] Missing Cloudflare credentials in `.env.production` (or shared account file).",
+		);
 		console.error("");
 		printCloudflareManualHints("production");
 		console.error("");
@@ -121,22 +121,6 @@ async function main(): Promise<void> {
 
 	runOrExit(["bun", "run", "setup:prod", "--", "--yes"], "setup:prod --yes");
 	runOrExit(["bun", "run", "github:sync:prod"], "github:sync:prod");
-
-	const setVar = Bun.spawnSync(["gh", "variable", "set", AUTO_PROD_PR_VAR, "--body", "true"], {
-		cwd: root,
-		stdio: inheritStdio,
-		env: process.env,
-	});
-	if (setVar.exitCode !== 0) {
-		console.error(
-			`[onboard:prod] Could not set repository variable ${AUTO_PROD_PR_VAR}=true via gh.`,
-		);
-		console.error(
-			"Production may still be synced; set the variable manually: gh variable set CF_STARTER_AUTO_PRODUCTION_PR (body: true)",
-		);
-		process.exit(setVar.exitCode ?? 1);
-	}
-
 	const actions = githubActionsUrl(root);
 	const prList = (() => {
 		const r = spawnSync("gh", ["repo", "view", "--json", "url", "-q", ".url"], {
@@ -151,12 +135,10 @@ async function main(): Promise<void> {
 	console.log(
 		"Production is configured on GitHub. After a successful **staging** deploy, this repo may open or reuse a PR **`main` → `production`** when needed.",
 	);
-	console.log(
-		"Merge that PR to deploy production (see `.github/workflows/deploy-production.yml`).",
-	);
+	console.log("Merge that PR to deploy production (see `.github/workflows/prod-deploy.yml`).");
 	console.log("");
 	console.log(
-		`Repository variable **${AUTO_PROD_PR_VAR}** is **true** — staging can propose production PRs (still requires a \`production\` branch on the remote).`,
+		'Unless you set AUTO_PRODUCTION_PR=false in a dotfile before sync, GitHub Environment "staging" has AUTO_PRODUCTION_PR=true by default. After a successful staging deploy on main, Actions may open or reuse a main → production PR.',
 	);
 	if (actions) {
 		console.log(`GitHub Actions: ${actions}`);

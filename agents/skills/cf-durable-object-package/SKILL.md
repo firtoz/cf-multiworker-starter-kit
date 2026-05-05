@@ -22,7 +22,7 @@ description: Add or change a Durable Object worker package under durable-objects
 
 2. **`alchemy.run.ts`**
 
-   - **`await alchemy(…)`** string must match **`alchemy-cli.ts`** / **`${PRODUCT_PREFIX}-<suffix>`** (**`PRODUCT_PREFIX`** + **`CF_STARTER_APPS`** → **`alchemy-utils/worker-peer-scripts`**).
+   - **`await alchemy(…)`** string must match **`alchemy-cli`** / **`package.json` → `alchemy.app`** (**`${PRODUCT_PREFIX}-<suffix>`** from **`ALCHEMY_APP_IDS`** → **`alchemy-utils/worker-peer-scripts`**).
    - **`requireAlchemyPassword(app)`** from **`alchemy-utils`**.
    - Export **`DurableObjectNamespace<YourDoRpc>`** (types from **`./workers/rpc`**).
    - **`Worker(...)`**: use **`DEFAULT_WORKER_RESOURCE_ID`** (**`worker`**); omit **`name:`** unless you need an override. Cyclic **`WorkerRef`** pairs: **`omitDefaultPhysicalWorkerScriptName`** ([cf-worker-rpc-turbo](../cf-worker-rpc-turbo/SKILL.md)).
@@ -41,12 +41,13 @@ description: Add or change a Durable Object worker package under durable-objects
 
 6. **Scripts**
 
-   - **`dev`**: **`bunx dotenv-cli -v STAGE=local -e ../../.env.local -- bun ../../packages/alchemy-utils/src/alchemy-cli.ts dev <kebab-suffix>`** → **`alchemy dev --app ${PRODUCT_PREFIX}-<suffix>`**.
-   - **`deploy` / `destroy`**: same **`dotenv-cli`** + **`alchemy-cli`** pattern for each stage.
-   - Add **`state-hub`**: **`workspace:*`** **`devDependency`** so Turbo **`^deploy:*`** runs the shared CI state hub first.
+   - **`alchemy`** in **`package.json`**: **`"alchemy": { "app": "<ALCHEMY_APP_IDS key>", "entry": "alchemy.run.ts" }`** (omit **`entry`** when it is **`alchemy.run.ts`**).
+   - **`dev`** / **`deploy:*`** / **`destroy:*`**: **`alchemy-cli --stage local|staging|prod|preview <dev|deploy|destroy>`** — **`alchemy-cli`** loads repo-root dotfiles, sets **`STAGE`**, and passes **`--app`** from **`alchemy.app`**.
+   - Add **`"alchemy-utils": "workspace:*"`** so **`alchemy-cli`** is on script **`PATH`**.
+   - Add **`state-hub`**: **`workspace:*`** **`devDependency`** so Turbo **`^deploy:*`** runs the shared remote Alchemy state hub first.
    - SQLite DOs: also expose **`db:generate`**.
 
-7. **After edits** — From repo root: `bun run typegen` and `bun run typecheck` (or package-local `typecheck:local`). If schema changed, run package-local `db:generate` first.
+7. **After edits** — From repo root: `bun run typegen` and `bun run typecheck` (or package-local `typecheck`). If schema changed, run package-local `db:generate` first.
 
 ## Next (outside this skill)
 
@@ -58,7 +59,7 @@ description: Add or change a Durable Object worker package under durable-objects
 If this new DO should be reachable from the web app, complete these follow-up edits:
 
 1. Root `package.json` `dev`: add `--filter=<your-package>`.
-2. Root `turbo.json`: add `<your-package>#destroy:prod`, `#destroy:staging`, and `#destroy:preview` depending on the matching **`cf-starter-web#destroy:*`**.
+2. Root `turbo.json`: add `<your-package>#destroy:prod`, `#destroy:staging`, and `#destroy:preview` depending on the matching **`@internal/web#destroy:*`**.
 3. `apps/web/package.json`: add `"<your-package>": "workspace:*"` and run `bun install`.
 4. `apps/web/alchemy.run.ts`: import from `"<your-package>/alchemy"` and bind the namespace/worker into `ReactRouter`.
 5. **WebSocket / Socka**

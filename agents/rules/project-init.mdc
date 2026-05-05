@@ -5,23 +5,23 @@ alwaysApply: true
 
 When the user has not yet personalized a copy of this monorepo, help them before building features.
 
-## When to skip entirely (upstream starter kit repo)
+## When to skip entirely (canonical template repo)
 
-**Do not** prompt for or run project initialization if this checkout is the upstream starter kit:
+**Do not** prompt for or run project initialization if this checkout is the **maintained template** (same GitHub repository as documented in root [`package.json`](package.json) **`repository.url`**):
 
-- Run `git remote get-url origin` (or check remotes). If the URL contains `firtoz/cf-multiworker-starter-kit`, treat this as **development of the starter kit** (canonical repo: `https://github.com/firtoz/cf-multiworker-starter-kit`). Ignore the rest of this rule and do not apply the `project-init` skill unless the user explicitly asks to rename or template something.
+- Normalize `git remote get-url origin` and **`repository.url`** (compare `host` + `pathname`, allow `.git` suffix drift). If they refer to the **same** repo, you are on the canonical template checkout—**skip** `project-init` unless the user explicitly asks to rename or template something.
 
 ## When initialization applies
 
 If **both** are true:
 
-1. Root [`package.json`](package.json) still has `"name": "cf-multiworker-starter-kit"`.
-2. `origin` is missing **or** the `origin` URL does not contain `firtoz/cf-multiworker-starter-kit` (e.g. the user forked into their own GitHub account).
+1. Root [`package.json`](package.json) still has **`"name": "cloudflare-multiworker-template"`** (the default template package name).
+2. `origin` is missing **or** normalized `origin` does **not** match normalized **`repository.url`** (e.g. the user forked or uses a different remote).
 
-Then the project is likely an **uncustomized fork**. Inform the user once per session (or when they ask to deploy or ship) that they should personalize worker names, package names, README, and UI copy so deploys and docs match their app. Offer to walk through it using the **project-init** skill: [`../skills/project-init/SKILL.md`](../skills/project-init/SKILL.md).
+Then the project is likely an **uncustomized fork**. Inform the user once per session (or when they ask to deploy or ship) that they should personalize **`PRODUCT_PREFIX`**, root `name` / `repository`, README, and UI copy so deploys and docs match their app. Offer to walk through it using the **project-init** skill: [`../skills/project-init/SKILL.md`](../skills/project-init/SKILL.md).
 
 Do not block unrelated tasks if the user declines; they may be iterating locally.
 
 ## After initialization
 
-Once the root `package.json` `name` is no longer `cf-multiworker-starter-kit`, treat the repo as personalized unless the user asks again.
+Once the root `package.json` **`name`** is no longer **`cloudflare-multiworker-template`**, or **`repository.url`** matches their fork and they have set **`PRODUCT_PREFIX`**, treat the repo as personalized unless the user asks again.

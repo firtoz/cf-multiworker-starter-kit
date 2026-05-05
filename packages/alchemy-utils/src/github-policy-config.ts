@@ -22,12 +22,45 @@ export type GithubEnvironmentDeploymentRules = {
 	readonly branchPatterns: readonly string[];
 };
 
+/** Synthetic reviewer when **`reviewerUsers`** / **`reviewerTeams`** are empty (`staging-fork` only). */
+export type GithubStagingForkReviewerFallbackMode = boolean | "auto";
+
 export type GithubStagingForkDeploymentRules = GithubEnvironmentDeploymentRules & {
 	/**
-	 * When **true** and both reviewer lists are empty, sync uses the current **`gh`** login or **`GITHUB_ACTOR`**.
+	 * When **true** and both reviewer lists are empty, sync uses the current **`gh`** login or **`GITHUB_ACTOR`** as a required reviewer on **`staging-fork`** (legacy/future fork preview workflows would wait for approval).
+	 * **`false`** — never inject that reviewer.
+	 * **`"auto"`** — **`resolveStagingForkReviewerFallbackToActor`**: **public** / **internal** repos default **on**; **private** stays **off** unless **`GITHUB_SYNC_STAGING_FORK_REVIEWERS_PRIVATE=1`** during sync (Team+/plans that allow Environment reviewers).
 	 */
-	readonly reviewerFallbackToActor: boolean;
+	readonly reviewerFallbackToActor: GithubStagingForkReviewerFallbackMode;
 };
+
+export type GithubRepoVisibility = "public" | "private" | "internal";
+
+/**
+ * Effective **`reviewerFallbackToActor`** for **`staging-fork`** when policy uses **`"auto"`**.
+ *
+ * @param forceReviewerFallbackOnPrivateRepo — set when **`GITHUB_SYNC_STAGING_FORK_REVIEWERS_PRIVATE=1`** (private repo on a plan that supports required deployment reviewers).
+ */
+export function resolveStagingForkReviewerFallbackToActor(
+	rules: GithubStagingForkDeploymentRules,
+	repo: { readonly visibility: GithubRepoVisibility },
+	options?: { readonly forceReviewerFallbackOnPrivateRepo?: boolean },
+): boolean {
+	const mode = rules.reviewerFallbackToActor;
+	if (mode === true) {
+		return true;
+	}
+	if (mode === false) {
+		return false;
+	}
+	if (repo.visibility === "public") {
+		return true;
+	}
+	if (repo.visibility === "internal") {
+		return true;
+	}
+	return Boolean(options?.forceReviewerFallbackOnPrivateRepo);
+}
 
 export type GithubRepoSyncFlags = {
 	/** When **false**, skip repository merge-settings PATCH during staging sync. */
@@ -95,6 +128,7 @@ export type GithubRulesetMainExtensions = {
 export type GithubRulesetProductionExtensions = {
 	readonly requireSourceBranchStatusCheckGate: boolean;
 	readonly sourceBranchForProductionPrs: string;
+	/** Ruleset required-status-check context; must match the job `name` in **restrict-production-pr-source.yml** and Checks API `name` in **main-push.yml**. */
 	readonly sourceBranchStatusCheckContext: string;
 	readonly strictSourceBranchStatusChecks: boolean;
 };
@@ -128,7 +162,16 @@ function assertRange(label: string, n: number, min: number, max: number): void {
 	}
 }
 
-/** Opinionated starter template — merge settings + repository rulesets + Environment rules. */
+/**
+ * Opinionated starter template — merge settings + repository rulesets + Environment rules.
+ *
+ * **`main.requiredStatusCheckContexts`** must match a normal caller-level job, not an inner job from
+ * **`quality-reusable.yml`**. GitHub can show reusable-workflow inner checks as green while rulesets
+ * keep the same visible name stuck as **Expected — Waiting for status to be reported**. Stock PRs
+ * satisfy the plain **`Quality checks`** caller-level job from **`.github/workflows/pr-deploy.yml`**;
+ * GitHub's PR UI may display it as **`PR preview / Quality checks (pull_request)`**, but the ruleset
+ * picker stores the unprefixed **`Quality checks`** context.
+ */
 export const DEFAULT_GITHUB_POLICY: GitHubPolicyConfig = {
 	github: {
 		sync: {
@@ -159,7 +202,7 @@ export const DEFAULT_GITHUB_POLICY: GitHubPolicyConfig = {
 				reviewerUsers: [],
 				reviewerTeams: [],
 				branchPatterns: [],
-				reviewerFallbackToActor: true,
+				reviewerFallbackToActor: "auto",
 			},
 		},
 		repository: {
@@ -170,7 +213,7 @@ export const DEFAULT_GITHUB_POLICY: GitHubPolicyConfig = {
 			merge: {
 				deleteBranchOnMerge: true,
 				allowSquashMerge: true,
-				allowMergeCommit: false,
+				allowMergeCommit: true,
 				allowRebaseMerge: false,
 				allowAutoMerge: true,
 			},
@@ -178,16 +221,16 @@ export const DEFAULT_GITHUB_POLICY: GitHubPolicyConfig = {
 				enforcement: "active",
 				main: {
 					enabled: true,
-					displayName: "cf-starter: main",
+					displayName: "multiworker: main",
 					includeRefs: ["refs/heads/main"],
 					requirePullRequestBeforeMerge: true,
 					allowRepositoryAdminBypassOnMain: true,
-					requiredStatusCheckContexts: [],
+					requiredStatusCheckContexts: ["Quality checks"],
 					strictRequiredStatusChecks: true,
 				},
 				production: {
 					enabled: true,
-					displayName: "cf-starter: production",
+					displayName: "multiworker: production",
 					includeRefs: ["refs/heads/production"],
 					requireSourceBranchStatusCheckGate: true,
 					sourceBranchForProductionPrs: "main",
@@ -195,7 +238,7 @@ export const DEFAULT_GITHUB_POLICY: GitHubPolicyConfig = {
 					strictSourceBranchStatusChecks: true,
 				},
 				pullRequest: {
-					allowedMergeMethods: ["squash"],
+					allowedMergeMethods: ["squash", "merge"],
 					dismissStaleReviewsOnPush: true,
 					requireCodeOwnerReview: false,
 					requireLastPushApproval: false,
@@ -248,6 +291,13 @@ export function assertGithubPolicyConfig(policy: GitHubPolicyConfig): void {
 	if (enf !== "active" && enf !== "evaluate" && enf !== "disabled") {
 		throw new Error(
 			`github.repository.rulesets.enforcement must be active, evaluate, or disabled (got ${JSON.stringify(enf)})`,
+		);
+	}
+
+	const fb = github.environments.stagingFork.reviewerFallbackToActor;
+	if (fb !== true && fb !== false && fb !== "auto") {
+		throw new Error(
+			`github.environments.stagingFork.reviewerFallbackToActor must be true, false, or "auto" (got ${JSON.stringify(fb)})`,
 		);
 	}
 

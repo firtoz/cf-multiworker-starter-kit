@@ -1,3 +1,4 @@
+import { readCloudflareAlchemyAccountEnvFile } from "alchemy-utils/cloudflare-account-env";
 import { envFileKeyLooksSet } from "alchemy-utils/env-requirements";
 
 /** `KEY=value` with a non-whitespace value */
@@ -38,8 +39,11 @@ export function upsertPlainEnvKv(text: string, key: string, value: string): stri
 }
 
 export function hasCloudflareDeployCredentials(raw: string): boolean {
+	const accountRaw = readCloudflareAlchemyAccountEnvFile();
 	return (
-		dotenvKeyLooksSet(raw, "CLOUDFLARE_API_TOKEN") &&
-		dotenvKeyLooksSet(raw, "CLOUDFLARE_ACCOUNT_ID")
+		(dotenvKeyLooksSet(raw, "CLOUDFLARE_API_TOKEN") ||
+			dotenvKeyLooksSet(accountRaw, "CLOUDFLARE_API_TOKEN")) &&
+		(dotenvKeyLooksSet(raw, "CLOUDFLARE_ACCOUNT_ID") ||
+			dotenvKeyLooksSet(accountRaw, "CLOUDFLARE_ACCOUNT_ID"))
 	);
 }

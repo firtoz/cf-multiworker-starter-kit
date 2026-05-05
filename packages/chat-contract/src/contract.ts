@@ -1,7 +1,7 @@
 import { defineSocka } from "@firtoz/socka/core";
 import * as z from "zod";
 
-export const CHATROOM_INTERNAL_SECRET_HEADER = "x-cf-starter-chatroom-secret";
+export const CHATROOM_INTERNAL_SECRET_HEADER = "x-starter-chatroom-secret";
 
 /** Max display name chars (Socka `createData` from `?name=` and `setDisplayName`). */
 export const CHAT_DISPLAY_NAME_MAX_CHARS = 64;

@@ -1,7 +1,7 @@
 # Cloudflare Multi-Worker Starter Kit
 
-[![GitHub: use this template](https://img.shields.io/badge/GitHub-use%20this%20template-24292e?logo=github)](https://github.com/firtoz/cf-multiworker-starter-kit/generate)
-[![License: MIT](https://img.shields.io/badge/license-MIT-22c55e)](https://github.com/firtoz/cf-multiworker-starter-kit/blob/main/README.md#license)
+[![GitHub: use this template](https://img.shields.io/badge/GitHub-use%20this%20template-24292e?logo=github)](https://github.com/your-org/cloudflare-multiworker-template/generate)
+[![License: MIT](https://img.shields.io/badge/license-MIT-22c55e)](https://github.com/your-org/cloudflare-multiworker-template/blob/main/README.md#license)
 
 [![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Cloudflare Workers](https://img.shields.io/badge/Cloudflare%20Workers-F38020?logo=cloudflare&logoColor=white)](https://developers.cloudflare.com/workers/)
@@ -15,17 +15,6 @@
 ![Cloudflare Multi-worker Starter Kit: Monorepo for full-stack Cloudflare Workers & Durable Objects, type safety, ready to ship](docs/branding/banner.jpg)
 
 A production-minded starter for full-stack Cloudflare apps: React Router on Workers, Durable Objects, D1, Drizzle, Hono, typed bindings, Turborepo, and Alchemy deploys. Copy it, rename it, ship it. The demo covers SSR, D1, service bindings, Durable Objects, and WebSockets.
-
-<p align="center">
-  <a href="https://peerlist.io/firtoz/project/cloudflare-multiworker-starter-kit" target="_blank" rel="noreferrer">
-    <img
-      src="https://peerlist.io/api/v1/projects/embed/PRJHA9E6LDQG9KQKD1AJB9M7OM6B7B?showUpvote=true&theme=dark"
-      alt="Cloudflare Multi-Worker Starter Kit"
-      height="72"
-    />
-  </a>
-</p>
-
 ## What you get
 
 - **React Router 7 on Workers** — streaming SSR, Tailwind, typed loaders/actions, form actions.
@@ -42,7 +31,7 @@ A production-minded starter for full-stack Cloudflare apps: React Router on Work
 | GitHub Environments, rulesets, what runs in CI, custom domains | [`docs/github-admin.md`](docs/github-admin.md) |
 | `.env.local` / staging / prod secrets | [`.env.example`](.env.example) · [`agents/skills/cf-workers-env-local/SKILL.md`](agents/skills/cf-workers-env-local/SKILL.md) |
 | Full rebrand (package names, UI copy) | [`agents/skills/project-init/SKILL.md`](agents/skills/project-init/SKILL.md) |
-| Typegen cadence, Turbo deploy order, generated artifacts | [`agents/skills/cf-starter-workflow/SKILL.md`](agents/skills/cf-starter-workflow/SKILL.md) |
+| Typegen cadence, Turbo deploy order, generated artifacts | [`agents/skills/multiworker-workflow/SKILL.md`](agents/skills/multiworker-workflow/SKILL.md) |
 | Cursor / IDE rules look wrong after clone | `bun run agents:link` · [`agents/README.md`](agents/README.md) |
 
 **Bun:** use the version in root [`package.json`](package.json) → `packageManager` (CI matches it).
@@ -54,11 +43,11 @@ A production-minded starter for full-stack Cloudflare apps: React Router on Work
 Create a repo from the template:
 
 ```bash
-gh repo create my-project --template firtoz/cf-multiworker-starter-kit --public
+gh repo create my-project --template your-org/cloudflare-multiworker-template --public
 cd my-project
 ```
 
-Or **Use this template** on the [GitHub repo](https://github.com/firtoz/cf-multiworker-starter-kit).
+Or **Use this template** on the [GitHub repository](https://github.com/your-org/cloudflare-multiworker-template) (replace `your-org` with the template owner).
 
 ### Run locally
 
@@ -83,7 +72,15 @@ Open the URL Vite prints (often `http://localhost:5173`). Try **`/`**, **`/visit
 
 Before meaningful deploys, [name your product](#name-your-product) so Cloudflare/Alchemy names match your app.
 
-You need a Cloudflare **API token** and **Account ID** from the dashboard (this template does not create tokens — [step-by-step](docs/github-admin.md#cloudflare-credentials-manual)). Put them in **`.env.staging`** / **`.env.production`** (or use **`bun run setup:staging`** / **`setup:prod`**). Token and account must be the **same** Cloudflare account.
+You need a Cloudflare **API token** and **Account ID** from the dashboard (this template does not create tokens — [step-by-step](docs/github-admin.md#cloudflare-credentials-manual)). Put them in **`.env.staging`** / **`.env.production`**, **or** once in the machine-wide **account** file (**`bun run setup:account`**, paths in [`.env.example`](.env.example)) so you do not duplicate **`CLOUDFLARE_*`** / **`ALCHEMY_STATE_TOKEN`** in every repo. Token and account must be the **same** Cloudflare account.
+
+**Suggested order for staging + prod:**
+
+1. **`bun run setup:account`** (optional) — shared **`CLOUDFLARE_ACCOUNT_ID`**, **`CLOUDFLARE_API_TOKEN`**, **`ALCHEMY_STATE_TOKEN`** on this machine.
+2. **`bun run setup:staging`** then **`bun run github:sync:staging`** (or **`bun run onboard:staging`**).
+3. **`bun run setup:prod`** then **`bun run github:sync:prod`** (or **`bun run onboard:prod`**).
+
+Per-environment secrets (**`ALCHEMY_PASSWORD`**, **`CHATROOM_INTERNAL_SECRET`**, optional **`WEB_*`**) stay in each stage dotfile (or GitHub Environments after sync).
 
 With [`gh`](https://cli.github.com/) authenticated and repo admin rights, from a trusted machine:
 
@@ -92,12 +89,12 @@ bun run onboard:staging   # sync staging → push/merge to `main` deploys stagin
 bun run onboard:prod      # sync production → deploys from `production` branch (see docs)
 ```
 
-**`bun run github:setup`** prints a fuller Actions checklist. Workflow behavior, **`CF_STARTER_DEPLOY_ENABLED`**, fork vs same-repo PR previews, rulesets, and **`CF_STARTER_AUTO_PRODUCTION_PR`**: [`docs/github-admin.md`](docs/github-admin.md).
+**`bun run github:setup`** prints a fuller Actions checklist. Workflow behavior, **`DEPLOY_ENABLED`**, fork vs same-repo PR previews, rulesets, and **`AUTO_PRODUCTION_PR`**: [`docs/github-admin.md`](docs/github-admin.md).
 
 ### If setup fails
 
-- **Local:** Alchemy auth — `bun alchemy configure`, `bun alchemy login`; optional `CLOUDFLARE_*` in `.env.local`. Missing generated secrets — `bun run setup:local` or rerun **`quickstart`**.
-- **`onboard:staging`:** Cloudflare lines in `.env.staging` or **`setup:staging`**; **`gh auth login`**.
+- **Local:** Alchemy auth — `bun alchemy configure`, `bun alchemy login`; optional **`CLOUDFLARE_*`** in **`.env.local`** or **`setup:account`** (machine-wide file). Missing generated secrets — **`bun run setup:local`** or rerun **`quickstart`**.
+- **`onboard:staging`:** Cloudflare credentials in **`.env.staging`**, **`setup:staging`**, or the machine **account** file; **`gh auth login`**.
 - **`onboard:prod`:** same for `.env.production`, or **`ONBOARD_PROD_COPY_CF=1`** to copy token/account from `.env.staging` (non-interactive).
 - **Wrong account:** token and Account ID must match the same Cloudflare account.
 
@@ -107,11 +104,11 @@ bun run onboard:prod      # sync production → deploys from `production` branch
 
 **Alchemy app ids** (e.g. `skybook-frontend`, `skybook-database`) come from one place:
 
-1. Set **`PRODUCT_PREFIX`** in [`packages/alchemy-utils/src/worker-peer-scripts.ts`](packages/alchemy-utils/src/worker-peer-scripts.ts) (default `cf-starter` → your slug).
+1. Set **`PRODUCT_PREFIX`** in [`packages/alchemy-utils/src/worker-peer-scripts.ts`](packages/alchemy-utils/src/worker-peer-scripts.ts) (default `starter` → your slug).
 2. Run **`bun run typegen`**.
 3. Adjust visible product copy when you want.
 
-**Workspace package names** and Turbo **`--filter`** values (e.g. `cf-starter-web`) are separate from those ids. Full checklist: [`agents/skills/project-init/SKILL.md`](agents/skills/project-init/SKILL.md).
+**Workspace package names** and Turbo **`--filter`** values (e.g. `@internal/web`) are separate from those ids. Full checklist: [`agents/skills/project-init/SKILL.md`](agents/skills/project-init/SKILL.md).
 
 ## Deploy
 
@@ -145,7 +142,7 @@ Each command runs the **full** Turbo graph (shared Alchemy state, D1 + migration
 │   ├── chat-contract/
 │   ├── db/                     # D1 schema + Drizzle migrations
 │   ├── scripts/                # quickstart, setup, onboard, GitHub sync helpers
-│   └── state-hub/              # shared CI Alchemy state
+│   └── state-hub/              # shared remote Alchemy state (non-local STAGE)
 ├── stacks/                     # admin / GitHub sync (Alchemy)
 ├── agents/                     # AI rules + skills (human playbooks too)
 ├── .cursor/                    # Cursor env + symlinks to agents/
@@ -194,7 +191,7 @@ Details: [`agents/skills/cf-durable-object-package/SKILL.md`](agents/skills/cf-d
 | GitHub Environments | `github:setup`, `github:sync:staging`, `github:sync:prod`, `github:sync`, `github:env:*`, `github:sync:config` |
 | DB | `db:generate`, `check:drizzle-generated` |
 
-More context: [`agents/skills/cf-starter-workflow/SKILL.md`](agents/skills/cf-starter-workflow/SKILL.md), [`docs/github-admin.md`](docs/github-admin.md).
+More context: [`agents/skills/multiworker-workflow/SKILL.md`](agents/skills/multiworker-workflow/SKILL.md), [`docs/github-admin.md`](docs/github-admin.md).
 
 ## Deeper docs
 
@@ -207,7 +204,7 @@ More context: [`agents/skills/cf-starter-workflow/SKILL.md`](agents/skills/cf-st
 
 ## Security posture
 
-Real infra + demo routes: treat as a starting point. This template uses a protected Environment for **fork** PR previews, production deploys from **`production`**, and separate workflows for untrusted PR comment posting. Add your own auth, CSP, rate limits, and least-privilege tokens before launch. See [`docs/github-admin.md`](docs/github-admin.md) and [`agents/skills/cf-workers-env-local/SKILL.md`](agents/skills/cf-workers-env-local/SKILL.md).
+Real infra + demo routes: treat as a starting point. **This** repository’s stock workflows use GitHub Environments for **same-repo** PR previews (**`staging`**), production deploys from **`production`**, and guardrails so **fork** PRs never receive preview deploy secrets. Add your own auth, CSP, rate limits, and least-privilege tokens before launch. See [`docs/github-admin.md`](docs/github-admin.md) and [`agents/skills/cf-workers-env-local/SKILL.md`](agents/skills/cf-workers-env-local/SKILL.md).
 
 ## Contributing
 

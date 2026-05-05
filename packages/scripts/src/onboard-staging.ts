@@ -32,7 +32,9 @@ function main(): void {
 
 	const stagingRaw = existsSync(stagingFile) ? readFileSync(stagingFile, "utf8") : "";
 	if (!hasCloudflareDeployCredentials(stagingRaw)) {
-		console.error("[onboard:staging] Missing Cloudflare credentials in `.env.staging`.");
+		console.error(
+			`[onboard:staging] Missing Cloudflare credentials in \`.env.staging\` or the shared machine account file (\`cloudflare-alchemy/account.env\`; see .env.example).`,
+		);
 		console.error("");
 		printCloudflareManualHints("staging");
 		console.error("");
@@ -46,7 +48,7 @@ function main(): void {
 	const actions = githubActionsUrl(root);
 	console.log("");
 	console.log(
-		"All good: the next push or merge to `main` deploys staging after **Quality checks** complete.",
+		"All good: the next push or merge to `main` deploys staging after the **Main** workflow Quality jobs complete.",
 	);
 	if (actions) {
 		console.log(`GitHub Actions: ${actions}`);

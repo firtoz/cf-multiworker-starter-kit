@@ -2,9 +2,10 @@
  * GitHub Actions **environment** configuration for deploy (CI + `github:sync:*`).
  *
  * Required / optional keys are defined in `collected-env-requirements.ts` (sidecars + repo root).
- * `CF_STARTER_DEPLOY_ENABLED` stays a special case: optional in the dotfile; `github:sync` defaults it to `"true"` on GitHub.
+ * **`DEPLOY_ENABLED`** — optional in the dotfile; `github:sync` defaults it to `"true"` on GitHub when unset.
+ * **`AUTO_PRODUCTION_PR`** — optional in the dotfile; **`github:sync:*`** defaults it to **`"true"`** on GitHub Environment **staging** when unset (set **`false`** to disable auto **main → production** PRs).
  *
- * Keep in sync with `deploy-preflight.ts`, `.github/workflows/deploy-*.yml`, `stacks/admin.ts`, and `turbo.json` **`globalEnv`**.
+ * Keep in sync with `deploy-preflight.ts`, `.github/workflows/*-deploy.yml`, `main-push.yml`, `stacks/admin.ts`, and `turbo.json` **`globalEnv`**.
  */
 import {
 	buildGitHubOptionalSecretPayload,
@@ -16,7 +17,10 @@ import {
 import { ALL_REPO_ENV_REQUIREMENTS } from "./collected-env-requirements";
 
 /** Plaintext environment variable (not secret) — opt-in deploy gate for CI; `github:sync` sets it to `"true"`. */
-export const CF_STARTER_DEPLOY_ENABLED_VAR = "CF_STARTER_DEPLOY_ENABLED" as const;
+export const DEPLOY_ENABLED_VAR = "DEPLOY_ENABLED" as const;
+
+/** Optional — when **`true`**, **`main-push`** may open/reuse **main → production** after a successful staging deploy (GitHub Environment **staging**). */
+export const AUTO_PRODUCTION_PR_VAR = "AUTO_PRODUCTION_PR" as const;
 
 export function buildGitHubSecretPayload(env: Record<string, string | undefined>): {
 	payload: Record<string, string>;
@@ -33,7 +37,8 @@ export function buildOptionalGitHubSecretPayload(
 
 /**
  * Variables read from the stage dotfile for `stacks/admin.ts`.
- * `CF_STARTER_DEPLOY_ENABLED` is optional in the file — sync always pushes `true` to GitHub when you run `github:sync:*` (unless the dotfile sets a value, which is preserved).
+ * **`DEPLOY_ENABLED`** is optional in the file — sync always pushes `true` to GitHub when you run `github:sync:*` (unless the dotfile sets a value, which is preserved).
+ * **`AUTO_PRODUCTION_PR`** is optional — sync defaults it to **`"true"`** on GitHub when unset (same idea as **`DEPLOY_ENABLED`**); set **`false`** in the dotfile to disable. Production-stage sync still mirrors an explicit prod-dotfile value to Environment **staging** (see `stacks/admin.ts`).
  */
 export function buildGitHubVariablePayloadFromDotfile(env: Record<string, string | undefined>): {
 	payload: Record<string, string>;
@@ -44,11 +49,11 @@ export function buildGitHubVariablePayloadFromDotfile(env: Record<string, string
 		env,
 	);
 	const optionalPayload = buildGitHubOptionalVariablePayload(ALL_REPO_ENV_REQUIREMENTS, env);
-	const deployFlag = env[CF_STARTER_DEPLOY_ENABLED_VAR]?.trim();
+	const deployFlag = env[DEPLOY_ENABLED_VAR]?.trim();
 	const payload = {
 		...requiredPayload,
 		...optionalPayload,
-		...(deployFlag ? { [CF_STARTER_DEPLOY_ENABLED_VAR]: deployFlag } : {}),
+		...(deployFlag ? { [DEPLOY_ENABLED_VAR]: deployFlag } : {}),
 	};
 	return { payload, missing };
 }

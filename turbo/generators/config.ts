@@ -3,6 +3,16 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import type { PlopTypes } from "@turbo/gen";
 
+function readWebPackageName(repoRoot: string): string {
+	const pkgPath = path.join(repoRoot, "apps/web/package.json");
+	const raw = fs.readFileSync(pkgPath, "utf8");
+	const pkg = JSON.parse(raw) as { name?: string };
+	if (typeof pkg.name !== "string" || !pkg.name.length) {
+		throw new Error(`readWebPackageName: missing "name" in ${pkgPath}`);
+	}
+	return pkg.name;
+}
+
 export default function generator(plop: PlopTypes.NodePlopAPI): void {
 	plop.setGenerator("durable-object", {
 		description:
@@ -97,10 +107,11 @@ export default function generator(plop: PlopTypes.NodePlopAPI): void {
 					usesWebSocket?: boolean;
 				};
 				const kebabName = plop.getHelper("kebabCase")(data.name);
+				const webPkgName = readWebPackageName(process.cwd());
 				const notes = [
 					`Next steps for durable-objects/${kebabName}:`,
 					`- Root package.json dev: add --filter=${kebabName} if it should run with bun run dev.`,
-					`- Root turbo.json: add "${kebabName}#destroy:prod", "#destroy:staging", and "#destroy:preview" with dependsOn ["cf-starter-web#destroy:prod"] (etc.) if web binds to it.`,
+					`- Root turbo.json: add "${kebabName}#destroy:prod", "#destroy:staging", and "#destroy:preview" with dependsOn ["${webPkgName}#destroy:prod"] (etc.) if web binds to it.`,
 				];
 				if (data.usesSqlite) {
 					notes.push(

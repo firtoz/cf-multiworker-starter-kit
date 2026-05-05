@@ -1,26 +1,26 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
+import { mainDb } from "@internal/db/alchemy";
 import alchemy from "alchemy";
 import { ReactRouter } from "alchemy/cloudflare";
 import { requireAlchemyPassword, requireEnv } from "alchemy-utils";
 import { alchemyCiCloudStateStoreOptions } from "alchemy-utils/alchemy-cloud-state-store";
-import { CF_STARTER_CI_WEB_DEPLOY_URL_RELPATH } from "alchemy-utils/ci-deploy-web-url";
+import { CI_WEB_DEPLOY_URL_RELPATH } from "alchemy-utils/ci-deploy-web-url";
 import { isPrStage, resolveStageFromEnv } from "alchemy-utils/deployment-stage";
 import {
 	reactRouterDomainsFromProcessEnv,
 	reactRouterRoutesFromProcessEnv,
 } from "alchemy-utils/web-deploy-hostnames";
 import {
-	CF_STARTER_APPS,
+	ALCHEMY_APP_IDS,
 	DEFAULT_REACT_ROUTER_WEB_RESOURCE_ID,
 } from "alchemy-utils/worker-peer-scripts";
-import { mainDb } from "cf-starter-db/alchemy";
 import { chatroomWorker } from "chatroom-do/alchemy";
 import { otherWorker } from "other-worker/alchemy";
 import { pingWorker } from "ping-do/alchemy";
 
 const stage = resolveStageFromEnv();
-const app = await alchemy(CF_STARTER_APPS.frontend, {
+const app = await alchemy(ALCHEMY_APP_IDS.frontend, {
 	stage,
 	...alchemyCiCloudStateStoreOptions(stage),
 });
@@ -57,14 +57,17 @@ export const web = await ReactRouter(DEFAULT_REACT_ROUTER_WEB_RESOURCE_ID, {
 });
 
 console.log({ webUrl: web.url });
-/** GitHub Actions: write URL for deploy workflows (**`deploy-*.yml`**) — see **`CF_STARTER_CI_WEB_DEPLOY_URL_RELPATH`**. */
+/** GitHub Actions: write URL for deploy workflows — see **`CI_WEB_DEPLOY_URL_RELPATH`**. */
 if (process.env["GITHUB_ACTIONS"] === "true" && web.url) {
 	const root = process.env["GITHUB_WORKSPACE"]?.trim();
 	if (root) {
-		const filePath = path.join(root, CF_STARTER_CI_WEB_DEPLOY_URL_RELPATH);
+		const filePath = path.join(root, CI_WEB_DEPLOY_URL_RELPATH);
 		mkdirSync(path.dirname(filePath), { recursive: true });
 		writeFileSync(filePath, `${web.url.trim()}\n`, "utf8");
 	}
 }
+
+// PR preview comments belong in `.github/workflows/pr-deploy.yml`. Avoid `alchemy/github`
+// `GitHubComment` here on CI + `STAGE=pr-*` — `verifyGitHubAuth` often 404s for fork/private PRs.
 
 await app.finalize();

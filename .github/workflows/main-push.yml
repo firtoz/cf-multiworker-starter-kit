@@ -1,38 +1,60 @@
-name: Deploy staging
+# **`push`** **`main`**: **Quality** (**`quality-reusable.yml`**) then **staging** deploy + optional **main → production** PR.
+#
+# Operators: **`bun run github:sync:staging`** syncs **`staging`** + repo policy from **`config/github.policy.ts`**.
+name: Main
 
-# Runs after lint / typecheck / build complete when **Quality checks** finishes on **`main`**
-# (successful **push**, same commit — not PR runs on feature branches).
-# If this workflow appears with a skipped “Deploy to staging” job, the completion was usually a **pull_request**
-# Quality run or a failure; inspect the triggering run’s event / conclusion in the Actions UI.
+env:
+  TURBO_TELEMETRY_DISABLED: "1"
+
 on:
-  workflow_run:
-    workflows: ["Quality checks"]
-    types: [completed]
-    branches:
-      - main
+  push:
+    branches: [main]
 
 concurrency:
-  group: deploy-staging-${{ github.event.workflow_run.head_sha }}
+  group: staging-deploy
   cancel-in-progress: false
 
 permissions:
   contents: read
 
 jobs:
+  quality:
+    uses: ./.github/workflows/quality-reusable.yml
+    secrets: inherit
+    with:
+      concurrency_group_suffix: ${{ github.workflow }}-${{ github.ref }}
+
+  quality_ruleset_gate:
+    name: Quality checks
+    needs: quality
+    if: always()
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Require reusable Quality workflow succeeded
+        env:
+          QUALITY_RESULT: ${{ needs.quality.result }}
+        run: |
+          set -euo pipefail
+          if [[ "$QUALITY_RESULT" != "success" ]]; then
+            echo "::error::Reusable Quality workflow finished with result ${QUALITY_RESULT}."
+            exit 1
+          fi
+          echo "Quality gate: reusable workflow succeeded."
+
   deploy:
     name: Deploy to staging
+    needs: quality_ruleset_gate
     outputs:
       did_staging_deploy: ${{ steps.deploy_result.outputs.did_staging_deploy }}
-    if:
-      github.event.workflow_run.conclusion == 'success' &&
-      github.event.workflow_run.event == 'push' &&
-      github.event.workflow_run.head_branch == 'main'
+      auto_production_pr: ${{ steps.deploy_result.outputs.auto_production_pr }}
     runs-on: ubuntu-latest
     environment: staging
     steps:
       - uses: actions/checkout@v6
         with:
-          ref: ${{ github.event.workflow_run.head_sha }}
+          ref: ${{ github.sha }}
 
       - uses: oven-sh/setup-bun@v2
         with:
@@ -46,7 +68,7 @@ jobs:
         env:
           CI: true
           STAGE: staging
-          CF_STARTER_DEPLOY_ENABLED: ${{ vars.CF_STARTER_DEPLOY_ENABLED }}
+          DEPLOY_ENABLED: ${{ vars.DEPLOY_ENABLED }}
           ALCHEMY_PASSWORD: ${{ secrets.ALCHEMY_PASSWORD }}
           ALCHEMY_STATE_TOKEN: ${{ secrets.ALCHEMY_STATE_TOKEN }}
           CHATROOM_INTERNAL_SECRET: ${{ secrets.CHATROOM_INTERNAL_SECRET }}
@@ -73,7 +95,7 @@ jobs:
           set -o pipefail
           bun run deploy:staging 2>&1 | tee deploy-output.txt
           deploy_status=${PIPESTATUS[0]}
-          URL_FILE="$GITHUB_WORKSPACE/.alchemy/ci/cf-starter-web-deploy-url.txt"
+          URL_FILE="$GITHUB_WORKSPACE/.alchemy/ci/web-deploy-url.txt"
           WEB_URL=""
           if [[ -f "$URL_FILE" ]]; then
             IFS= read -r WEB_URL <"$URL_FILE" || true
@@ -91,7 +113,7 @@ jobs:
           DE_OUT="${{ steps.deploy.outcome }}"
           EN="${{ steps.preflight.outputs.deploy_enabled }}"
           WEB_URL="$WEB_URL_FROM_STEP"
-          URL_FILE="$GITHUB_WORKSPACE/.alchemy/ci/cf-starter-web-deploy-url.txt"
+          URL_FILE="$GITHUB_WORKSPACE/.alchemy/ci/web-deploy-url.txt"
           if [[ -z "$WEB_URL" && -f "$URL_FILE" ]]; then
             IFS= read -r WEB_URL <"$URL_FILE" || true
           fi
@@ -101,29 +123,26 @@ jobs:
             if [[ "$PF_OUT" == "failure" ]]; then
               echo "**Status:** preflight failed — see **Deploy preflight**."
             elif [[ "$PF_OUT" == "skipped" ]]; then
-              echo "**Status:** an earlier step failed or was cancelled before preflight (often **Install dependencies**)."
+              echo "**Status:** skipped before preflight."
             elif [[ "$EN" != "true" ]]; then
-              echo "**Status:** skipped — \`CF_STARTER_DEPLOY_ENABLED\` is not \`true\` on the **staging** Environment (expected on a fresh fork)."
+              echo "**Status:** skipped — \`DEPLOY_ENABLED\` is not \`true\` on GitHub Environment **staging**."
             elif [[ "$DE_OUT" == "success" ]]; then
               echo "**Status:** success"
-              echo ""
               if [[ -n "$WEB_URL" ]]; then
                 echo "**App (workers.dev):** [$WEB_URL]($WEB_URL)"
-              else
-                echo "- **workers.dev URL:** artifact missing — ${GITHUB_WORKSPACE}/.alchemy/ci/cf-starter-web-deploy-url.txt _(see apps/web/alchemy.run.ts when CI runs on GitHub Actions)._"
               fi
-              echo ""
-              echo "**Production:** after \`bun run onboard:prod\`, repo variable **\`CF_STARTER_AUTO_PRODUCTION_PR\`** can open or reuse a **\`main\` → \`production\`** PR on successful staging deploys. Until then, run **\`bun run onboard:prod\`** from a trusted machine."
             elif [[ "$DE_OUT" == "failure" ]]; then
-              echo "**Status:** Turbo deploy failed — see **Turbo deploy (staging)**."
+              echo "**Status:** Turbo deploy failed — inspect logs."
             else
-              echo "**Status:** unknown — inspect [this run]($WORKFLOW_URL)."
+              echo "**Status:** inspect [run]($WORKFLOW_URL)."
             fi
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Record staging deploy outcome
         id: deploy_result
         if: always()
+        env:
+          AUTO_PRODUCTION_PR: ${{ vars.AUTO_PRODUCTION_PR }}
         run: |
           pf="${{ steps.preflight.outputs.deploy_enabled }}"
           de="${{ steps.deploy.outcome }}"
@@ -132,14 +151,20 @@ jobs:
           else
             echo "did_staging_deploy=false" >> "$GITHUB_OUTPUT"
           fi
+          if [[ "${AUTO_PRODUCTION_PR:-}" == "true" ]]; then
+            echo "auto_production_pr=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "auto_production_pr=false" >> "$GITHUB_OUTPUT"
+          fi
 
   maybe_production_pr:
     name: Open or reuse production PR
     needs: deploy
     if: >-
       needs.deploy.outputs.did_staging_deploy == 'true' &&
-      vars.CF_STARTER_AUTO_PRODUCTION_PR == 'true'
+      needs.deploy.outputs.auto_production_pr == 'true'
     runs-on: ubuntu-latest
+    environment: staging
     permissions:
       contents: read
       pull-requests: write
@@ -148,10 +173,31 @@ jobs:
       - name: Create or note existing PR (main → production)
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PRODUCTION_PR_HEAD_RAW: ${{ vars.PRODUCTION_PR_HEAD }}
         run: |
           set -euo pipefail
           REPO="${{ github.repository }}"
+          PROD_PR_HEAD="${PRODUCTION_PR_HEAD_RAW:-main}"
           RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          # Invisible marker: only PRs created (or previously updated) by this job get description refreshes.
+          AUTO_PRODUCTION_PR_MARKER='<!-- github-actions:main-push.yml:auto-production-pr -->'
+          # gh pr list --head accepts the branch name only; "owner:branch" is not supported
+          # (see gh pr list --help). Prefer same-repo rows when multiple PRs share the head ref.
+
+          production_pr_body() {
+            printf '%s\n\n%s\n\n%s' \
+              "Staging deploy succeeded: ${RUN_URL}" \
+              "Merge this PR to deploy **production** (see \`.github/workflows/prod-deploy.yml\`)." \
+              "${AUTO_PRODUCTION_PR_MARKER}"
+          }
+
+          fetch_same_repo_production_pr() {
+            local raw
+            raw="$(gh pr list --repo "${REPO}" --base production --head "${PROD_PR_HEAD}" --state open \
+              --json number,url,body,headRefOid,isCrossRepository 2>/dev/null || true)"
+            [[ -z "${raw}" ]] && raw='[]'
+            echo "${raw}" | jq -c '[.[] | select(.isCrossRepository | not)][0] // empty'
+          }
 
           # The **Production merge source** required check is normally produced by
           # restrict-production-pr-source.yml on pull_request. Events raised with
@@ -159,8 +205,11 @@ jobs:
           # runs, so that check never appears. Recreate the same check conclusion via
           # the Checks API so production rulesets can merge.
           post_production_merge_source_check() {
-            local sha
-            sha="$(gh pr list --repo "${REPO}" --base production --head main --state open --json headRefOid --jq '.[0].headRefOid // empty' 2>/dev/null || true)"
+            local sha="${1:-}"
+            if [[ -z "${sha}" ]]; then
+              sha="$(gh pr list --repo "${REPO}" --base production --head "${PROD_PR_HEAD}" --state open \
+                --json headRefOid,isCrossRepository 2>/dev/null | jq -r '[.[] | select(.isCrossRepository | not)][0].headRefOid // empty' || true)"
+            fi
             if [[ -z "${sha}" ]]; then
               echo "::warning::Production merge source: could not resolve PR head SHA; check run not posted."
               return 0
@@ -182,34 +231,61 @@ jobs:
             exit 0
           fi
 
-          EXISTING="$(gh pr list --repo "${REPO}" --base production --head main --state open --json url --jq '.[0].url // empty' || true)"
-          if [[ -n "${EXISTING}" ]]; then
-            {
-              echo "## Production PR"
-              echo "**Already open:** [${EXISTING}](${EXISTING})"
-              echo ""
-              echo "Merge this PR to deploy **production**."
-            } >> "$GITHUB_STEP_SUMMARY"
-            post_production_merge_source_check
-            exit 0
+          prod_pr="$(fetch_same_repo_production_pr)"
+          REFRESHED=false
+          JUST_CREATED=false
+          PR_SUMMARY_LABEL="Already open"
+
+          if [[ -z "${prod_pr}" ]]; then
+            PR_SUMMARY_LABEL="Opened"
+            set +e
+            CREATE_ERR="$(gh pr create --repo "${REPO}" --base production --head "${PROD_PR_HEAD}" \
+              --title "Deploy staging to production" \
+              --body "$(production_pr_body)" 2>&1)"
+            CREATE_RC=$?
+            set -e
+            if [[ "${CREATE_RC}" -ne 0 ]]; then
+              if echo "${CREATE_ERR}" | grep -qF 'already exists'; then
+                echo "::notice::Production PR already exists; continuing."
+                PR_SUMMARY_LABEL="Already open"
+              else
+                echo "${CREATE_ERR}" >&2
+                exit "${CREATE_RC}"
+              fi
+            else
+              JUST_CREATED=true
+            fi
+            prod_pr="$(fetch_same_repo_production_pr)"
           fi
 
-          BODY="$(printf '%s\n\n%s' "Staging deploy succeeded: ${RUN_URL}" "Merge this PR to deploy **production** (see \`.github/workflows/deploy-production.yml\`).")"
+          if [[ -z "${prod_pr}" ]]; then
+            echo "::error::Could not resolve ${PROD_PR_HEAD} → production PR after create."
+            exit 1
+          fi
 
-          gh pr create --repo "${REPO}" --base production --head main \
-            --title "Deploy staging to production" \
-            --body "${BODY}"
+          PR_NUMBER="$(echo "${prod_pr}" | jq -r '.number // empty')"
+          PR_URL="$(echo "${prod_pr}" | jq -r '.url // empty')"
+          PR_BODY="$(echo "${prod_pr}" | jq -r '.body // ""')"
+          PR_SHA="$(echo "${prod_pr}" | jq -r '.headRefOid // empty')"
 
-          PR_URL="$(gh pr list --repo "${REPO}" --base production --head main --state open --json url --jq '.[0].url // empty' || true)"
+          if [[ "${JUST_CREATED}" != "true" ]] && echo "${PR_BODY}" | grep -qF "${AUTO_PRODUCTION_PR_MARKER}"; then
+            gh pr edit "${PR_NUMBER}" --repo "${REPO}" --body "$(production_pr_body)"
+            REFRESHED=true
+          fi
+
           {
             echo "## Production PR"
             if [[ -n "${PR_URL}" ]]; then
-              echo "**Opened:** [${PR_URL}](${PR_URL}) (**main** → **production**)."
+              echo "**${PR_SUMMARY_LABEL}:** [${PR_URL}](${PR_URL}) (**${PROD_PR_HEAD}** → **production**)."
             else
-              echo "Opened **main** → **production** (PR URL unavailable — check the **Pull requests** tab)."
+              echo "${PR_SUMMARY_LABEL} **${PROD_PR_HEAD}** → **production** (PR URL unavailable — check the **Pull requests** tab)."
             fi
             echo ""
             echo "Merge this PR to deploy **production**."
+            if [[ "${REFRESHED}" == "true" ]]; then
+              echo ""
+              echo "Refreshed the PR description (marker-managed auto body) with the latest staging deploy link."
+            fi
           } >> "$GITHUB_STEP_SUMMARY"
 
-          post_production_merge_source_check
+          post_production_merge_source_check "${PR_SHA}"

@@ -2,7 +2,7 @@
  * Default Worker resource id for single-Worker DO/worker packages when omitting a custom `name:`
  * (physical name: `{alchemyApp}-{resource}-{stage}`, see {@link omitDefaultPhysicalWorkerScriptName}).
  *
- * Forks renaming Workers should mirror this literal — change **`{@link PRODUCT_PREFIX}`** once (or edit **`{@link CF_STARTER_APPS}`** indirectly).
+ * Forks renaming Workers should mirror this literal — change **`{@link PRODUCT_PREFIX}`** once (or edit **`{@link ALCHEMY_APP_IDS}`** indirectly).
  */
 export const DEFAULT_WORKER_RESOURCE_ID = "worker" as const;
 
@@ -29,24 +29,24 @@ export const DEFAULT_REACT_ROUTER_WEB_RESOURCE_ID = "web" as const;
 export const DEFAULT_D1_DATABASE_RESOURCE_ID = "db" as const;
 
 /**
- * Leading segment for Alchemy **`await alchemy("…")`** ids — default **`cf-starter`** yields **`cf-starter-frontend`**, **`cf-starter-ping`**, etc.
+ * Leading segment for Alchemy **`await alchemy("…")`** ids — default **`starter`** yields **`starter-frontend`**, **`starter-ping`**, etc.
  *
- * Forks set **`PRODUCT_PREFIX`** once to your slug (**`skybook`**, **`hotel`**, …) so **`CF_STARTER_APPS`** and **`--app`** scripts stay aligned ([physical names](https://alchemy.run/concepts/resource/#physical-name)).
+ * Forks set **`PRODUCT_PREFIX`** once to your slug (**`skybook`**, **`hotel`**, …) so **`ALCHEMY_APP_IDS`** and **`--app`** scripts stay aligned ([physical names](https://alchemy.run/concepts/resource/#physical-name)).
  */
-export const PRODUCT_PREFIX = "cf-starter" as const;
+export const PRODUCT_PREFIX = "starter" as const;
 
 /**
- * Canonical Alchemy application ids for this starter. Derived from **`PRODUCT_PREFIX`** — change **`PRODUCT_PREFIX`** when you rebrand, then reconcile **`alchemy … --app …`** in each **`package.json`**.
+ * Canonical Alchemy application ids for this template. Derived from **`PRODUCT_PREFIX`** — change **`PRODUCT_PREFIX`** when you rebrand, then reconcile **`alchemy … --app …`** in each **`package.json`**.
  *
  * @see https://alchemy.run/concepts/resource/#physical-name
  */
-export const CF_STARTER_APPS = {
+export const ALCHEMY_APP_IDS = {
 	frontend: `${PRODUCT_PREFIX}-frontend`,
 	chatroom: `${PRODUCT_PREFIX}-chatroom`,
 	ping: `${PRODUCT_PREFIX}-ping`,
 	other: `${PRODUCT_PREFIX}-other`,
 	database: `${PRODUCT_PREFIX}-database`,
 	admin: `${PRODUCT_PREFIX}-admin`,
-	/** Provision-only app: ensures shared CI [`CloudflareStateStore`](https://alchemy.run/guides/cloudflare-state-store) exists before parallel `deploy:*`. Turbo: list **`state-hub`** (workspace **`package.json`** **name**) as a **`devDependency`** and use **`^deploy:*`** so **`stateHub` runs first**. */
+	/** Provision-only app: ensures shared [`CloudflareStateStore`](https://alchemy.run/guides/cloudflare-state-store) exists for non-local **`STAGE`** before parallel `deploy:*`. Turbo: list **`state-hub`** (workspace **`package.json`** **name**) as a **`devDependency`** and use **`^deploy:*`** so **`stateHub` runs first**. */
 	stateHub: `${PRODUCT_PREFIX}-state-hub`,
 } as const;

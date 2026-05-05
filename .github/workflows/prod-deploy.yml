@@ -1,4 +1,8 @@
-name: Deploy production
+# **Production deploy** — push **`production`** (**`workflow_dispatch`** supported). Gated by **`DEPLOY_ENABLED`** on **`production`**.
+name: Production deploy
+
+env:
+  TURBO_TELEMETRY_DISABLED: "1"
 
 on:
   push:
@@ -6,7 +10,7 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: deploy-production
+  group: production-deploy-${{ github.ref }}
   cancel-in-progress: false
 
 permissions:
@@ -18,8 +22,6 @@ jobs:
     runs-on: ubuntu-latest
     environment: production
     steps:
-      # Manual dispatch must pick branch `production`; otherwise attackers with Actions permission could
-      # checkout another ref and ship arbitrary code while still reading production secrets.
       - name: Require production branch on manual dispatch
         if: github.event_name == 'workflow_dispatch'
         run: |
@@ -42,7 +44,7 @@ jobs:
         env:
           CI: true
           STAGE: prod
-          CF_STARTER_DEPLOY_ENABLED: ${{ vars.CF_STARTER_DEPLOY_ENABLED }}
+          DEPLOY_ENABLED: ${{ vars.DEPLOY_ENABLED }}
           ALCHEMY_PASSWORD: ${{ secrets.ALCHEMY_PASSWORD }}
           ALCHEMY_STATE_TOKEN: ${{ secrets.ALCHEMY_STATE_TOKEN }}
           CHATROOM_INTERNAL_SECRET: ${{ secrets.CHATROOM_INTERNAL_SECRET }}
@@ -69,7 +71,7 @@ jobs:
           set -o pipefail
           bun run deploy:prod 2>&1 | tee deploy-output.txt
           deploy_status=${PIPESTATUS[0]}
-          URL_FILE="$GITHUB_WORKSPACE/.alchemy/ci/cf-starter-web-deploy-url.txt"
+          URL_FILE="$GITHUB_WORKSPACE/.alchemy/ci/web-deploy-url.txt"
           WEB_URL=""
           if [[ -f "$URL_FILE" ]]; then
             IFS= read -r WEB_URL <"$URL_FILE" || true
@@ -87,7 +89,7 @@ jobs:
           DE_OUT="${{ steps.deploy.outcome }}"
           EN="${{ steps.preflight.outputs.deploy_enabled }}"
           WEB_URL="$WEB_URL_FROM_STEP"
-          URL_FILE="$GITHUB_WORKSPACE/.alchemy/ci/cf-starter-web-deploy-url.txt"
+          URL_FILE="$GITHUB_WORKSPACE/.alchemy/ci/web-deploy-url.txt"
           if [[ -z "$WEB_URL" && -f "$URL_FILE" ]]; then
             IFS= read -r WEB_URL <"$URL_FILE" || true
           fi
@@ -99,14 +101,14 @@ jobs:
             elif [[ "$PF_OUT" == "skipped" ]]; then
               echo "**Status:** an earlier step failed or was cancelled before preflight (often **Install dependencies**)."
             elif [[ "$EN" != "true" ]]; then
-              echo "**Status:** skipped — \`CF_STARTER_DEPLOY_ENABLED\` is not \`true\` on the **production** Environment."
+              echo "**Status:** skipped — \`DEPLOY_ENABLED\` is not \`true\` on the **production** Environment."
             elif [[ "$DE_OUT" == "success" ]]; then
               echo "**Status:** success"
               echo ""
               if [[ -n "$WEB_URL" ]]; then
                 echo "**App (workers.dev):** [$WEB_URL]($WEB_URL)"
               else
-                echo "- **workers.dev URL:** artifact missing — ${GITHUB_WORKSPACE}/.alchemy/ci/cf-starter-web-deploy-url.txt _(see apps/web/alchemy.run.ts when CI runs on GitHub Actions)._"
+                echo "- **workers.dev URL:** artifact missing — ${GITHUB_WORKSPACE}/.alchemy/ci/web-deploy-url.txt _(see apps/web/alchemy.run.ts when CI runs on GitHub Actions)._"
               fi
             elif [[ "$DE_OUT" == "failure" ]]; then
               echo "**Status:** Turbo deploy failed — see **Turbo deploy (production)**."

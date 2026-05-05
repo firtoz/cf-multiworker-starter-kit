@@ -4,7 +4,7 @@ import { requireAlchemyPassword } from "alchemy-utils";
 import { alchemyCiCloudStateStoreOptions } from "alchemy-utils/alchemy-cloud-state-store";
 import { resolveStageFromEnv } from "alchemy-utils/deployment-stage";
 import {
-	CF_STARTER_APPS,
+	ALCHEMY_APP_IDS,
 	DEFAULT_WORKER_RESOURCE_ID,
 	omitDefaultPhysicalWorkerScriptName,
 } from "alchemy-utils/worker-peer-scripts";
@@ -12,14 +12,14 @@ import type { OtherWorkerRpc } from "other-worker/alchemy";
 import type { PingDoRpc } from "./workers/ping-do";
 
 const stage = resolveStageFromEnv();
-const app = await alchemy(CF_STARTER_APPS.ping, {
+const app = await alchemy(ALCHEMY_APP_IDS.ping, {
 	stage,
 	...alchemyCiCloudStateStoreOptions(stage),
 });
 requireAlchemyPassword(app);
 
 const PEER_OTHER_SCRIPT_NAME = omitDefaultPhysicalWorkerScriptName(
-	CF_STARTER_APPS.other,
+	ALCHEMY_APP_IDS.other,
 	app.stage,
 );
 

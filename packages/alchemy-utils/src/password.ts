@@ -26,7 +26,7 @@ function missingRequiredEnvMessage(name: string, description?: string, scope?: A
 		return (
 			prefix +
 			`For local dev, run \`bun run setup\` to seed .env.local, or export ${name}. ` +
-			"Dev uses: bun --env-file ../../.env.local alchemy dev …"
+			"Dev runs: `alchemy-cli --stage local dev` from the package (loads repo-root `.env.local`)."
 		);
 	}
 	if (scope?.stage === "prod") {
@@ -34,15 +34,15 @@ function missingRequiredEnvMessage(name: string, description?: string, scope?: A
 			prefix +
 			"For production deploy, run `bun run setup:prod` at the repository root to seed " +
 			`repo-root .env.production (STAGE=prod), or add ${name} in CI secrets. ` +
-			"Deploy scripts use: bunx dotenv-cli -v STAGE=prod -e ../../.env.production -- bun alchemy deploy …"
+			"Deploy scripts use: `alchemy-cli --stage prod deploy` from each package."
 		);
 	}
-	if (scope?.stage === "staging" || (scope?.stage && scope.stage.startsWith("pr-"))) {
+	if (scope?.stage === "staging" || scope?.stage?.startsWith("pr-")) {
 		return (
 			prefix +
 			"For staging/preview deploy, run `bun run setup:staging` and use repo-root .env.staging " +
 			"(STAGE=staging or STAGE=pr-<n>), or set secrets on the GitHub **staging** environment. " +
-			"Deploy scripts use: bunx dotenv-cli -v STAGE=staging -e ../../.env.staging -- bun alchemy deploy …"
+			"Deploy scripts use: `alchemy-cli --stage staging deploy` (preview: `--stage preview` needs `STAGE=pr-<n>` already)."
 		);
 	}
 

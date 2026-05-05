@@ -2,72 +2,28 @@
 	"$schema": "../../node_modules/turbo/schema.json",
 	"extends": ["//"],
 	"tasks": {
-		"typegen:local": {
-			"dependsOn": ["^typecheck:local", "^db:generate", "rr-typegen"],
-			"inputs": [
-				"app/**/*.ts",
-				"app/**/*.tsx",
-				"workers/**/*.ts",
-				"workers/**/*.tsx",
-				"$TURBO_ROOT$/.env.local",
-				"package.json",
-				"tsconfig.json",
-				"tsconfig.node.json",
-				"tsconfig.cloudflare.json",
-				"vite.config.ts",
-				"react-router.config.ts",
-				"types/env.d.ts"
-			],
-			"outputs": [".react-router/**"]
-		},
-		"typegen:prod": {
-			"dependsOn": ["^typecheck:prod", "^db:generate", "rr-typegen"],
-			"inputs": [
-				"app/**/*.ts",
-				"app/**/*.tsx",
-				"workers/**/*.ts",
-				"workers/**/*.tsx",
-				"$TURBO_ROOT$/.env.production",
-				"package.json",
-				"tsconfig.json",
-				"tsconfig.node.json",
-				"tsconfig.cloudflare.json",
-				"vite.config.ts",
-				"react-router.config.ts",
-				"types/env.d.ts"
-			],
-			"outputs": [".react-router/**"]
-		},
-		"typegen:staging": {
-			"dependsOn": ["^typecheck:prod", "^db:generate", "rr-typegen"],
-			"inputs": [
-				"app/**/*.ts",
-				"app/**/*.tsx",
-				"workers/**/*.ts",
-				"workers/**/*.tsx",
-				"$TURBO_ROOT$/.env.staging",
-				"package.json",
-				"tsconfig.json",
-				"tsconfig.node.json",
-				"tsconfig.cloudflare.json",
-				"vite.config.ts",
-				"react-router.config.ts",
-				"types/env.d.ts"
-			],
-			"outputs": [".react-router/**"]
-		},
-		"rr-typegen": {
+		"typegen": {
+			"dependsOn": ["^typegen", "^db:generate"],
 			"inputs": [
 				"app/routes.ts",
 				"app/routes/**/*.ts",
 				"app/routes/**/*.tsx",
+				"app/**/*.ts",
+				"app/**/*.tsx",
+				"workers/**/*.ts",
+				"workers/**/*.tsx",
+				"package.json",
+				"tsconfig.json",
+				"tsconfig.node.json",
+				"tsconfig.cloudflare.json",
+				"vite.config.ts",
 				"react-router.config.ts",
-				"package.json"
+				"types/env.d.ts"
 			],
 			"outputs": [".react-router/**"]
 		},
 		"lint": {
-			"dependsOn": ["typecheck:local"],
+			"dependsOn": ["typecheck"],
 			"inputs": [
 				"app/**/*.ts",
 				"app/**/*.tsx",
@@ -93,40 +49,8 @@
 			],
 			"outputs": []
 		},
-		"typecheck:local": {
-			"dependsOn": ["typegen:local", "^typecheck:local"],
-			"inputs": [
-				"app/**/*.ts",
-				"app/**/*.tsx",
-				"workers/**/*.ts",
-				"workers/**/*.tsx",
-				"tsconfig.json",
-				"tsconfig.node.json",
-				"tsconfig.cloudflare.json",
-				"package.json",
-				"$TURBO_ROOT$/tsconfig.base.json",
-				"types/env.d.ts"
-			],
-			"outputs": []
-		},
-		"typecheck:prod": {
-			"dependsOn": ["typegen:prod", "^typecheck:prod"],
-			"inputs": [
-				"app/**/*.ts",
-				"app/**/*.tsx",
-				"workers/**/*.ts",
-				"workers/**/*.tsx",
-				"tsconfig.json",
-				"tsconfig.node.json",
-				"tsconfig.cloudflare.json",
-				"package.json",
-				"$TURBO_ROOT$/tsconfig.base.json",
-				"types/env.d.ts"
-			],
-			"outputs": []
-		},
-		"typecheck:staging": {
-			"dependsOn": ["typegen:staging", "^typecheck:prod"],
+		"typecheck": {
+			"dependsOn": ["typegen", "^typecheck"],
 			"inputs": [
 				"app/**/*.ts",
 				"app/**/*.tsx",
@@ -142,12 +66,12 @@
 			"outputs": []
 		},
 		"dev": {
-			"dependsOn": ["scripts#dev:preflight", "typegen:local"],
+			"dependsOn": ["scripts#dev:preflight", "typegen"],
 			"persistent": true,
 			"cache": false
 		},
 		"build:local": {
-			"dependsOn": ["typecheck:local"],
+			"dependsOn": ["typecheck"],
 			"inputs": [
 				"app/**/*.ts",
 				"app/**/*.tsx",
@@ -162,7 +86,7 @@
 			"outputs": ["build/**/*"]
 		},
 		"build:prod": {
-			"dependsOn": ["typecheck:prod"],
+			"dependsOn": ["typecheck"],
 			"inputs": [
 				"app/**/*.ts",
 				"app/**/*.tsx",
@@ -177,7 +101,7 @@
 			"outputs": ["build/**/*"]
 		},
 		"build:staging": {
-			"dependsOn": ["typecheck:staging"],
+			"dependsOn": ["typecheck"],
 			"inputs": [
 				"app/**/*.ts",
 				"app/**/*.tsx",
@@ -192,7 +116,7 @@
 			"outputs": ["build/**/*"]
 		},
 		"deploy:prod": {
-			"dependsOn": ["typecheck:prod", "^deploy:prod"],
+			"dependsOn": ["typecheck", "^deploy:prod"],
 			"cache": false,
 			"inputs": [
 				"alchemy.run.ts",
@@ -204,7 +128,7 @@
 			"outputs": []
 		},
 		"deploy:staging": {
-			"dependsOn": ["typecheck:staging", "^deploy:staging"],
+			"dependsOn": ["typecheck", "^deploy:staging"],
 			"cache": false,
 			"inputs": [
 				"alchemy.run.ts",
@@ -216,7 +140,7 @@
 			"outputs": []
 		},
 		"deploy:preview": {
-			"dependsOn": ["typecheck:staging", "^deploy:preview"],
+			"dependsOn": ["typecheck", "^deploy:preview"],
 			"cache": false,
 			"inputs": [
 				"alchemy.run.ts",

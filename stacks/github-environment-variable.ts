@@ -2,7 +2,7 @@
  * GitHub Actions environment **Variables** (plaintext) via REST — **`GitHubEnvironmentVariable`** resources share one
  * in-process prefetch map per `(owner, repo, environment, resolved token)`.
  *
- * Adapted from a sibling-project pattern (`listEnvironmentVariables` + shared cache + create/update paths); provider id **`cf-starter::GitHubEnvironmentVariable`** ([Alchemy resources](https://alchemy.run/concepts/resource/)).
+ * Adapted from a sibling-project pattern (`listEnvironmentVariables` + shared cache + create/update paths); provider id **`multiworker::GitHubEnvironmentVariable`** ([Alchemy resources](https://alchemy.run/concepts/resource/)).
  */
 
 import { spawnSync } from "node:child_process";
@@ -190,7 +190,7 @@ async function upsertEnvironmentVariableFromCache(
 }
 
 export const GitHubEnvironmentVariable = Resource(
-	"cf-starter::GitHubEnvironmentVariable",
+	"multiworker::GitHubEnvironmentVariable",
 	async function (
 		this: Context<GitHubEnvironmentVariableOutput>,
 		_id: string,

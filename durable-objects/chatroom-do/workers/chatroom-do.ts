@@ -5,7 +5,7 @@ import {
 	CHATROOM_INTERNAL_SECRET_HEADER,
 	type ChatMessageRow,
 	chatContract,
-} from "cf-starter-chat-contract";
+} from "@internal/chat-contract";
 import type { InferSelectModel } from "drizzle-orm";
 import { desc } from "drizzle-orm";
 import { type DrizzleSqliteDODatabase, drizzle } from "drizzle-orm/durable-sqlite";

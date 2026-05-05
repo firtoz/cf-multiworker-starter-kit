@@ -2,19 +2,20 @@
 	"name": "state-hub",
 	"private": true,
 	"type": "module",
+	"alchemy": {
+		"app": "stateHub"
+	},
 	"scripts": {
-		"deploy:prod": "bunx dotenv-cli -v STAGE=prod -e ../../.env.production -- bun ../alchemy-utils/src/alchemy-cli.ts deploy stateHub",
-		"deploy:staging": "bunx dotenv-cli -v STAGE=staging -e ../../.env.staging -- bun ../alchemy-utils/src/alchemy-cli.ts deploy stateHub",
-		"deploy:preview": "bunx dotenv-cli -e ../../.env.staging -- bun ../alchemy-utils/src/alchemy-cli.ts deploy stateHub",
-		"destroy:prod": "bunx dotenv-cli -v STAGE=prod -e ../../.env.production -- bun ../alchemy-utils/src/alchemy-cli.ts destroy stateHub",
-		"destroy:staging": "bunx dotenv-cli -v STAGE=staging -e ../../.env.staging -- bun ../alchemy-utils/src/alchemy-cli.ts destroy stateHub",
-		"destroy:preview": "bunx dotenv-cli -e ../../.env.staging -- bun ../alchemy-utils/src/alchemy-cli.ts destroy stateHub",
+		"deploy:prod": "alchemy-cli --stage prod deploy",
+		"deploy:staging": "alchemy-cli --stage staging deploy",
+		"deploy:preview": "alchemy-cli --stage preview deploy",
+		"destroy:prod": "alchemy-cli --stage prod destroy",
+		"destroy:staging": "alchemy-cli --stage staging destroy",
+		"destroy:preview": "alchemy-cli --stage preview destroy",
 		"lint": "biome check --write .",
 		"lint:format": "biome format --write .",
-		"typegen:local": "node -e \"process.exit(0)\"",
-		"typegen:prod": "node -e \"process.exit(0)\"",
-		"typecheck:local": "tsgo --noEmit -p .",
-		"typecheck:prod": "tsgo --noEmit -p ."
+		"typegen": "node -e \"process.exit(0)\"",
+		"typecheck": "tsgo --noEmit -p ."
 	},
 	"dependencies": {
 		"alchemy-utils": "workspace:*"

@@ -11,7 +11,7 @@ const stagingOnly = argv.includes("--staging");
 const prodOnly = argv.includes("--prod");
 
 async function main() {
-	intro("cf-multiworker — GitHub Actions deploy enablement");
+	intro("GitHub Actions deploy enablement");
 
 	if (stagingOnly) {
 		note(
@@ -44,11 +44,11 @@ async function main() {
 				"",
 				"1. Create Cloudflare **API token** + **Account ID** for production (often the same as staging — see README).",
 				"2. `gh auth login` (repo scope).",
-				"3. `bun run onboard:prod` — `setup:prod --yes`, `github:sync:prod`, sets repo variable **`CF_STARTER_AUTO_PRODUCTION_PR=true`** for optional **main → production** PRs after successful staging deploys.",
+				"3. `bun run onboard:prod` — `setup:prod --yes`, then **`github:sync:prod`** (**`AUTO_PRODUCTION_PR`** defaults to **`true`** on GitHub **staging**; set **`false`** in a dotfile to disable).",
 				"",
-				"**Same steps without the wrapper:** `bun run setup:prod` then `bun run github:sync:prod` (you can set **`CF_STARTER_AUTO_PRODUCTION_PR`** yourself with `gh variable set`).",
-				"**Deployment rules only:** `bun run github:env:prod` — same **`config/github.policy.ts`** for **`production`** (merges **`.env.production`** if present). Tune policy in your editor; run **`bun run typecheck:root`** after edits.",
-				"Production deploys run on pushes to branch `production` (see `.github/workflows/deploy-production.yml`).",
+				"**Same steps without the wrapper:** `bun run setup:prod` then `bun run github:sync:prod` — set **`AUTO_PRODUCTION_PR`** in **`.env.staging`** or **`.env.production`** under **GitHub admin CLI** in the variable browser (optional).",
+				"**Deployment rules only:** `bun run github:env:prod` — same **`config/github.policy.ts`** for **`production`** (merges **`.env.production`** if present). Tune policy in your editor; run **`bun run typecheck`** after edits.",
+				"Production deploys run on pushes to branch `production` (see `.github/workflows/prod-deploy.yml`).",
 				"",
 				...GITHUB_POLICY_HINT_LINES,
 			].join("\n"),
@@ -88,7 +88,7 @@ async function main() {
 				"",
 				...GITHUB_POLICY_HINT_LINES,
 				"",
-				"Fresh forks: deploy workflows stay **green** until you set variable `CF_STARTER_DEPLOY_ENABLED=true` on each GitHub Environment (`staging` / **`staging-fork`** / `production`). The admin stack sets that when you run **`github:sync`** / **`github:sync:*`** (`staging` + **`staging-fork`** mirror from **`github:sync:staging`**).",
+				"Fresh forks: deploy workflows stay **green** until you set variable `DEPLOY_ENABLED=true` on each deploy Environment (`staging` / `production`). The admin stack sets that when you run **`github:sync`** / **`github:sync:*`**. Fork PRs run Quality only and do not receive deploy secrets.",
 			].join("\n"),
 			"Command reference",
 		);
