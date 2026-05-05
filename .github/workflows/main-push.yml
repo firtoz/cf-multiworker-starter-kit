@@ -177,10 +177,27 @@ jobs:
         run: |
           set -euo pipefail
           REPO="${{ github.repository }}"
-          REPO_OWNER="${REPO%%/*}"
           PROD_PR_HEAD="${PRODUCTION_PR_HEAD_RAW:-main}"
-          PROD_PR_HEAD_FILTER="${REPO_OWNER}:${PROD_PR_HEAD}"
           RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          # Invisible marker: only PRs created (or previously updated) by this job get description refreshes.
+          AUTO_PRODUCTION_PR_MARKER='<!-- github-actions:main-push.yml:auto-production-pr -->'
+          # gh pr list --head accepts the branch name only; "owner:branch" is not supported
+          # (see gh pr list --help). Prefer same-repo rows when multiple PRs share the head ref.
+
+          production_pr_body() {
+            printf '%s\n\n%s\n\n%s' \
+              "Staging deploy succeeded: ${RUN_URL}" \
+              "Merge this PR to deploy **production** (see \`.github/workflows/prod-deploy.yml\`)." \
+              "${AUTO_PRODUCTION_PR_MARKER}"
+          }
+
+          fetch_same_repo_production_pr() {
+            local raw
+            raw="$(gh pr list --repo "${REPO}" --base production --head "${PROD_PR_HEAD}" --state open \
+              --json number,url,body,headRefOid,isCrossRepository 2>/dev/null || true)"
+            [[ -z "${raw}" ]] && raw='[]'
+            echo "${raw}" | jq -c '[.[] | select(.isCrossRepository | not)][0] // empty'
+          }
 
           # The **Production merge source** required check is normally produced by
           # restrict-production-pr-source.yml on pull_request. Events raised with
@@ -188,8 +205,11 @@ jobs:
           # runs, so that check never appears. Recreate the same check conclusion via
           # the Checks API so production rulesets can merge.
           post_production_merge_source_check() {
-            local sha
-            sha="$(gh pr list --repo "${REPO}" --base production --head "${PROD_PR_HEAD_FILTER}" --state open --json headRefOid --jq '.[0].headRefOid // empty' 2>/dev/null || true)"
+            local sha="${1:-}"
+            if [[ -z "${sha}" ]]; then
+              sha="$(gh pr list --repo "${REPO}" --base production --head "${PROD_PR_HEAD}" --state open \
+                --json headRefOid,isCrossRepository 2>/dev/null | jq -r '[.[] | select(.isCrossRepository | not)][0].headRefOid // empty' || true)"
+            fi
             if [[ -z "${sha}" ]]; then
               echo "::warning::Production merge source: could not resolve PR head SHA; check run not posted."
               return 0
@@ -211,34 +231,61 @@ jobs:
             exit 0
           fi
 
-          EXISTING="$(gh pr list --repo "${REPO}" --base production --head "${PROD_PR_HEAD_FILTER}" --state open --json url --jq '.[0].url // empty' || true)"
-          if [[ -n "${EXISTING}" ]]; then
-            {
-              echo "## Production PR"
-              echo "**Already open:** [${EXISTING}](${EXISTING})"
-              echo ""
-              echo "Merge this PR to deploy **production**."
-            } >> "$GITHUB_STEP_SUMMARY"
-            post_production_merge_source_check
-            exit 0
+          prod_pr="$(fetch_same_repo_production_pr)"
+          REFRESHED=false
+          JUST_CREATED=false
+          PR_SUMMARY_LABEL="Already open"
+
+          if [[ -z "${prod_pr}" ]]; then
+            PR_SUMMARY_LABEL="Opened"
+            set +e
+            CREATE_ERR="$(gh pr create --repo "${REPO}" --base production --head "${PROD_PR_HEAD}" \
+              --title "Deploy staging to production" \
+              --body "$(production_pr_body)" 2>&1)"
+            CREATE_RC=$?
+            set -e
+            if [[ "${CREATE_RC}" -ne 0 ]]; then
+              if echo "${CREATE_ERR}" | grep -qF 'already exists'; then
+                echo "::notice::Production PR already exists; continuing."
+                PR_SUMMARY_LABEL="Already open"
+              else
+                echo "${CREATE_ERR}" >&2
+                exit "${CREATE_RC}"
+              fi
+            else
+              JUST_CREATED=true
+            fi
+            prod_pr="$(fetch_same_repo_production_pr)"
           fi
 
-          BODY="$(printf '%s\n\n%s' "Staging deploy succeeded: ${RUN_URL}" "Merge this PR to deploy **production** (see \`.github/workflows/prod-deploy.yml\`).")"
+          if [[ -z "${prod_pr}" ]]; then
+            echo "::error::Could not resolve ${PROD_PR_HEAD} → production PR after create."
+            exit 1
+          fi
 
-          gh pr create --repo "${REPO}" --base production --head "${PROD_PR_HEAD}" \
-            --title "Deploy staging to production" \
-            --body "${BODY}"
+          PR_NUMBER="$(echo "${prod_pr}" | jq -r '.number // empty')"
+          PR_URL="$(echo "${prod_pr}" | jq -r '.url // empty')"
+          PR_BODY="$(echo "${prod_pr}" | jq -r '.body // ""')"
+          PR_SHA="$(echo "${prod_pr}" | jq -r '.headRefOid // empty')"
 
-          PR_URL="$(gh pr list --repo "${REPO}" --base production --head "${PROD_PR_HEAD_FILTER}" --state open --json url --jq '.[0].url // empty' || true)"
+          if [[ "${JUST_CREATED}" != "true" ]] && echo "${PR_BODY}" | grep -qF "${AUTO_PRODUCTION_PR_MARKER}"; then
+            gh pr edit "${PR_NUMBER}" --repo "${REPO}" --body "$(production_pr_body)"
+            REFRESHED=true
+          fi
+
           {
             echo "## Production PR"
             if [[ -n "${PR_URL}" ]]; then
-              echo "**Opened:** [${PR_URL}](${PR_URL}) (**${PROD_PR_HEAD}** → **production**)."
+              echo "**${PR_SUMMARY_LABEL}:** [${PR_URL}](${PR_URL}) (**${PROD_PR_HEAD}** → **production**)."
             else
-              echo "Opened **${PROD_PR_HEAD}** → **production** (PR URL unavailable — check the **Pull requests** tab)."
+              echo "${PR_SUMMARY_LABEL} **${PROD_PR_HEAD}** → **production** (PR URL unavailable — check the **Pull requests** tab)."
             fi
             echo ""
             echo "Merge this PR to deploy **production**."
+            if [[ "${REFRESHED}" == "true" ]]; then
+              echo ""
+              echo "Refreshed the PR description (marker-managed auto body) with the latest staging deploy link."
+            fi
           } >> "$GITHUB_STEP_SUMMARY"
 
-          post_production_merge_source_check
+          post_production_merge_source_check "${PR_SHA}"
