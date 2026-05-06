@@ -11,6 +11,7 @@ export type PostHogWorkerEnvSlice = {
 	STAGE?: string;
 	POSTHOG_KEY?: string;
 	POSTHOG_HOST?: string;
+	POSTHOG_SITE?: string;
 };
 
 /** Default PostHog ingest host (US). */
@@ -51,16 +52,18 @@ export function getPostHogClientConfig(workerEnv: PostHogWorkerEnvSlice): {
 	enabled: boolean;
 	key: string;
 	host: string;
+	site: string;
 	assetsPreconnectHref: string | null;
 } {
 	const key = (workerEnv.POSTHOG_KEY ?? "").trim();
+	const site = (workerEnv.POSTHOG_SITE ?? "").trim();
 	if (!key) {
-		return { enabled: false, key: "", host: "", assetsPreconnectHref: null };
+		return { enabled: false, key: "", host: "", site: "", assetsPreconnectHref: null };
 	}
 	const host = (workerEnv.POSTHOG_HOST ?? "").trim() || POSTHOG_DEFAULT_INGEST_HOST;
 	const assetsPreconnectHref =
 		host.includes("eu.i.posthog") || host.includes("eu.posthog.com")
 			? "https://eu-assets.i.posthog.com"
 			: "https://us-assets.i.posthog.com";
-	return { enabled: true, key, host, assetsPreconnectHref };
+	return { enabled: true, key, host, site, assetsPreconnectHref };
 }

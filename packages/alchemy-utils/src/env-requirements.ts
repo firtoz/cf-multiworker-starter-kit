@@ -65,7 +65,8 @@ export const ENV_SETUP_CATEGORY_NAV = [
 	{
 		id: "analytics",
 		label: "PostHog & analytics",
-		description: "Optional PostHog keys and CLI settings for product analytics and source maps.",
+		description:
+			"Optional PostHog keys, site identifier, and CLI settings for product analytics and source maps.",
 	},
 ] as const satisfies readonly EnvSetupNavRoot[];
 

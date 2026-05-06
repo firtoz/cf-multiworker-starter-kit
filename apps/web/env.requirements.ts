@@ -88,6 +88,18 @@ const posthogRequirements: readonly EnvRequirement[] = [
 		plaintextInSetup: true,
 	},
 	{
+		key: "POSTHOG_SITE",
+		setupCategory: "analytics",
+		kind: "variable",
+		requiredIn: [],
+		optionalSetupModes: ["local", "staging", "prod"],
+		githubSync: "optional",
+		title: "PostHog site identifier (optional)",
+		description:
+			"Stable site/project slug registered as PostHog `site` on every event · useful when one PostHog project tracks multiple sites",
+		plaintextInSetup: true,
+	},
+	{
 		key: "POSTHOG_CLI_TOKEN",
 		setupCategory: "analytics",
 		kind: "secret",
