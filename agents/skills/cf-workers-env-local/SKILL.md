@@ -52,7 +52,9 @@ Create **Cloudflare API tokens** only in the dashboard ([`docs/github-admin.md`]
 5. **Turbo + stage files**
    - **`bun run dev`** — filtered Turbo **`dev`**: web + worker packages run **`alchemy-cli --stage local dev`** ([Alchemy Turborepo](https://alchemy.run/guides/turborepo/)).
    - **`deploy:*`** / **`destroy:*`** — stage-specific graphs; **`alchemy-cli --stage …`** sets **`STAGE`**, loads repo dotfiles + **`account.env`**, and passes **`--app`** from each package’s **`package.json` → `alchemy.app`** (backs onto **`ALCHEMY_APP_IDS`** in **`worker-peer-scripts.ts`**).
-   - **`dotenv-cli`** — `bunx dotenv-cli -v STAGE=… -e .env.staging|.env.production -- …`. Locally, the stage file loads when present; in CI, missing repo dotfiles → values from **GitHub Environment** via **`process.env`**.
+   - **`dotenv-cli`** — `bunx dotenv-cli -v STAGE=… -e .env.staging|.env.production -- …`. Locally, the stage file loads when present; in CI, missing repo dotfiles → values come from workflow **`env:`** entries such as **`${{ vars.MY_VAR }}`** / **`${{ secrets.MY_SECRET }}`**.
+   - **GitHub Environment values are not auto-injected.** `github:sync:*` creates/updates Environment secrets and variables, but every CI job that needs a value during **`deploy:*`** / **`destroy:*`** must explicitly list it in the workflow step or job **`env:`** block (for example `.github/workflows/main-push.yml`, `prod-deploy.yml`, and `pr-deploy.yml`).
+   - **Turbo filters task env.** Values needed by package scripts run through root **`turbo run …`** must also be declared in root **`turbo.json`** **`globalEnv`** (or task/package env config), otherwise the workflow shell may have them while the package deploy task does not.
    - Infra that belongs in git: **`alchemy.run.ts`**, not env files.
 
 6. **Per-package `.env.local`** — Optional; include in Turbo **`inputs`** where a package’s tasks need it (e.g. chatroom-do). Never substitute **`.env.example`** for real values.
@@ -98,8 +100,13 @@ apps/web/
 
 ## Checklist after changing env or bindings
 
+- Add the key to the right sidecar **`env.requirements.ts`** when setup / `github:sync:*` should know about it (for web keys: **`apps/web/env.requirements.ts`**).
 - Update **repo-root `.env.example`** so contributors know which keys exist.
-- Update the relevant package **`alchemy.run.ts`**.
+- Update the relevant package **`alchemy.run.ts`** binding or secret wiring.
+- If CI deploy/destroy needs the value, add it to the relevant GitHub Actions **`env:`** blocks. Environment variables synced by **`github:sync:*`** are only available in Actions when referenced as **`${{ vars.KEY }}`** / **`${{ secrets.KEY }}`**.
+- If the command runs through root Turbo, add the key to **`turbo.json`** **`globalEnv`** (or a narrower task env config) so Turbo passes it to package scripts.
+- If **`alchemy.run.ts`** reads a required value at module scope, mirror it on PR preview destroy jobs too; destroy loads the same Alchemy entrypoint.
+- After changing staged dotfiles, run **`bun run github:sync:staging`** / **`github:sync:prod`** so GitHub Environments receive the value.
 - Run **`bun run typegen`** from the **repo root**.
 - After changing **`alchemy.run.ts`** bindings or routes, run **`bun run typegen`** and **`bun run typecheck`** from the repo root (same Turbo task names everywhere; staged dotfiles do not drive React Router typegen).
 

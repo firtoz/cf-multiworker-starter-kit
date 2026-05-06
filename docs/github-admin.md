@@ -14,6 +14,7 @@ Use this page when you want to change how GitHub behaves after onboarding.
 ## CI and deploy workflows
 
 - **Until deploy is enabled:** deploy jobs **no-op** until **`DEPLOY_ENABLED=true`** exists on each GitHub Environment that runs deploys (**`staging`**, **`production`**; optional **`staging-fork`** remains in policy/sync for legacy or future use — **fork PRs no longer run preview deploy**). That applies to **this** repo’s GitHub Environments as well as any fork’s. Running **`bun run onboard:staging`** / **`onboard:prod`** (or **`github:sync:*`**) syncs secrets/variables and typically sets this.
+- **Environment variables in CI are explicit:** **`github:sync:*`** writes secrets/variables to GitHub Environments, but GitHub Actions does not automatically expose every Environment value to every step. If an Alchemy deploy needs a synced value, pass it in the relevant workflow **`env:`** block with **`${{ vars.KEY }}`** or **`${{ secrets.KEY }}`**, and allow it through root **`turbo.json`** **`globalEnv`** when the command runs via **`turbo run`**. Typical places are **`Turbo deploy (staging)`** in **`main-push.yml`**, **`Turbo deploy (production)`** in **`prod-deploy.yml`**, and **`Turbo deploy (preview)`** / **`Destroy PR preview`** in **`pr-deploy.yml`**.
 - **Quality reusable** (`.github/workflows/quality-reusable.yml`): parallel jobs — Drizzle generated-artifact guard, lint, **`typegen`** + typecheck, **`bun run setup -- --yes`** + build. Invoked by **`Main`** (push **`main`**) and **`PR preview`** (open/sync/reopen on **`main`**).
 - **Main** (`.github/workflows/main-push.yml`): **push** **`main`** → Quality → caller-level **Quality checks** gate → **staging** deploy (`maybe_production_pr` when **`AUTO_PRODUCTION_PR`**). Uses Environment **`staging`**.
 - **Production deploy** (`.github/workflows/prod-deploy.yml`): **push** **`production`** or **`workflow_dispatch`** when the selected ref is **`production`**.
@@ -78,7 +79,7 @@ The React Router app is the **frontend** Worker in [`apps/web/alchemy.run.ts`](.
 1. Run **`bun run setup:prod`** or **`bun run setup:staging`** and use the **optional** menu entries at the bottom — or set the same keys in **`.env.production`** / **`.env.staging`** (see [`.env.example`](../.env.example)).
 2. Typical: **`WEB_DOMAINS=example.com,www.example.com`**. Use **`WEB_ROUTES`** only if you need explicit patterns (e.g. `example.com/*`).
 3. Optional: **`WEB_ZONE_ID`** (one zone for every entry), **`WEB_DOMAIN_OVERRIDE_EXISTING_ORIGIN=true`** when moving a hostname already bound elsewhere.
-4. After editing dotfiles, run **`bun run github:sync:staging`** / **`github:sync:prod`** (or **`bun run github:sync`** if both exist) so GitHub Environment **variables** include **`WEB_*`** (plaintext vars — not secrets).
+4. After editing dotfiles, run **`bun run github:sync:staging`** / **`github:sync:prod`** (or **`bun run github:sync`** if both exist) so GitHub Environment **variables** include **`WEB_*`** (plaintext vars — not secrets). The stock workflows also pass these values into deploy steps; if you add another env var, update the workflow **`env:`** blocks too.
 
 **PR previews** (`STAGE=pr-<n>`) stay on **`workers.dev`**: **`WEB_*`** values are **ignored** on preview deploys so preview stacks never steal production hostnames from shared Environment variables.
 

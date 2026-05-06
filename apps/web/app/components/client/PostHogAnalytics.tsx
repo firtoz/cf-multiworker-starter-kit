@@ -16,6 +16,7 @@ export type PostHogLoaderAnalytics = {
 	enabled: boolean;
 	key: string;
 	host: string;
+	site: string;
 	runtimeTags: PostHogRuntimeTags;
 };
 
@@ -26,7 +27,7 @@ export type PostHogAnalyticsRootProps = {
 
 let posthogInitialized = false;
 
-function initPostHog(key: string, host: string, runtimeTags: PostHogRuntimeTags) {
+function initPostHog(key: string, host: string, site: string, runtimeTags: PostHogRuntimeTags) {
 	if (posthogInitialized || typeof window === "undefined") {
 		return;
 	}
@@ -49,6 +50,7 @@ function initPostHog(key: string, host: string, runtimeTags: PostHogRuntimeTags)
 		loaded: () => {
 			posthog.register({
 				deploy_stage: runtimeTags.deploy_stage,
+				...(site ? { site } : {}),
 				...(runtimeTags.preview_pr_number == null
 					? {}
 					: { preview_pr_number: runtimeTags.preview_pr_number }),
@@ -153,7 +155,7 @@ function schedulePostHogInit(callback: () => void): () => void {
 }
 
 export function PostHogAnalyticsProvider({ analytics, children }: PostHogAnalyticsRootProps) {
-	const { enabled, key, host, runtimeTags } = analytics;
+	const { enabled, key, host, site, runtimeTags } = analytics;
 	const [initComplete, setInitComplete] = useState(false);
 
 	useEffect(() => {
@@ -164,10 +166,10 @@ export function PostHogAnalyticsProvider({ analytics, children }: PostHogAnalyti
 		}
 
 		return schedulePostHogInit(() => {
-			initPostHog(key, host, runtimeTags);
+			initPostHog(key, host, site, runtimeTags);
 			setInitComplete(true);
 		});
-	}, [enabled, key, host, runtimeTags]);
+	}, [enabled, key, host, site, runtimeTags]);
 
 	if (!enabled || !key) {
 		return <>{children}</>;

@@ -1,3 +1,5 @@
+import { env } from "cloudflare:workers";
+import { type MaybeError, success } from "@firtoz/maybe-error";
 import type { Route } from "./+types/root";
 import "./app.css";
 
@@ -13,6 +15,15 @@ import {
 	Scripts,
 	ScrollRestoration,
 } from "react-router";
+import {
+	PostHogAnalyticsProvider,
+	type PostHogLoaderAnalytics,
+} from "~/components/client/PostHogAnalytics";
+import { getPostHogClientConfig, getPostHogRuntimeTags } from "~/lib/analytics-config.server";
+
+type RootLoaderData = {
+	analytics: PostHogLoaderAnalytics;
+};
 
 const CRITICAL_FONT_FACE_CSS = `
 @font-face {
@@ -81,6 +92,15 @@ export const links: Route.LinksFunction = () => [
 	},
 ];
 
+export async function loader(_args: Route.LoaderArgs): Promise<MaybeError<RootLoaderData>> {
+	return success({
+		analytics: {
+			...getPostHogClientConfig(env),
+			runtimeTags: getPostHogRuntimeTags(env),
+		},
+	});
+}
+
 export function Layout({ children }: { children: React.ReactNode }) {
 	return (
 		<html lang="en">
@@ -122,8 +142,22 @@ export function Layout({ children }: { children: React.ReactNode }) {
 	);
 }
 
-export default function App() {
-	return <Outlet />;
+export default function App({ loaderData }: Route.ComponentProps) {
+	if (!loaderData.success) {
+		return <Outlet />;
+	}
+
+	const { analytics } = loaderData.result;
+
+	if (!analytics.enabled) {
+		return <Outlet />;
+	}
+
+	return (
+		<PostHogAnalyticsProvider analytics={analytics}>
+			<Outlet />
+		</PostHogAnalyticsProvider>
+	);
 }
 
 export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {

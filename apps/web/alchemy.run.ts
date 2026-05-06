@@ -7,6 +7,7 @@ import { requireAlchemyPassword, requireEnv } from "alchemy-utils";
 import { alchemyCiCloudStateStoreOptions } from "alchemy-utils/alchemy-cloud-state-store";
 import { CI_WEB_DEPLOY_URL_RELPATH } from "alchemy-utils/ci-deploy-web-url";
 import { isPrStage, resolveStageFromEnv } from "alchemy-utils/deployment-stage";
+import { readProcessEnvTrimmed } from "alchemy-utils/env-requirements";
 import {
 	reactRouterDomainsFromProcessEnv,
 	reactRouterRoutesFromProcessEnv,
@@ -53,6 +54,10 @@ export const web = await ReactRouter(DEFAULT_REACT_ROUTER_WEB_RESOURCE_ID, {
 		PingDo,
 		PING: pingWorker,
 		OTHER: otherWorker,
+		STAGE: stage,
+		POSTHOG_KEY: readProcessEnvTrimmed("POSTHOG_KEY"),
+		POSTHOG_HOST: readProcessEnvTrimmed("POSTHOG_HOST"),
+		POSTHOG_SITE: readProcessEnvTrimmed("POSTHOG_SITE"),
 	},
 });
 
