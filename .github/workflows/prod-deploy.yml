@@ -67,6 +67,9 @@ jobs:
           WEB_ROUTES: ${{ vars.WEB_ROUTES }}
           WEB_ZONE_ID: ${{ vars.WEB_ZONE_ID }}
           WEB_DOMAIN_OVERRIDE_EXISTING_ORIGIN: ${{ vars.WEB_DOMAIN_OVERRIDE_EXISTING_ORIGIN }}
+          POSTHOG_KEY: ${{ vars.POSTHOG_KEY }}
+          POSTHOG_HOST: ${{ vars.POSTHOG_HOST }}
+          POSTHOG_SITE: ${{ vars.POSTHOG_SITE }}
         run: |
           set -o pipefail
           bun run deploy:prod 2>&1 | tee deploy-output.txt

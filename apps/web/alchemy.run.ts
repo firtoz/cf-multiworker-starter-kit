@@ -54,6 +54,7 @@ export const web = await ReactRouter(DEFAULT_REACT_ROUTER_WEB_RESOURCE_ID, {
 		PingDo,
 		PING: pingWorker,
 		OTHER: otherWorker,
+		STAGE: stage,
 		POSTHOG_KEY: readProcessEnvTrimmed("POSTHOG_KEY"),
 		POSTHOG_HOST: readProcessEnvTrimmed("POSTHOG_HOST"),
 		POSTHOG_SITE: readProcessEnvTrimmed("POSTHOG_SITE"),

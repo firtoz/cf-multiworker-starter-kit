@@ -140,7 +140,7 @@ WebSocket URL helpers may use `window.location`, but only call them from `useEff
 MY_SECRET=dev-value
 ```
 
-**Production:** Add to repo-root **`.env.production`** or your CI secret store. Wire the value in the relevant package `alchemy.run.ts` using `alchemy.secret(...)` when needed.
+**Production:** Add to repo-root **`.env.production`** or your CI secret store. Wire the value in the relevant package `alchemy.run.ts` using `alchemy.secret(...)` when needed. If GitHub Actions deploys need the value, add it to root `turbo.json` `globalEnv` and the relevant workflow `env:` blocks too; synced GitHub Environment values are not automatically exposed to every step.
 
 Access in code:
 ```tsx
