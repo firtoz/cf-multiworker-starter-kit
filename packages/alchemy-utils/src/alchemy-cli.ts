@@ -363,11 +363,31 @@ function main(): void {
 	let shuttingDown = false;
 
 	function forwardTeardownToChildTree(sig: NodeJS.Signals): void {
+		const pid = child.pid;
 		if (shuttingDown) {
+			/** Second **Ctrl+C** (or repeated signal): **`SIGTERM`** was ignored — escalate so devs are not stuck. */
+			if (pid != null) {
+				try {
+					if (useChildProcessGroup) {
+						process.kill(-pid, "SIGKILL");
+					} else {
+						child.kill("SIGKILL");
+					}
+				} catch {
+					try {
+						child.kill("SIGKILL");
+					} catch {
+						/* noop */
+					}
+				}
+			}
+			if (teardownWatchdog !== undefined) {
+				clearTimeout(teardownWatchdog);
+			}
+			process.exit(sig === "SIGINT" ? 130 : 143);
 			return;
 		}
 		shuttingDown = true;
-		const pid = child.pid;
 		if (pid != null) {
 			try {
 				if (useChildProcessGroup) {
