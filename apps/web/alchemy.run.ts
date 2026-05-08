@@ -8,6 +8,7 @@ import { alchemyCiCloudStateStoreOptions } from "alchemy-utils/alchemy-cloud-sta
 import { CI_WEB_DEPLOY_URL_RELPATH } from "alchemy-utils/ci-deploy-web-url";
 import { isPrStage, resolveStageFromEnv } from "alchemy-utils/deployment-stage";
 import { readProcessEnvTrimmed } from "alchemy-utils/env-requirements";
+import { pickListenPort } from "alchemy-utils/pick-listen-port";
 import {
 	reactRouterDomainsFromProcessEnv,
 	reactRouterRoutesFromProcessEnv,
@@ -15,6 +16,7 @@ import {
 import {
 	ALCHEMY_APP_IDS,
 	DEFAULT_REACT_ROUTER_WEB_RESOURCE_ID,
+	PRODUCT_PREFIX,
 } from "alchemy-utils/worker-peer-scripts";
 import { chatroomWorker } from "chatroom-do/alchemy";
 import { otherWorker } from "other-worker/alchemy";
@@ -39,6 +41,33 @@ const skipWebCustomHostnames = isPrStage(stage);
 const webDomains = skipWebCustomHostnames ? [] : [...reactRouterDomainsFromProcessEnv()];
 const webRoutes = skipWebCustomHostnames ? [] : [...reactRouterRoutesFromProcessEnv()];
 
+/** Portless `--name`: `PRODUCT_PREFIX` + same segment as `ReactRouter(...)` resource id (`web` ⇒ e.g. `starter-web`). */
+const localWebPortlessRouteName = `${PRODUCT_PREFIX}-${DEFAULT_REACT_ROUTER_WEB_RESOURCE_ID}`;
+
+/** `LOCAL_PORTLESS` in repo-root `.env.local`: omit or `on` (default) ⇒ Portless; `off` ⇒ plain `http://localhost`. */
+function isLocalPortlessExplicitlyDisabled(): boolean {
+	return process.env["LOCAL_PORTLESS"]?.trim().toLowerCase() === "off";
+}
+
+const usePortlessLocalDev = stage === "local" && !isLocalPortlessExplicitlyDisabled();
+
+/** `PORT` when set and positive; otherwise `undefined`. */
+function explicitPortFromEnv(env: NodeJS.ProcessEnv): number | undefined {
+	const raw = Number(env["PORT"]?.trim());
+	return Number.isFinite(raw) && raw > 0 ? Math.floor(raw) : undefined;
+}
+
+const explicitListenPort = explicitPortFromEnv(process.env);
+/** Portless: honor `PORT`, else `get-port` from 5173 on 127.0.0.1. Otherwise unused for `dev` command — `5173` matches Vite default. */
+const localDevListenPort = usePortlessLocalDev
+	? (explicitListenPort ?? (await pickListenPort({ preferred: 5173, host: "127.0.0.1" })))
+	: (explicitListenPort ?? 5173);
+
+/** `portless run` then `react-router dev` (Turbo `dev` already runs `typegen:local` where configured). */
+const portlessWrappedLocalDev = usePortlessLocalDev
+		? `portless run --name ${localWebPortlessRouteName} --app-port ${localDevListenPort} bunx react-router dev --port ${localDevListenPort}`
+		: undefined;
+
 export const web = await ReactRouter(DEFAULT_REACT_ROUTER_WEB_RESOURCE_ID, {
 	main: "workers/app.ts",
 	compatibility: "node",
@@ -59,9 +88,30 @@ export const web = await ReactRouter(DEFAULT_REACT_ROUTER_WEB_RESOURCE_ID, {
 		POSTHOG_HOST: readProcessEnvTrimmed("POSTHOG_HOST"),
 		POSTHOG_SITE: readProcessEnvTrimmed("POSTHOG_SITE"),
 	},
+	...(portlessWrappedLocalDev ? { dev: portlessWrappedLocalDev } : {}),
 });
 
-console.log({ webUrl: web.url });
+const portlessRaw = process.env["PORTLESS_URL"]?.trim();
+
+/**
+ * Prefer env when Portless exposes it (`PORTLESS_URL` is injected on the `react-router dev`
+ * child process, but often absent in the `alchemy` process that evaluates this file after `web` updates —
+ * hence the `https://<name>.localhost` fallback matching `portless --name`).
+ */
+const portlessDerivedPublicBase =
+	stage === "local" && portlessWrappedLocalDev
+		? `https://${localWebPortlessRouteName}.localhost`
+		: undefined;
+const portlessDevPublicUrl = (() => {
+	if (stage !== "local") {
+		return undefined;
+	}
+	const fromEnv = portlessRaw ? `${portlessRaw.replace(/\/$/, "")}/` : undefined;
+	const fromFlag = portlessDerivedPublicBase ? `${portlessDerivedPublicBase}/` : undefined;
+	return fromEnv ?? fromFlag;
+})();
+
+console.log({ webUrl: portlessDevPublicUrl ?? web.url });
 /** GitHub Actions: write URL for deploy workflows — see **`CI_WEB_DEPLOY_URL_RELPATH`**. */
 if (process.env["GITHUB_ACTIONS"] === "true" && web.url) {
 	const root = process.env["GITHUB_WORKSPACE"]?.trim();

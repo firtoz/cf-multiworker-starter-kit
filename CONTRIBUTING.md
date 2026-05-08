@@ -8,8 +8,79 @@ Thanks for helping improve this starter. This file is **contribution process and
 
 1. Install [Bun](https://bun.sh/) and clone the repo.
 2. From the repo root: `bun install` then `bun run setup` / `bun run setup:local` (interactive variable browser in a TTY, or `-- --yes` / `CI=true` for auto-generated Alchemy + chatroom secrets only — see README).
-3. Complete first-time Alchemy/Cloudflare steps from the README before relying on `bun run dev` or deploy.
-4. **Bun version:** match root [package.json](package.json) **`packageManager`** — CI uses the same Bun version.
+3. **[Portless](#local-https-dev-portless)** (below) — **default** for **`bun run dev`**: `apps/web/alchemy.run.ts` configures React Router **`dev`** to run **`portless run`** (`PRODUCT_PREFIX` + SSR resource **`web`** as **`--name`** ⇒ **`https://starter-web.localhost`** with stock **`PRODUCT_PREFIX`**) unless you set **`LOCAL_PORTLESS=off`** · see **[Portless commands](https://portless.sh/commands)**.
+4. Complete first-time Alchemy/Cloudflare steps from the README before relying on `bun run dev` or deploy.
+5. **Bun version:** match root [package.json](package.json) **`packageManager`** — CI uses the same Bun version.
+
+### Local HTTPS dev (Portless)
+
+Portless wraps the **same** **`react-router`** dev command Alchemy runs by default (**`alchemy/cloudflare`** **`ReactRouter`** **`dev`** prop — see `node_modules/alchemy/.../react-router.ts`), so **`bun run dev`** (**`alchemy-cli --stage local dev`**) does not duplicate the SSR pipeline. The **`portless`** package is an **`apps/web`** **devDependency** (binary on **`PATH`** when **`alchemy dev`** spawns **`portless`** from that package).
+
+Portless **`--name`** is derived in **`alchemy.run.ts`**: **`PRODUCT_PREFIX`** + **`'-'`** + the same string passed to **`ReactRouter(...)`** (usually **`DEFAULT_REACT_ROUTER_WEB_RESOURCE_ID`** from **`worker-peer-scripts`**, **`web`**) ⇒ e.g. **`starter-web`**. Rename in **`packages/alchemy-utils/src/worker-peer-scripts.ts`** **and** keep **`ReactRouter`** in sync.
+
+Configure or disable Portless via repo-root **`.env.local`** (merged by **`alchemy-cli`** before **`alchemy.run.ts`** runs):
+
+- Omit **`LOCAL_PORTLESS`** or set **`on`**: HTTPS **`*.localhost`** (default).
+- **`LOCAL_PORTLESS=off`** — **`bun run setup:local` → Local dev (Portless)** — plain **`http://localhost:<port>`** only (no **`portless`** subprocess).
+- **`PORT`** (optional in **`.env.local`**): fixes the app port. If unset with Portless on, **`get-port`** prefers **`5173`** on **`127.0.0.1`**, then another free port, keeping `portless --app-port` and `react-router dev --port` aligned; Portless may still set **`PORT`** for the child.
+
+**One-time on your machine**
+
+1. Install the CLI globally (**`portless`** is also **`apps/web`** **devDependency** for the spawned binary):
+
+   ```bash
+   bun add -g portless
+   ```
+
+   Other installers work too (e.g. **`npm install -g portless`**).
+
+2. Install the **proxy startup service** (recommended — binds HTTPS on boot; may prompt for elevated privileges):
+
+   ```bash
+   portless service install
+   ```
+
+3. **Trust Portless’s local CA** once so browsers accept **`https://*.localhost`**:
+
+   ```bash
+   portless trust
+   ```
+
+   On Linux, updating the **system** trust store requires root. If **`portless trust`** fails with **`update-ca-trust`** / **`Unknown error 13`** (permission denied), or **`sudo portless`** says **command not found** because **`sudo`** drops your **`PATH`**, run:
+
+   ```bash
+   sudo env "PATH=$PATH" "$(command -v portless)" trust
+   ```
+
+   Node/Bun tooling during **`bun run dev`** often still works via **`NODE_EXTRA_CA_CERTS`** pointing at **`~/.portless/ca.pem`**; trusting the CA system-wide avoids browser TLS warnings anyway.
+
+**Everyday**
+
+From the repo root:
+
+```bash
+bun run dev
+```
+
+Expect the **`PORTLESS_URL`** line (or equivalent) plus a Vite **`Local:`** line showing **`https://starter-web.localhost/`** (or your renamed **`PRODUCT_PREFIX`**) — use that link in the browser.
+
+**Browser still shows “not private” / `NET::ERR_CERT_AUTHORITY_INVALID`**
+
+Portless can **regenerate** **`~/.portless/ca.pem`** (e.g. after **`portless clean`**, reinstall, or a reset). The OS may still trust an **older** anchor at **`/etc/ca-certificates/trust-source/anchors/portless-ca.crt`**, while the proxy signs certs with the **current** CA — fingerprints must match:
+
+```bash
+openssl x509 -in ~/.portless/ca.pem -noout -fingerprint -sha256
+openssl x509 -in /etc/ca-certificates/trust-source/anchors/portless-ca.crt -noout -fingerprint -sha256
+```
+
+If they differ, reinstall trust from the CA Portless uses now:
+
+```bash
+sudo cp ~/.portless/ca.pem /etc/ca-certificates/trust-source/anchors/portless-ca.crt
+sudo update-ca-trust
+```
+
+Then run **`portless trust`** again if you prefer the CLI-managed path (`sudo env "PATH=$PATH" "$(command -v portless)" trust` on Linux when needed). **Fully quit** the browser (all windows) and reopen the site — Chromium often keeps a negative cache until restart.
 
 ## Code quality (before a PR)
 
