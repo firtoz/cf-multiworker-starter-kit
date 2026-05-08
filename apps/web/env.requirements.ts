@@ -58,6 +58,21 @@ const webHostnameRequirements: readonly EnvRequirement[] = [
 	},
 ];
 
+const localDevRequirements: readonly EnvRequirement[] = [
+	{
+		key: "LOCAL_PORTLESS",
+		setupCategory: "local-dev",
+		kind: "variable",
+		requiredIn: [],
+		optionalSetupModes: ["local"],
+		githubSync: "never",
+		title: "Wrap local dev with Portless (HTTPS `*.localhost`)",
+		description:
+			"`on` or omit (default): `alchemy dev` runs Vite behind `portless run` (`--name` = `PRODUCT_PREFIX` + SSR `web` in `alchemy.run.ts`, e.g. `starter-web`). `off`: plain `http://localhost:<port>` only.",
+		plaintextInSetup: true,
+	},
+];
+
 /**
  * Optional product analytics (PostHog) — same as other starter samples: leave every key empty to ship without analytics,
  * or delete this block + related `app/` helpers / bindings if you remove PostHog entirely.
@@ -138,6 +153,7 @@ const posthogRequirements: readonly EnvRequirement[] = [
 
 /** Keys declared here must match bindings in {@link ./alchemy.run.ts}. */
 export const WEB_APP_ENV_REQUIREMENTS: readonly EnvRequirement[] = [
+	...localDevRequirements,
 	...webHostnameRequirements,
 	...posthogRequirements,
 ];

@@ -38,7 +38,7 @@ A production-minded starter for full-stack Cloudflare apps: React Router on Work
 
 ## Quick start
 
-**Prerequisites:** [Bun](https://bun.sh/) (see `packageManager` above), git, a [Cloudflare](https://dash.cloudflare.com/) account for local Alchemy resources.
+**Prerequisites:** [Bun](https://bun.sh/) (see `packageManager` above), git, a [Cloudflare](https://dash.cloudflare.com/) account for local Alchemy resources, and **[Portless](https://portless.sh/)** for the default local HTTPS dev URL (`https://<PRODUCT_PREFIX>-web.localhost`, e.g. **`starter-web.localhost`** with stock **`PRODUCT_PREFIX`**) — install / service / trust in **[CONTRIBUTING.md — Local HTTPS dev](CONTRIBUTING.md#local-https-dev-portless)**. For plain **`http://localhost`** only, set **`LOCAL_PORTLESS=off`** in **`.env.local`** (or use **`bun run setup:local`** → category **Local dev HTTPS (Portless)**).
 
 Create a repo from the template:
 
@@ -66,7 +66,7 @@ bun alchemy login
 
 Then rerun **`bun run quickstart`** (or **`bun run dev`** if `.env.local` is already set).
 
-Open the URL Vite prints (often `http://localhost:5173`). Try **`/`**, **`/visitors`**, **`/ping-do`**, **`/chat`**.
+Open the URL Vite prints — with Portless (default), **`Local:`** is **`https://<PRODUCT_PREFIX>-web.localhost/`** (see [CONTRIBUTING — Portless](CONTRIBUTING.md#local-https-dev-portless)); otherwise often **`http://localhost:5173`**. Try **`/`**, **`/visitors`**, **`/ping-do`**, **`/chat`**.
 
 ### Deploy with GitHub Actions (optional)
 
@@ -186,7 +186,7 @@ Details: [`agents/skills/cf-durable-object-package/SKILL.md`](agents/skills/cf-d
 
 | Area | Commands |
 |------|----------|
-| Dev | `dev`, `quickstart`, `build`, `typegen`, `typecheck`, `lint`, `clean` |
+| Dev | `dev`, `quickstart`, `build`, `typegen`, `typecheck`, `lint`, `clean` — **`dev`** uses **[Portless](https://portless.sh/)** HTTPS by default ([CONTRIBUTING](CONTRIBUTING.md#local-https-dev-portless); opt out with **`LOCAL_PORTLESS=off`**) |
 | Deploy | `deploy:staging`, `deploy:prod`, `deploy:preview`, `destroy:*`, `deploy:preflight:*` |
 | GitHub Environments | `github:setup`, `github:sync:staging`, `github:sync:prod`, `github:sync`, `github:env:*`, `github:sync:config` |
 | DB | `db:generate`, `check:drizzle-generated` |

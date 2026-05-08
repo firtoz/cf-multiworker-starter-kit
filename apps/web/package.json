@@ -62,6 +62,7 @@
 		"alchemy": "catalog:",
 		"concurrently": "^9.1.0",
 		"other-worker": "workspace:*",
+		"portless": "^0.13.0",
 		"rollup-plugin-visualizer": "^7.0.1",
 		"tailwindcss": "^4.2.4",
 		"typescript": "catalog:",

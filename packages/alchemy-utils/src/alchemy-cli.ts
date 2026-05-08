@@ -1,5 +1,5 @@
 #!/usr/bin/env bun
-import { spawn } from "node:child_process";
+import { type ChildProcess, spawn } from "node:child_process";
 /**
  * Workspace Alchemy wrapper: loads stage dotfiles + machine **account.env**, then runs
  * `bun alchemy <verb> [--entry.ts] --app <id>`.
@@ -349,12 +349,51 @@ function main(): void {
 	}
 	alchemyParts.push("--app", appId);
 
-	const child = spawn("bun", [...alchemyParts, ...parsed.forwarded], {
+	/** Unix: new session + process group for **direct** child so **`kill(-pid, SIGTERM)`** tears down portless/vite subtree without hitting Turbo’s group. */
+	const useChildProcessGroup = process.platform !== "win32";
+	const child: ChildProcess = spawn("bun", [...alchemyParts, ...parsed.forwarded], {
 		stdio: "inherit",
 		env: process.env,
 		shell: false,
 		cwd: spawnCwd,
+		detached: useChildProcessGroup,
 	});
+
+	let teardownWatchdog: ReturnType<typeof setTimeout> | undefined;
+	let shuttingDown = false;
+
+	function forwardTeardownToChildTree(sig: NodeJS.Signals): void {
+		if (shuttingDown) {
+			return;
+		}
+		shuttingDown = true;
+		const pid = child.pid;
+		if (pid != null) {
+			try {
+				if (useChildProcessGroup) {
+					process.kill(-pid, "SIGTERM");
+				} else {
+					child.kill("SIGTERM");
+				}
+			} catch {
+				try {
+					child.kill("SIGTERM");
+				} catch {
+					/* noop */
+				}
+			}
+		}
+		teardownWatchdog = setTimeout(() => {
+			process.exit(sig === "SIGINT" ? 130 : 143);
+		}, 12_000);
+		teardownWatchdog.unref?.();
+	}
+
+	for (const sig of ["SIGINT", "SIGTERM", "SIGHUP"] as const) {
+		process.on(sig, () => {
+			forwardTeardownToChildTree(sig);
+		});
+	}
 
 	child.on("error", (err) => {
 		console.error(err);
@@ -362,6 +401,9 @@ function main(): void {
 	});
 
 	child.on("close", (code, signal) => {
+		if (teardownWatchdog !== undefined) {
+			clearTimeout(teardownWatchdog);
+		}
 		process.exit(signal ? 1 : (code ?? 1));
 	});
 }

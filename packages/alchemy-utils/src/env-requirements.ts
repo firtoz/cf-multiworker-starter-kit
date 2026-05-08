@@ -41,6 +41,12 @@ type LeafIdFromNav<R extends EnvSetupNavRoot> = R extends EnvSetupCategoryNavGro
  */
 export const ENV_SETUP_CATEGORY_NAV = [
 	{
+		id: "local-dev",
+		label: "Local dev HTTPS (Portless)",
+		description:
+			"`bun run dev` settings: HTTPS `*.localhost` via `portless` (default on). See CONTRIBUTING.",
+	},
+	{
 		id: "core-secrets",
 		label: "Core secrets",
 		description:
