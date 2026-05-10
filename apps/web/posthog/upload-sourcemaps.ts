@@ -2,6 +2,8 @@
 /**
  * Optional starter-only: upload client source maps to PostHog for error tracking. Skip entirely if you do not use PostHog.
  *
+ * Uses the official **`@posthog/cli`** package (`bunx @posthog/cli`), not the unrelated npm **`posthog-cli`** name.
+ *
  * **Alchemy deploy:** `alchemy.run.ts` runs this after `react-router build` so debug IDs are injected before assets ship.
  *
  * Prerequisites: **`build/client`** with `.map` files. When **`POSTHOG_CLI_TOKEN`** / **`POSTHOG_CLI_API_KEY`**
@@ -18,11 +20,11 @@
  */
 
 import { Buffer } from "node:buffer";
+import { spawn } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 
 import { resolveStageFromEnv } from "alchemy-utils/deployment-stage";
-import { $ } from "bun";
 
 import { appendPosthogSourcemapsCiSummary } from "./ci-summary-artifact";
 import { defaultPosthogReleaseName, resolvePosthogReleaseBuild } from "./release-names";
@@ -47,18 +49,56 @@ function coerceShellOutput(value: unknown): string {
 	return "";
 }
 
-function extractShellFailureDetail(err: unknown): { text: string; exitCode?: number } {
+function extractFailureDetail(err: unknown): {
+	text: string;
+	exitCode?: number;
+	/** If true, CLI already printed to this step’s stdout/stderr (spawn inherit). */
+	streamed: boolean;
+} {
 	if (!err || typeof err !== "object") {
-		return { text: err instanceof Error ? err.message : String(err) };
+		return { text: err instanceof Error ? err.message : String(err), streamed: false };
 	}
 	const o = err as Record<string, unknown>;
 	const stderr = coerceShellOutput(o["stderr"]).trim();
 	const stdout = coerceShellOutput(o["stdout"]).trim();
+	if (stderr || stdout) {
+		const msg = err instanceof Error ? err.message : "Command failed";
+		const body = stderr || stdout || msg;
+		const rawExit = o["exitCode"];
+		const exitCode = typeof rawExit === "number" ? rawExit : undefined;
+		if (exitCode === undefined) {
+			return { text: body, streamed: false };
+		}
+		return { text: body, exitCode, streamed: false };
+	}
 	const rawExit = o["exitCode"];
-	const exitCode = typeof rawExit === "number" ? rawExit : undefined;
-	const msg = err instanceof Error ? err.message : "Command failed";
-	const body = stderr || stdout || msg;
-	return exitCode === undefined ? { text: body } : { text: body, exitCode };
+	if (typeof rawExit === "number") {
+		const msg = err instanceof Error ? err.message : "posthog-cli failed";
+		return { text: msg, exitCode: rawExit, streamed: true };
+	}
+	return { text: err instanceof Error ? err.message : String(err), streamed: false };
+}
+
+async function runPosthogCliWithInheritedStdio(
+	args: string[],
+	env: NodeJS.ProcessEnv,
+): Promise<void> {
+	const code = await new Promise<number>((resolve, reject) => {
+		const child = spawn("bunx", ["@posthog/cli", ...args], {
+			env,
+			cwd: process.cwd(),
+			stdio: "inherit",
+		});
+		child.on("error", reject);
+		child.on("close", (c) => {
+			resolve(c ?? 1);
+		});
+	});
+	if (code !== 0) {
+		throw Object.assign(new Error(`posthog-cli exited with code ${String(code)}`), {
+			exitCode: code,
+		});
+	}
 }
 
 function trimText(s: string, max: number): string {
@@ -171,27 +211,39 @@ async function main() {
 	console.log(`[PostHog source maps]   release-version=${releaseVersion}${buildSuffix}`);
 
 	try {
-		console.log("[PostHog source maps] Running posthog-cli inject…");
-		if (releaseBuild) {
-			await $`bunx posthog-cli --host ${posthogHost} sourcemap inject --directory ${buildDir} --release-name ${releaseName} --release-version ${releaseVersion} --build ${releaseBuild}`.env(
-				env,
-			);
-		} else {
-			await $`bunx posthog-cli --host ${posthogHost} sourcemap inject --directory ${buildDir} --release-name ${releaseName} --release-version ${releaseVersion}`.env(
-				env,
-			);
-		}
+		const injectArgs = [
+			"--host",
+			posthogHost,
+			"sourcemap",
+			"inject",
+			"--directory",
+			buildDir,
+			"--release-name",
+			releaseName,
+			"--release-version",
+			releaseVersion,
+			...(releaseBuild ? ["--build", releaseBuild] : []),
+		];
+		const uploadArgs = [
+			"--host",
+			posthogHost,
+			"sourcemap",
+			"upload",
+			"--directory",
+			buildDir,
+			"--release-name",
+			releaseName,
+			"--release-version",
+			releaseVersion,
+			...(releaseBuild ? ["--build", releaseBuild] : []),
+			"--delete-after",
+		];
 
-		console.log("[PostHog source maps] Running posthog-cli upload…");
-		if (releaseBuild) {
-			await $`bunx posthog-cli --host ${posthogHost} sourcemap upload --directory ${buildDir} --release-name ${releaseName} --release-version ${releaseVersion} --build ${releaseBuild} --delete-after`.env(
-				env,
-			);
-		} else {
-			await $`bunx posthog-cli --host ${posthogHost} sourcemap upload --directory ${buildDir} --release-name ${releaseName} --release-version ${releaseVersion} --delete-after`.env(
-				env,
-			);
-		}
+		console.log("[PostHog source maps] Running @posthog/cli inject… (stdio → step log)");
+		await runPosthogCliWithInheritedStdio(injectArgs, env);
+
+		console.log("[PostHog source maps] Running @posthog/cli upload… (stdio → step log)");
+		await runPosthogCliWithInheritedStdio(uploadArgs, env);
 		console.log("[PostHog source maps] RESULT: SUCCESS — maps uploaded (local .map files removed)");
 		console.log("------------------------------------------------------------------------");
 		const releaseLine = releaseBuild
@@ -202,12 +254,15 @@ async function main() {
 			releaseLine,
 		]);
 	} catch (err: unknown) {
-		const { text, exitCode } = extractShellFailureDetail(err);
-		const forLog = trimText(text, MAX_POSTHOG_CLI_LOG_CHARS);
-		console.warn("[PostHog source maps] RESULT: FAILED (non-fatal for deploy) — posthog-cli:");
-		console.warn(forLog);
-		if (exitCode !== undefined) {
-			console.warn(`[PostHog source maps] Exit code: ${exitCode}`);
+		const { text, exitCode, streamed } = extractFailureDetail(err);
+		console.warn("[PostHog source maps] RESULT: FAILED (non-fatal for deploy) — posthog-cli");
+		if (!streamed) {
+			const forLog = trimText(text, MAX_POSTHOG_CLI_LOG_CHARS);
+			console.warn(forLog);
+		} else if (exitCode !== undefined) {
+			console.warn(
+				`[PostHog source maps] Exit code: ${String(exitCode)} (see CLI output above in this step)`,
+			);
 		}
 		console.warn(
 			"[PostHog source maps] Fix CLI credentials / host (US vs EU) / network; stacks stay minified until upload works.",
@@ -217,11 +272,17 @@ async function main() {
 			"- **Result:** failed (non-fatal for deploy)",
 			...(exitCode === undefined ? [] : [`- **Exit code:** \`${String(exitCode)}\``]),
 			`- **Host:** \`${posthogHost}\``,
-			"- **posthog-cli output (trimmed):**",
-			"",
-			markdownIndentedBlock(trimText(text, MAX_POSTHOG_CLI_SUMMARY_CHARS)),
-			"",
-			"- **Hint:** token scope, **`POSTHOG_CLI_HOST`** (e.g. EU vs US), and job networking; full output is above in this step log.",
+			...(streamed
+				? [
+						"- **posthog-cli:** full output is in **this deploy step log** (live stdout/stderr from the CLI).",
+					]
+				: [
+						"- **posthog-cli output (trimmed):**",
+						"",
+						markdownIndentedBlock(trimText(text, MAX_POSTHOG_CLI_SUMMARY_CHARS)),
+						"",
+					]),
+			"- **Hint:** token scope, **`POSTHOG_CLI_HOST`** (e.g. EU vs US), and job networking.",
 		];
 		appendUploadCiSummary(summaryLines);
 		process.exit(0);

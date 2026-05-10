@@ -28,6 +28,7 @@
 		"typecheck": "tsgo --noEmit -p ."
 	},
 	"dependencies": {
+		"alchemy": "catalog:",
 		"dotenv": "catalog:",
 		"get-port": "^7.2.0"
 	},
