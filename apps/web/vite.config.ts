@@ -4,6 +4,7 @@ import { styleText } from "node:util";
 import { reactRouter } from "@react-router/dev/vite";
 import tailwindcss from "@tailwindcss/vite";
 import alchemy from "alchemy/cloudflare/react-router";
+import { resolveStageFromEnv } from "alchemy-utils/deployment-stage";
 import { visualizer } from "rollup-plugin-visualizer";
 import { defineConfig, type Plugin, type PluginOption, type UserConfig } from "vite";
 import { imagetools } from "vite-imagetools";
@@ -71,6 +72,15 @@ export default defineConfig((configEnv) => {
 	);
 	const useAlchemyPlugin = command === "serve" || hasAlchemyConfig;
 	const portlessOrigin = command === "serve" ? portlessPublicOrigin() : undefined;
+	const posthogCliForSourcemaps =
+		Boolean(
+			process.env["POSTHOG_CLI_TOKEN"]?.trim() || process.env["POSTHOG_CLI_API_KEY"]?.trim(),
+		) &&
+		Boolean(
+			process.env["POSTHOG_CLI_ENV_ID"]?.trim() || process.env["POSTHOG_CLI_PROJECT_ID"]?.trim(),
+		);
+	/** `hidden` for deployed stages only — never emit maps for **`local`** dev. PostHog [Vite doc](https://posthog.com/docs/error-tracking/upload-source-maps/react) uses `sourcemap: true`. */
+	const posthogSourceMaps = posthogCliForSourcemaps && resolveStageFromEnv() !== "local";
 
 	return {
 		define: {
@@ -110,7 +120,7 @@ export default defineConfig((configEnv) => {
 						external: ["cloudflare:workers"],
 					},
 			target: "esnext",
-			sourcemap: false,
+			sourcemap: posthogSourceMaps ? "hidden" : false,
 		},
 		optimizeDeps: {
 			include: ["react", "react-dom", "react-router"],

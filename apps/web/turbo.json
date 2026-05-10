@@ -116,7 +116,7 @@
 			"outputs": ["build/**/*"]
 		},
 		"deploy:prod": {
-			"dependsOn": ["typecheck", "^deploy:prod"],
+			"dependsOn": ["typegen", "typecheck", "^deploy:prod"],
 			"cache": false,
 			"inputs": [
 				"alchemy.run.ts",
@@ -128,7 +128,7 @@
 			"outputs": []
 		},
 		"deploy:staging": {
-			"dependsOn": ["typecheck", "^deploy:staging"],
+			"dependsOn": ["typegen", "typecheck", "^deploy:staging"],
 			"cache": false,
 			"inputs": [
 				"alchemy.run.ts",
@@ -140,7 +140,7 @@
 			"outputs": []
 		},
 		"deploy:preview": {
-			"dependsOn": ["typecheck", "^deploy:preview"],
+			"dependsOn": ["typegen", "typecheck", "^deploy:preview"],
 			"cache": false,
 			"inputs": [
 				"alchemy.run.ts",

@@ -1,7 +1,13 @@
 {
 	"$schema": "https://json.schemastore.org/tsconfig",
 	"extends": "../../tsconfig.base.json",
-	"include": ["vite.config.ts", "tailwind.config.ts", "types/**/*.ts", "alchemy.run.ts"],
+	"include": [
+		"vite.config.ts",
+		"tailwind.config.ts",
+		"types/**/*.ts",
+		"alchemy.run.ts",
+		"posthog/**/*.ts"
+	],
 	"compilerOptions": {
 		"composite": true,
 		"strict": true,

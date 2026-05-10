@@ -21,8 +21,19 @@ import {
 import { chatroomWorker } from "chatroom-do/alchemy";
 import { otherWorker } from "other-worker/alchemy";
 import { pingWorker } from "ping-do/alchemy";
+import { defaultPosthogReleaseName, resolvePosthogReleaseBuild } from "./posthog/release-names";
+import { resolvePosthogReleaseVersion } from "./posthog/release-version";
 
 const stage = resolveStageFromEnv();
+
+/** One id per **`alchemy deploy`** so bindings match **`posthog-cli --build`** in the build subprocess (local uses a timestamp). */
+const posthogReleaseBuild =
+	process.env["POSTHOG_RELEASE_BUILD"]?.trim() ||
+	resolvePosthogReleaseBuild(process.env, stage) ||
+	"";
+if (posthogReleaseBuild) {
+	process.env["POSTHOG_RELEASE_BUILD"] = posthogReleaseBuild;
+}
 const app = await alchemy(ALCHEMY_APP_IDS.frontend, {
 	stage,
 	...alchemyCiCloudStateStoreOptions(stage),
@@ -65,13 +76,26 @@ const localDevListenPort = usePortlessLocalDev
 
 /** `portless run` then `react-router dev` (Turbo `dev` already runs `typegen:local` where configured). */
 const portlessWrappedLocalDev = usePortlessLocalDev
-		? `portless run --name ${localWebPortlessRouteName} --app-port ${localDevListenPort} bunx react-router dev --port ${localDevListenPort}`
-		: undefined;
+	? `portless run --name ${localWebPortlessRouteName} --app-port ${localDevListenPort} bunx react-router dev --port ${localDevListenPort}`
+	: undefined;
+
+/** Turbo **`deploy:*`** depends on **`typegen`** (see **`turbo.json`**) — this is **`react-router build`** only. */
+const reactRouterProductionBuild = "bun run react-router build";
+/** Only deployed stages: inject/upload maps when CLI env is set (same signals as **`vite.config.ts`** hidden maps). */
+const posthogSourcemapUploadAfterBuild =
+	stage !== "local" &&
+	Boolean(process.env["POSTHOG_CLI_TOKEN"]?.trim() || process.env["POSTHOG_CLI_API_KEY"]?.trim()) &&
+	Boolean(
+		process.env["POSTHOG_CLI_ENV_ID"]?.trim() || process.env["POSTHOG_CLI_PROJECT_ID"]?.trim(),
+	);
 
 export const web = await ReactRouter(DEFAULT_REACT_ROUTER_WEB_RESOURCE_ID, {
 	main: "workers/app.ts",
 	compatibility: "node",
 	placement: { mode: "smart" },
+	build: posthogSourcemapUploadAfterBuild
+		? `${reactRouterProductionBuild} && bun posthog/upload-sourcemaps.ts`
+		: reactRouterProductionBuild,
 	url: true,
 	adopt: true,
 	routes: webRoutes,
@@ -87,6 +111,12 @@ export const web = await ReactRouter(DEFAULT_REACT_ROUTER_WEB_RESOURCE_ID, {
 		POSTHOG_KEY: readProcessEnvTrimmed("POSTHOG_KEY"),
 		POSTHOG_HOST: readProcessEnvTrimmed("POSTHOG_HOST"),
 		POSTHOG_SITE: readProcessEnvTrimmed("POSTHOG_SITE"),
+		/** Symbol-set name — see **`posthog/release-names.ts`**. */
+		POSTHOG_RELEASE_NAME: defaultPosthogReleaseName(stage, process.env),
+		/** Git / workflow commit id — **`posthog-cli` `--release-version`**; browser combines with **`POSTHOG_RELEASE_BUILD`** for **`logs.serviceVersion`**. */
+		POSTHOG_RELEASE_VERSION: resolvePosthogReleaseVersion(process.env),
+		/** **`posthog-cli` `--build`** (CI run number or **`local-<ms>`**) — packed into **`logs.serviceVersion`** as **`version+build`**. */
+		POSTHOG_RELEASE_BUILD: posthogReleaseBuild,
 	},
 	...(portlessWrappedLocalDev ? { dev: portlessWrappedLocalDev } : {}),
 });
