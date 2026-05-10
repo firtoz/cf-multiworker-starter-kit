@@ -21,6 +21,7 @@ import {
 import { chatroomWorker } from "chatroom-do/alchemy";
 import { otherWorker } from "other-worker/alchemy";
 import { pingWorker } from "ping-do/alchemy";
+import { logPosthogSourcemapsAlchemyPlan } from "./posthog/log-sourcemaps-plan";
 import { defaultPosthogReleaseName, resolvePosthogReleaseBuild } from "./posthog/release-names";
 import { resolvePosthogReleaseVersion } from "./posthog/release-version";
 
@@ -88,6 +89,11 @@ const posthogSourcemapUploadAfterBuild =
 	Boolean(
 		process.env["POSTHOG_CLI_ENV_ID"]?.trim() || process.env["POSTHOG_CLI_PROJECT_ID"]?.trim(),
 	);
+
+logPosthogSourcemapsAlchemyPlan({
+	stage,
+	runUploadAfterClientBuild: posthogSourcemapUploadAfterBuild,
+});
 
 export const web = await ReactRouter(DEFAULT_REACT_ROUTER_WEB_RESOURCE_ID, {
 	main: "workers/app.ts",

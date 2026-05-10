@@ -26,7 +26,16 @@ export function buildGitHubSecretPayload(env: Record<string, string | undefined>
 	payload: Record<string, string>;
 	missing: string[];
 } {
-	return buildGitHubRequiredSecretPayload(ALL_REPO_ENV_REQUIREMENTS, env);
+	const { payload: required, missing } = buildGitHubRequiredSecretPayload(
+		ALL_REPO_ENV_REQUIREMENTS,
+		env,
+	);
+	const optional = buildGitHubOptionalSecretPayload(ALL_REPO_ENV_REQUIREMENTS, env);
+	// Optional first (e.g. POSTHOG_CLI_TOKEN); required wins on key collision.
+	return {
+		payload: { ...optional, ...required },
+		missing,
+	};
 }
 
 export function buildOptionalGitHubSecretPayload(

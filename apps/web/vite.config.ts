@@ -91,6 +91,31 @@ export default defineConfig((configEnv) => {
 	/** `hidden` for deployed stages only — never emit maps for **`local`** dev. PostHog [Vite doc](https://posthog.com/docs/error-tracking/upload-source-maps/react) uses `sourcemap: true`. */
 	const posthogSourceMaps = posthogCliForSourcemaps && isNonLocalStageForPosthogSourcemaps();
 
+	if (command === "build") {
+		const stageLabel =
+			process.env["STAGE"]?.trim() || "(unset — treated as local for PostHog maps)";
+		console.log("");
+		console.log("-".repeat(72));
+		console.log(`[PostHog source maps] Vite build — STAGE=${stageLabel}`);
+		console.log(
+			`[PostHog source maps] hidden client .map on disk: ${posthogSourceMaps ? "YES" : "NO"}`,
+		);
+		if (!posthogSourceMaps) {
+			const bits: string[] = [];
+			if (!isNonLocalStageForPosthogSourcemaps()) {
+				bits.push("STAGE missing, empty, or local");
+			}
+			if (!posthogCliForSourcemaps) {
+				bits.push(
+					"need both CLI token (POSTHOG_CLI_TOKEN or POSTHOG_CLI_API_KEY) and project id (POSTHOG_CLI_ENV_ID or POSTHOG_CLI_PROJECT_ID)",
+				);
+			}
+			console.log(`[PostHog source maps] hidden maps OFF because: ${bits.join("; ")}`);
+		}
+		console.log("-".repeat(72));
+		console.log("");
+	}
+
 	return {
 		define: {
 			"process.env.NODE_ENV": JSON.stringify(mode),

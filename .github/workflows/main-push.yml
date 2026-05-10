@@ -144,6 +144,7 @@ jobs:
               echo "**Status:** inspect [run]($WORKFLOW_URL)."
             fi
           } >> "$GITHUB_STEP_SUMMARY"
+          bash "$GITHUB_WORKSPACE/.github/scripts/posthog-sourcemaps-step-summary.sh"
 
       - name: Record staging deploy outcome
         id: deploy_result

@@ -7,3 +7,9 @@
  * Deploy workflows **read this same path**; keep paths in sync with this constant.
  */
 export const CI_WEB_DEPLOY_URL_RELPATH = ".alchemy/ci/web-deploy-url.txt" as const;
+
+/**
+ * GitHub Actions job summary snippet for PostHog source maps (written during **`alchemy deploy`** / upload).
+ * Workflows append **`GITHUB_WORKSPACE`** / this path to **`GITHUB_STEP_SUMMARY`**.
+ */
+export const CI_POSTHOG_SOURCEMAPS_SUMMARY_RELPATH = ".alchemy/ci/posthog-sourcemaps-summary.md" as const;
