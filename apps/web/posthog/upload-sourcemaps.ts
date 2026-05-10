@@ -17,6 +17,7 @@
  * Or: **`bun run sourcemap:upload`** after a build that had those env vars.
  */
 
+import { Buffer } from "node:buffer";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -28,6 +29,53 @@ import { defaultPosthogReleaseName, resolvePosthogReleaseBuild } from "./release
 import { resolvePosthogReleaseVersion } from "./release-version";
 
 const DEFAULT_POSTHOG_CLI_HOST = "https://us.posthog.com";
+
+/** Log/summary limit — full output stays in Actions log; summary stays readable. */
+const MAX_POSTHOG_CLI_LOG_CHARS = 12_000;
+const MAX_POSTHOG_CLI_SUMMARY_CHARS = 2_000;
+
+function coerceShellOutput(value: unknown): string {
+	if (typeof value === "string") {
+		return value;
+	}
+	if (Buffer.isBuffer(value)) {
+		return value.toString("utf8");
+	}
+	if (value instanceof Uint8Array) {
+		return new TextDecoder().decode(value);
+	}
+	return "";
+}
+
+function extractShellFailureDetail(err: unknown): { text: string; exitCode?: number } {
+	if (!err || typeof err !== "object") {
+		return { text: err instanceof Error ? err.message : String(err) };
+	}
+	const o = err as Record<string, unknown>;
+	const stderr = coerceShellOutput(o["stderr"]).trim();
+	const stdout = coerceShellOutput(o["stdout"]).trim();
+	const rawExit = o["exitCode"];
+	const exitCode = typeof rawExit === "number" ? rawExit : undefined;
+	const msg = err instanceof Error ? err.message : "Command failed";
+	const body = stderr || stdout || msg;
+	return exitCode === undefined ? { text: body } : { text: body, exitCode };
+}
+
+function trimText(s: string, max: number): string {
+	const t = s.trim();
+	if (t.length <= max) {
+		return t;
+	}
+	return `${t.slice(0, max)}\n… (truncated)`;
+}
+
+/** Indented block avoids broken Markdown if stderr contains triple backticks. */
+function markdownIndentedBlock(text: string): string {
+	return text
+		.split("\n")
+		.map((line) => `    ${line}`)
+		.join("\n");
+}
 
 function appendUploadCiSummary(bodyLines: string[]): void {
 	appendPosthogSourcemapsCiSummary(
@@ -153,16 +201,29 @@ async function main() {
 			"- **Result:** success — maps uploaded (local `.map` files removed)",
 			releaseLine,
 		]);
-	} catch {
-		console.warn("[PostHog source maps] RESULT: FAILED (non-fatal for deploy stack trace below)");
+	} catch (err: unknown) {
+		const { text, exitCode } = extractShellFailureDetail(err);
+		const forLog = trimText(text, MAX_POSTHOG_CLI_LOG_CHARS);
+		console.warn("[PostHog source maps] RESULT: FAILED (non-fatal for deploy) — posthog-cli:");
+		console.warn(forLog);
+		if (exitCode !== undefined) {
+			console.warn(`[PostHog source maps] Exit code: ${exitCode}`);
+		}
 		console.warn(
-			"[PostHog source maps] Fix CLI credentials / network; errors in PostHog may show minified stacks until upload succeeds.",
+			"[PostHog source maps] Fix CLI credentials / host (US vs EU) / network; stacks stay minified until upload works.",
 		);
 		console.log("------------------------------------------------------------------------");
-		appendUploadCiSummary([
-			"- **Result:** failed (non-fatal for deploy) — see job log for `posthog-cli` output",
-			"- **Hint:** check CLI token permissions and network; stacks in PostHog may stay minified until upload works.",
-		]);
+		const summaryLines = [
+			"- **Result:** failed (non-fatal for deploy)",
+			...(exitCode === undefined ? [] : [`- **Exit code:** \`${String(exitCode)}\``]),
+			`- **Host:** \`${posthogHost}\``,
+			"- **posthog-cli output (trimmed):**",
+			"",
+			markdownIndentedBlock(trimText(text, MAX_POSTHOG_CLI_SUMMARY_CHARS)),
+			"",
+			"- **Hint:** token scope, **`POSTHOG_CLI_HOST`** (e.g. EU vs US), and job networking; full output is above in this step log.",
+		];
+		appendUploadCiSummary(summaryLines);
 		process.exit(0);
 	}
 }
