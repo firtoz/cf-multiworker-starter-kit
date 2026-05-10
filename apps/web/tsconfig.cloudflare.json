@@ -12,13 +12,14 @@
 		"workers/**/*.ts",
 		"db/**/*",
 		"types/env.d.ts",
-		"alchemy.run.ts"
+		"alchemy.run.ts",
+		"posthog/**/*.ts"
 	],
 	"compilerOptions": {
 		"composite": false,
 		"strict": true,
 		"lib": ["DOM", "DOM.Iterable", "ES2022"],
-		"types": ["vite/client"],
+		"types": ["vite/client", "node"],
 		"target": "ES2022",
 		"module": "ES2022",
 		"moduleResolution": "bundler",

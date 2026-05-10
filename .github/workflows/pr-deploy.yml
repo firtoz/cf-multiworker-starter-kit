@@ -523,6 +523,10 @@ jobs:
           POSTHOG_KEY: ${{ vars.POSTHOG_KEY }}
           POSTHOG_HOST: ${{ vars.POSTHOG_HOST }}
           POSTHOG_SITE: ${{ vars.POSTHOG_SITE }}
+          POSTHOG_CLI_TOKEN: ${{ secrets.POSTHOG_CLI_TOKEN }}
+          POSTHOG_CLI_ENV_ID: ${{ vars.POSTHOG_CLI_ENV_ID }}
+          POSTHOG_CLI_HOST: ${{ vars.POSTHOG_CLI_HOST }}
+          POSTHOG_RELEASE_VERSION: ${{ github.event.pull_request.head.sha }}
         run: |
           set -o pipefail
           bun run deploy:preview 2>&1 | tee deploy-output.txt
@@ -572,6 +576,7 @@ jobs:
               echo "**Status:** unknown — [$WORKFLOW_URL]($WORKFLOW_URL)"
             fi
           } >> "$GITHUB_STEP_SUMMARY"
+          bash "$GITHUB_WORKSPACE/.github/scripts/posthog-sourcemaps-step-summary.sh"
 
       - id: preview_outputs
         if: always()

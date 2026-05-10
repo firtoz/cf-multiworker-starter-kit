@@ -119,22 +119,22 @@ const posthogRequirements: readonly EnvRequirement[] = [
 		setupCategory: "analytics",
 		kind: "secret",
 		requiredIn: [],
-		optionalSetupModes: ["local", "staging", "prod"],
+		optionalSetupModes: ["staging", "prod"],
 		githubSync: "optional",
 		title: "PostHog CLI token (optional — source maps)",
 		description:
-			"PostHog user API key · only for optional `scripts/upload-sourcemaps.ts` / CI — GitHub Environment **secret**",
+			"Personal API key (`error_tracking:write`) · GitHub **secret** · alias **`POSTHOG_CLI_API_KEY`** · source maps run in **staging/prod/preview** deploys only — not local dev",
 	},
 	{
 		key: "POSTHOG_CLI_ENV_ID",
 		setupCategory: "analytics",
 		kind: "variable",
 		requiredIn: [],
-		optionalSetupModes: ["local", "staging", "prod"],
+		optionalSetupModes: ["staging", "prod"],
 		githubSync: "optional",
 		title: "PostHog web environment ID (optional — CLI)",
 		description:
-			"Project settings → Sessions / Replay / Errors (maps) · see PostHog docs for source map uploads",
+			"Numeric project id from PostHog URL · alias **`POSTHOG_CLI_PROJECT_ID`** per [CLI](https://posthog.com/docs/error-tracking/upload-source-maps/cli)",
 		plaintextInSetup: true,
 	},
 	{
@@ -142,7 +142,7 @@ const posthogRequirements: readonly EnvRequirement[] = [
 		setupCategory: "analytics",
 		kind: "variable",
 		requiredIn: [],
-		optionalSetupModes: ["local", "staging", "prod"],
+		optionalSetupModes: ["staging", "prod"],
 		githubSync: "optional",
 		title: "PostHog CLI app host (optional)",
 		description:

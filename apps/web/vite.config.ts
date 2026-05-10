@@ -9,6 +9,16 @@ import { defineConfig, type Plugin, type PluginOption, type UserConfig } from "v
 import { imagetools } from "vite-imagetools";
 import devtoolsJson from "vite-plugin-devtools-json";
 
+/**
+ * Do **not** import **`alchemy-utils`** (workspace `*.ts`) here — **`react-router typegen`** loads this file with **Node**
+ * in CI, which cannot resolve TypeScript source from sibling packages (**`ERR_UNKNOWN_FILE_EXTENSION`**).
+ * `alchemy-cli` / deploy always sets **`STAGE`**; unset ⇒ treat like **`local`** (no PostHog hidden maps).
+ */
+function isNonLocalStageForPosthogSourcemaps(): boolean {
+	const s = process.env["STAGE"]?.trim().toLowerCase();
+	return s !== undefined && s !== "" && s !== "local";
+}
+
 /** Set when Vite runs inside Portless (see `alchemy.run.ts` `portless run` `dev`). */
 function portlessPublicOrigin(): string | undefined {
 	const raw = process.env["PORTLESS_URL"]?.trim();
@@ -71,6 +81,40 @@ export default defineConfig((configEnv) => {
 	);
 	const useAlchemyPlugin = command === "serve" || hasAlchemyConfig;
 	const portlessOrigin = command === "serve" ? portlessPublicOrigin() : undefined;
+	const posthogCliForSourcemaps =
+		Boolean(
+			process.env["POSTHOG_CLI_TOKEN"]?.trim() || process.env["POSTHOG_CLI_API_KEY"]?.trim(),
+		) &&
+		Boolean(
+			process.env["POSTHOG_CLI_ENV_ID"]?.trim() || process.env["POSTHOG_CLI_PROJECT_ID"]?.trim(),
+		);
+	/** `hidden` for deployed stages only — never emit maps for **`local`** dev. PostHog [Vite doc](https://posthog.com/docs/error-tracking/upload-source-maps/react) uses `sourcemap: true`. */
+	const posthogSourceMaps = posthogCliForSourcemaps && isNonLocalStageForPosthogSourcemaps();
+
+	if (command === "build") {
+		const stageLabel =
+			process.env["STAGE"]?.trim() || "(unset — treated as local for PostHog maps)";
+		console.log("");
+		console.log("-".repeat(72));
+		console.log(`[PostHog source maps] Vite build — STAGE=${stageLabel}`);
+		console.log(
+			`[PostHog source maps] hidden client .map on disk: ${posthogSourceMaps ? "YES" : "NO"}`,
+		);
+		if (!posthogSourceMaps) {
+			const bits: string[] = [];
+			if (!isNonLocalStageForPosthogSourcemaps()) {
+				bits.push("STAGE missing, empty, or local");
+			}
+			if (!posthogCliForSourcemaps) {
+				bits.push(
+					"need both CLI token (POSTHOG_CLI_TOKEN or POSTHOG_CLI_API_KEY) and project id (POSTHOG_CLI_ENV_ID or POSTHOG_CLI_PROJECT_ID)",
+				);
+			}
+			console.log(`[PostHog source maps] hidden maps OFF because: ${bits.join("; ")}`);
+		}
+		console.log("-".repeat(72));
+		console.log("");
+	}
 
 	return {
 		define: {
@@ -110,7 +154,7 @@ export default defineConfig((configEnv) => {
 						external: ["cloudflare:workers"],
 					},
 			target: "esnext",
-			sourcemap: false,
+			sourcemap: posthogSourceMaps ? "hidden" : false,
 		},
 		optimizeDeps: {
 			include: ["react", "react-dom", "react-router"],
