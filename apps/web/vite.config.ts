@@ -4,11 +4,20 @@ import { styleText } from "node:util";
 import { reactRouter } from "@react-router/dev/vite";
 import tailwindcss from "@tailwindcss/vite";
 import alchemy from "alchemy/cloudflare/react-router";
-import { resolveStageFromEnv } from "alchemy-utils/deployment-stage";
 import { visualizer } from "rollup-plugin-visualizer";
 import { defineConfig, type Plugin, type PluginOption, type UserConfig } from "vite";
 import { imagetools } from "vite-imagetools";
 import devtoolsJson from "vite-plugin-devtools-json";
+
+/**
+ * Do **not** import **`alchemy-utils`** (workspace `*.ts`) here — **`react-router typegen`** loads this file with **Node**
+ * in CI, which cannot resolve TypeScript source from sibling packages (**`ERR_UNKNOWN_FILE_EXTENSION`**).
+ * `alchemy-cli` / deploy always sets **`STAGE`**; unset ⇒ treat like **`local`** (no PostHog hidden maps).
+ */
+function isNonLocalStageForPosthogSourcemaps(): boolean {
+	const s = process.env["STAGE"]?.trim().toLowerCase();
+	return s !== undefined && s !== "" && s !== "local";
+}
 
 /** Set when Vite runs inside Portless (see `alchemy.run.ts` `portless run` `dev`). */
 function portlessPublicOrigin(): string | undefined {
@@ -80,7 +89,7 @@ export default defineConfig((configEnv) => {
 			process.env["POSTHOG_CLI_ENV_ID"]?.trim() || process.env["POSTHOG_CLI_PROJECT_ID"]?.trim(),
 		);
 	/** `hidden` for deployed stages only — never emit maps for **`local`** dev. PostHog [Vite doc](https://posthog.com/docs/error-tracking/upload-source-maps/react) uses `sourcemap: true`. */
-	const posthogSourceMaps = posthogCliForSourcemaps && resolveStageFromEnv() !== "local";
+	const posthogSourceMaps = posthogCliForSourcemaps && isNonLocalStageForPosthogSourcemaps();
 
 	return {
 		define: {
