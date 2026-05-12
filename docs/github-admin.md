@@ -117,7 +117,7 @@ bun run github:sync:staging
 - Requires pull requests for Write/Maintain collaborators.
 - Lets Repository admins bypass and push directly.
 - Does not require approving reviews by default.
-- Can require CI checks if you set `github.repository.rulesets.main.requiredStatusCheckContexts`.
+- Can require CI checks if you set `github.repository.rulesets.main.requiredStatusCheckContexts` (defaults include **`Quality checks`** and **`Actions security (zizmor)`** — see **`.github/workflows/zizmor.yml`** job name).
 
 `production`:
 
