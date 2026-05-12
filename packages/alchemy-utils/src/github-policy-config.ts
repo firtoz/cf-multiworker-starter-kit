@@ -171,6 +171,8 @@ function assertRange(label: string, n: number, min: number, max: number): void {
  * satisfy the plain **`Quality checks`** caller-level job from **`.github/workflows/pr-deploy.yml`**;
  * GitHub's PR UI may display it as **`PR preview / Quality checks (pull_request)`**, but the ruleset
  * picker stores the unprefixed **`Quality checks`** context.
+ *
+ * **`Actions security (zizmor)`** must match the job **`name`** in **`.github/workflows/zizmor.yml`**.
  */
 export const DEFAULT_GITHUB_POLICY: GitHubPolicyConfig = {
 	github: {
@@ -225,7 +227,10 @@ export const DEFAULT_GITHUB_POLICY: GitHubPolicyConfig = {
 					includeRefs: ["refs/heads/main"],
 					requirePullRequestBeforeMerge: true,
 					allowRepositoryAdminBypassOnMain: true,
-					requiredStatusCheckContexts: ["Quality checks"],
+					requiredStatusCheckContexts: [
+						"Quality checks",
+						"Actions security (zizmor)",
+					],
 					strictRequiredStatusChecks: true,
 				},
 				production: {
