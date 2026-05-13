@@ -1,0 +1,9 @@
+# https://bun.com/docs/runtime/bunfig
+#
+# Dependency install scripts: root package.json "trustedDependencies".
+# Bun’s installer uses ONLY that allowlist when present (lockfile.trusted_dependencies non-null):
+# hasTrustedDependency never falls through to default_trusted_dependencies in that case — see
+# https://github.com/oven-sh/bun/blob/main/src/install/lockfile.zig (function hasTrustedDependency).
+
+[install]
+minimumReleaseAge = 172800 # seconds (2 days); https://bun.com/docs/cli/install#minimum-release-age

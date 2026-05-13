@@ -105,6 +105,15 @@ These trip up new contributors and agents most often. For commands and checklist
    - Locally that usually means **`.env.staging`** loaded via **`alchemy-cli --stage staging|preview`** (same as **`deploy:preview`** / **`destroy:preview`**). In CI, mirror **`Turbo deploy (preview)`** **`env:`** on **Destroy PR preview** in **[`.github/workflows/pr-deploy.yml`](../../../.github/workflows/pr-deploy.yml)** — otherwise post-merge teardown fails with **`… is not set`** from a worker/DO **`alchemy.run.ts`** (e.g. **`APP_PUBLIC_BASE_URL`**).
    - Alternatives: avoid module-scope **`requireEnv`** for vars only needed at runtime, or use a destroy-safe placeholder where appropriate.
 
+23. **`trustedDependencies` replaces Bun’s default script allowlist**
+   - In Bun’s installer, if the root lockfile has an explicit trusted set (from **`package.json`** **`trustedDependencies`**), **only those package names** may run install lifecycle scripts. The built‑in **[default list](https://github.com/oven-sh/bun/blob/main/src/install/default-trusted-dependencies.txt)** is used **only when `trustedDependencies` is omitted** (`hasTrustedDependency` in **`lockfile.zig`**).
+   - This repo lists **`esbuild`**, **`msgpackr-extract`**, **`sharp`**, and **`workerd`** — the native/downloader-style packages that have needed install hooks here. After adding a dependency that legitimately requires scripts, add its published **`name`** (or run **`bun pm trust <name>`** / **`bun add --trust`** once) and re-run install.
+   - **`[install] ignoreScripts = true`** in **`bunfig.toml`** blocks **all** lifecycle scripts, **including** names in **`trustedDependencies`** — do not combine it with this allowlist approach.
+   - **`[install] optional = false`** is still incompatible at the repo level (Vite / Rolldown, **workerd**, Tailwind oxide, **sharp** platform packs).
+
+24. **Minimum release age (`bunfig.toml`)**
+   - **`[install] minimumReleaseAge = 172800`** (2 days in seconds) limits installs to npm versions published at least that long ago. **[Docs](https://bun.com/docs/cli/install#minimum-release-age)**. Use **`minimumReleaseAgeExcludes`** for packages that must track bleeding-edge. Mostly affects **new** resolution, not rewriting an existing **`bun.lock`**.
+
 ## Also load
 
 - [cf-workers-patterns.mdc](../../rules/cf-workers-patterns.mdc) — short always-on reminder for workers, env, routes.
