@@ -13,7 +13,7 @@
  *
  * Keep a single workspace-hoisted `alchemy` install so `Scope` / `StateStoreType` stays consistent across packages.
  */
-import type { StateStoreType } from "alchemy";
+import type { AlchemyOptions } from "alchemy";
 import { CloudflareStateStore } from "alchemy/state";
 
 /**
@@ -22,13 +22,13 @@ import { CloudflareStateStore } from "alchemy/state";
  *
  * Remote state for all stages except **`local`**.
  */
-export function alchemyCiCloudStateStoreOptions(stage: string): {
-	stateStore?: StateStoreType;
-} {
+export const alchemyCiCloudStateStoreOptions: (
+	stage: string,
+) => Pick<AlchemyOptions, "stateStore"> = (stage) => {
 	if (stage.trim().toLowerCase() === "local") {
 		return {};
 	}
 	return {
 		stateStore: (scope) => new CloudflareStateStore(scope),
 	};
-}
+};

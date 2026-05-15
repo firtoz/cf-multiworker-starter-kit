@@ -16,9 +16,7 @@
 			"!**/*.css",
 			"!**/*.scss",
 			"!**/env.d.ts",
-			"!**/drizzle/*.sql",
-			"!**/drizzle/meta/**",
-			"!**/drizzle/migrations.js"
+			"!**/drizzle/**/*"
 		]
 	},
 	"formatter": {
