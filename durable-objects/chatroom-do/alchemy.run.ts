@@ -1,5 +1,5 @@
 import alchemy from "alchemy";
-import { DurableObjectNamespace, Worker, WorkerRef } from "alchemy/cloudflare";
+import { DurableObjectNamespace, Worker, WorkerRef, WorkerStub } from "alchemy/cloudflare";
 import { requireAlchemyPassword, requireEnv } from "alchemy-utils";
 import { alchemyCiCloudStateStoreOptions } from "alchemy-utils/alchemy-cloud-state-store";
 import { resolveStageFromEnv } from "alchemy-utils/deployment-stage";
@@ -24,6 +24,11 @@ const chatroomInternalSecretRaw = requireEnv(
 const chatroomInternalSecret = alchemy.secret(chatroomInternalSecretRaw);
 
 const PEER_AUTH_SCRIPT_NAME = omitDefaultPhysicalWorkerScriptName(ALCHEMY_APP_IDS.auth, app.stage);
+
+await WorkerStub<AuthWorkerRpc>("auth-worker-service-stub", {
+	name: PEER_AUTH_SCRIPT_NAME,
+	url: false,
+});
 
 export const ChatroomDo = await DurableObjectNamespace<Rpc.DurableObjectBranded>(
 	"chatroom-do-ChatroomDo-class",
