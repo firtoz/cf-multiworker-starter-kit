@@ -7,14 +7,18 @@ import {
 	hasAccountDisplayName,
 } from "@internal/auth-client";
 import { type ChatMessageRow, chatContract } from "@internal/chat-contract";
-import type { FocusEvent, KeyboardEvent as ReactKeyboardEvent } from "react";
+import type { KeyboardEvent as ReactKeyboardEvent } from "react";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { href, Link, useFetcher, useSearchParams } from "react-router";
+import { ChatGuestRetentionNotice } from "~/components/chat/ChatGuestRetentionNotice";
+import { ChatRoomToolbar } from "~/components/chat/ChatRoomToolbar";
 import { chatAuthorNameClassName } from "~/components/chat/chat-display-name-styles";
-import { BackToHomeLink } from "~/components/shared/BackToHomeLink";
-import { buildChatWsUrl, sanitizeChatRoomId } from "~/lib/chat-ws-url";
+import { buildChatWsUrl, isChatRoomIdInputValid, normalizeChatRoomIdInput, sanitizeChatRoomId } from "~/lib/chat-ws-url";
 
 type PresenceLine = { userId: string; displayName: string; isGuest: boolean };
+
+/** Message list keeps at least this height; shorter viewports scroll the page instead. */
+const CHAT_MESSAGE_LIST_MIN_H_CLASS = "min-h-[150px]" as const;
 
 /** Treat as pinned when within a few CSS px of the true bottom (avoids subpixel / rounding drift). */
 const BOTTOM_STICKY_PX = 4;
@@ -84,9 +88,8 @@ export function ChatClient(props: ChatClientProps) {
 
 	if (!wsConnectReady) {
 		return (
-			<div className="max-w-2xl mx-auto w-full h-dvh max-h-dvh min-h-0 flex flex-col gap-4 overflow-hidden px-4 py-4">
-				<BackToHomeLink />
-				<h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Chat</h1>
+			<div className="max-w-2xl mx-auto w-full min-h-full flex flex-col justify-center gap-2 px-4 py-3">
+				<h1 className="text-lg font-bold text-gray-900 dark:text-gray-100 sm:text-2xl">Chat</h1>
 				<p className="text-sm text-gray-600 dark:text-gray-400">Starting session…</p>
 			</div>
 		);
@@ -127,8 +130,6 @@ function ChatClientWithSocket({
 	/** Revert name field on blur/Esc to what it was on last focus. */
 	const nameFieldSnap = useRef(nameDraft);
 
-	const proposedRoom = sanitizeChatRoomId(roomInput);
-	const joinIsRedundant = proposedRoom === committedRoom;
 	const wsUrl = useMemo(() => buildChatWsUrl(committedRoom), [committedRoom]);
 
 	const applyPresence = useCallback(
@@ -169,6 +170,11 @@ function ChatClientWithSocket({
 	);
 
 	const { ready, send } = useSockaSession(chatContract, { url: wsUrl, pushHandlers }, [wsUrl]);
+
+	const proposedRoom = sanitizeChatRoomId(roomInput);
+	const joinIsRedundant = proposedRoom === committedRoom;
+	const roomInputInvalid = roomInput.trim().length > 0 && !isChatRoomIdInputValid(roomInput);
+	const canSwitchRoom = ready && !joinIsRedundant && !roomInputInvalid;
 
 	const updateStuckToBottom = useCallback(() => {
 		const el = messageListRef.current;
@@ -234,12 +240,12 @@ function ChatClientWithSocket({
 
 	const applyDisplayName = useCallback(() => {
 		const t = nameDraft.trim();
-		if (!t || !ready || usesAccountName) {
+		if (!t || !ready) {
 			return;
 		}
 		pendingSockaDisplayName.current = t;
 		saveNameFetcher.submit({ intent: "saveDisplayName", displayName: t }, { method: "post" });
-	}, [nameDraft, ready, saveNameFetcher, usesAccountName]);
+	}, [nameDraft, ready, saveNameFetcher]);
 
 	useEffect(() => {
 		if (saveNameFetcher.state !== "idle") {
@@ -262,35 +268,13 @@ function ChatClientWithSocket({
 		});
 	}, [saveNameFetcher.state, saveNameFetcher.data, send]);
 
-	/** Revert only when focus is not moving to another control. */
-	const onNameBlur = useCallback((e: FocusEvent<HTMLInputElement>) => {
-		if (e.relatedTarget != null) {
-			return;
-		}
+	const revertDisplayName = useCallback(() => {
 		setNameDraft(nameFieldSnap.current);
 	}, []);
 
-	const onNameKeyDown = (e: ReactKeyboardEvent<HTMLInputElement>) => {
-		if (e.key === "Escape" && !e.nativeEvent.isComposing) {
-			e.preventDefault();
-			setNameDraft(nameFieldSnap.current);
-			return;
-		}
-		if (e.key === "Enter" && !e.nativeEvent.isComposing) {
-			e.preventDefault();
-			void applyDisplayName();
-		}
-	};
-
-	const onRoomBlur = useCallback(
-		(e: FocusEvent<HTMLInputElement>) => {
-			if (e.relatedTarget != null) {
-				return;
-			}
-			setRoomInput(committedRoom);
-		},
-		[committedRoom],
-	);
+	const onRoomChange = useCallback((value: string) => {
+		setRoomInput(normalizeChatRoomIdInput(value));
+	}, []);
 
 	const onRoomKeyDown = (e: ReactKeyboardEvent<HTMLInputElement>) => {
 		if (e.key === "Escape" && !e.nativeEvent.isComposing) {
@@ -312,19 +296,32 @@ function ChatClientWithSocket({
 		setCommittedRoom(fromUrl);
 	}, [searchParams]);
 
+	const sessionExpiryLabel = formatSessionExpiry(sessionExpiresAt);
+	const presenceSummary =
+		presence.length > 0 ? presence.map((u) => u.displayName).join(", ") : null;
+
 	return (
-		<div className="max-w-2xl mx-auto w-full h-dvh max-h-dvh min-h-0 flex flex-col gap-4 overflow-hidden px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
-			<header className="shrink-0 space-y-4">
-				<BackToHomeLink />
-				<h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Chat</h1>
-				<p className="text-sm text-gray-600 dark:text-gray-400">
+		<div className="max-w-2xl mx-auto w-full min-h-full flex flex-col gap-2 px-4 py-2 sm:gap-3 sm:py-3 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
+			<header className="shrink-0 space-y-2">
+				<div className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5">
+					<h1 className="text-lg font-bold text-gray-900 dark:text-gray-100 sm:text-2xl">Chat</h1>
+					<p className="text-xs text-gray-500 min-w-0 text-right">
+						{ready ? "Connected" : "Connecting…"} ·{" "}
+						<span className="font-mono">{committedRoom}</span>
+						{presenceSummary ? (
+							<>
+								<span className="hidden sm:inline"> · Online: </span>
+								<span className="sm:hidden"> · </span>
+								<span className="text-gray-600 dark:text-gray-400">{presenceSummary}</span>
+							</>
+						) : null}
+					</p>
+				</div>
+				<p className="hidden md:block text-sm text-gray-600 dark:text-gray-400">
 					Group chat with one conversation per room. The default is{" "}
 					<code className="font-mono">lobby</code>.{" "}
 					{usesAccountName ? (
-						<>
-							Your name comes from your account. Guest names appear faded; signed-in members are
-							shown in full weight.
-						</>
+						<>Click your display name in the toolbar to change it.</>
 					) : (
 						<>
 							Guest names appear faded;{" "}
@@ -339,18 +336,13 @@ function ChatClientWithSocket({
 					)}
 				</p>
 				{isAnonymousGuest ? (
-					<p className="text-sm text-sky-900 dark:text-sky-100 bg-sky-50 dark:bg-sky-950/40 border border-sky-200 dark:border-sky-800 rounded-lg px-3 py-2">
-						Your guest name and history on this device last{" "}
-						<strong>{guestRetentionDays} days</strong> from your last visit. Come back before{" "}
-						<strong>{formatSessionExpiry(sessionExpiresAt)}</strong> to keep them, or{" "}
-						<Link className="underline font-medium" to={href("/guest/upgrade")}>
-							create an account
-						</Link>{" "}
-						to keep them permanently.
-					</p>
+					<ChatGuestRetentionNotice
+						guestRetentionDays={guestRetentionDays}
+						sessionExpiresAt={sessionExpiryLabel}
+					/>
 				) : null}
 				{!isAnonymousGuest && !usesAccountName ? (
-					<p className="text-sm text-amber-800 dark:text-amber-200 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-lg px-3 py-2">
+					<p className="hidden sm:block text-sm text-amber-800 dark:text-amber-200 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-lg px-3 py-2">
 						Set a display name below or on{" "}
 						<Link className="underline font-medium" to={href("/account")}>
 							your account
@@ -361,69 +353,35 @@ function ChatClientWithSocket({
 				{saveNameError ? (
 					<p className="text-sm text-red-700 dark:text-red-300">{saveNameError}</p>
 				) : null}
-				<div className="flex flex-col sm:flex-row gap-2 sm:items-end">
-					<div className="flex-1 flex flex-col gap-1 text-sm min-w-0">
-						<span className="text-gray-700 dark:text-gray-300">Display name</span>
-						<div className="flex gap-2">
-							<input
-								className="flex-1 min-w-0 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-900 disabled:opacity-70"
-								value={nameDraft}
-								readOnly={usesAccountName}
-								disabled={usesAccountName}
-								onChange={(e) => setNameDraft(e.target.value)}
-								onFocus={(e) => {
-									nameFieldSnap.current = e.currentTarget.value;
-								}}
-								onBlur={onNameBlur}
-								onKeyDown={onNameKeyDown}
-							/>
-							<button
-								id="chat-save-name"
-								type="button"
-								disabled={!ready || usesAccountName}
-								className="shrink-0 border border-gray-300 dark:border-gray-600 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-800 dark:text-gray-100 font-medium px-3 py-2 rounded-lg disabled:opacity-50"
-								onClick={() => {
-									void applyDisplayName();
-								}}
-							>
-								Save name
-							</button>
-						</div>
-					</div>
-					<label className="flex-1 flex flex-col gap-1 text-sm">
-						<span className="text-gray-700 dark:text-gray-300">Room</span>
-						<input
-							className="border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-900 font-mono"
-							value={roomInput}
-							onChange={(e) => setRoomInput(e.target.value)}
-							onBlur={onRoomBlur}
-							onKeyDown={onRoomKeyDown}
-							placeholder="lobby"
-							autoComplete="off"
-						/>
-					</label>
-					<button
-						id="chat-join"
-						type="button"
-						className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed disabled:hover:bg-gray-400 text-white font-medium px-4 py-2 rounded-lg"
-						onClick={() => {
-							void applyJoin(roomInput);
-						}}
-						disabled={!ready || joinIsRedundant}
-						title={
-							joinIsRedundant ? "Already in this room — change the room name to switch" : undefined
-						}
-					>
-						Join
-					</button>
-				</div>
-				<p className="text-xs text-gray-500">
-					{ready ? "Connected" : "Connecting…"} · Room:{" "}
-					<span className="font-mono">{committedRoom}</span>
-				</p>
 			</header>
 
-			<div className="flex-1 min-h-0 flex flex-col">
+			<div className="sticky top-0 z-10 shrink-0 -mx-4 border-b border-gray-200 bg-white/95 px-4 py-2 backdrop-blur-sm dark:border-gray-800 dark:bg-gray-950/95">
+				<ChatRoomToolbar
+					nameDraft={nameDraft}
+					isGuest={isAnonymousGuest}
+					ready={ready}
+					roomInput={roomInput}
+					committedRoom={committedRoom}
+					canSwitchRoom={canSwitchRoom}
+					roomInputInvalid={roomInputInvalid}
+					joinIsRedundant={joinIsRedundant}
+					onNameChange={setNameDraft}
+					onSaveName={() => {
+						void applyDisplayName();
+					}}
+					onRevertName={revertDisplayName}
+					onBeginEditName={() => {
+						nameFieldSnap.current = nameDraft;
+					}}
+					onRoomChange={onRoomChange}
+					onRoomKeyDown={onRoomKeyDown}
+					onJoin={() => {
+						void applyJoin(roomInput);
+					}}
+				/>
+			</div>
+
+			<div className={`flex-1 flex flex-col ${CHAT_MESSAGE_LIST_MIN_H_CLASS}`}>
 				<ul
 					ref={messageListRef}
 					className="flex min-h-0 flex-1 flex-col list-none gap-2 overflow-y-auto overscroll-contain border border-gray-200 dark:border-gray-700 rounded-lg p-3 bg-gray-50 dark:bg-gray-900/50"
@@ -442,18 +400,7 @@ function ChatClientWithSocket({
 				</ul>
 			</div>
 
-			<footer className="shrink-0 space-y-3 border-t border-gray-200 dark:border-gray-700 pt-3">
-				{presence.length > 0 && (
-					<p className="text-xs text-gray-500">
-						Online:{" "}
-						{presence.map((u, i) => (
-							<span key={u.userId}>
-								{i > 0 ? ", " : null}
-								<span className={chatAuthorNameClassName(u.isGuest)}>{u.displayName}</span>
-							</span>
-						))}
-					</p>
-				)}
+			<footer className="shrink-0 border-t border-gray-200 dark:border-gray-700 pt-2">
 				<form
 					className="flex gap-2"
 					onSubmit={(e) => {
@@ -469,14 +416,14 @@ function ChatClientWithSocket({
 				>
 					<input
 						name="text"
-						className="flex-1 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-900"
+						className="flex-1 border border-gray-300 dark:border-gray-600 rounded-lg px-2.5 sm:px-3 py-1.5 sm:py-2 bg-white dark:bg-gray-900 text-sm"
 						placeholder="Message…"
 						autoComplete="off"
 					/>
 					<button
 						type="submit"
 						disabled={!ready}
-						className="bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white px-4 py-2 rounded-lg"
+						className="shrink-0 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg text-sm"
 					>
 						Send
 					</button>

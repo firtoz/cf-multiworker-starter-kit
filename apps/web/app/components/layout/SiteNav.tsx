@@ -8,7 +8,7 @@ type SiteNavProps = {
 
 export function SiteNav({ user }: SiteNavProps) {
 	return (
-		<nav className="container mx-auto px-4 sm:px-6 py-3 flex flex-wrap items-center gap-4 text-sm border-b border-gray-200 dark:border-gray-800">
+		<nav className="container mx-auto shrink-0 px-4 sm:px-6 py-3 flex flex-wrap items-center gap-4 text-sm border-b border-gray-200 dark:border-gray-800">
 			<Link to={href("/")} className="font-semibold">
 				Home
 			</Link>

@@ -150,11 +150,11 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
 export default function App({ loaderData }: Route.ComponentProps) {
 	const shell = (user: AuthUser | null, outlet: React.ReactNode) => (
-		<>
+		<div className="flex h-dvh max-h-dvh flex-col overflow-hidden">
 			{user ? <LastLoginMethodSync /> : null}
 			<SiteNav user={user} />
-			{outlet}
-		</>
+			<main className="min-h-0 flex-1 overflow-auto">{outlet}</main>
+		</div>
 	);
 
 	if (!loaderData.success) {

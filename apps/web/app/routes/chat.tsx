@@ -101,8 +101,7 @@ export default function ChatRoute({ loaderData, actionData }: Route.ComponentPro
 	return (
 		<ClientOnly
 			fallback={
-				<div className="max-w-2xl mx-auto w-full h-dvh max-h-dvh min-h-0 flex flex-col overflow-hidden gap-3 px-4 py-4">
-					<BackToHomeLink />
+				<div className="max-w-2xl mx-auto w-full min-h-full flex flex-col justify-center gap-2 px-4 py-3">
 					<div className="flex min-h-0 flex-1 items-center justify-center text-gray-600 dark:text-gray-400 text-sm">
 						Loading chat…
 					</div>

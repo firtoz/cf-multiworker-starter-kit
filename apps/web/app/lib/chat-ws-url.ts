@@ -8,8 +8,13 @@ export function buildChatWsUrl(room: string): string {
 	return u.toString();
 }
 
+/** Spaces become dashes so typed names like "my room" work as room ids. */
+export function normalizeChatRoomIdInput(raw: string): string {
+	return raw.replace(/\s+/g, "-");
+}
+
 export function sanitizeChatRoomId(raw: string): string {
-	const t = raw.trim().toLowerCase().slice(0, 64);
+	const t = normalizeChatRoomIdInput(raw).trim().toLowerCase().slice(0, 64);
 	if (t.length === 0) {
 		return "lobby";
 	}
@@ -17,4 +22,13 @@ export function sanitizeChatRoomId(raw: string): string {
 		return "lobby";
 	}
 	return t;
+}
+
+/** False when non-empty input contains characters that will not be used (only a-z, 0-9, _, -). */
+export function isChatRoomIdInputValid(raw: string): boolean {
+	const t = normalizeChatRoomIdInput(raw).trim().toLowerCase();
+	if (t.length === 0) {
+		return true;
+	}
+	return t.length <= 64 && /^[a-z0-9_-]+$/.test(t);
 }
