@@ -59,6 +59,8 @@ export type AuthProviders = {
 	google: boolean;
 	github: boolean;
 	email: boolean;
+	/** Local Portless: OAuth redirect uses loopback via Better Auth `oAuthProxy`. */
+	googleLoopbackOAuthProxy?: boolean;
 };
 
 export async function getAuthProviders(auth: Fetcher): Promise<AuthProviders> {

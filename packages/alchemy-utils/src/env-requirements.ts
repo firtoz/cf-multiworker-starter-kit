@@ -44,7 +44,7 @@ export const ENV_SETUP_CATEGORY_NAV = [
 		id: "local-dev",
 		label: "Local dev HTTPS (Portless)",
 		description:
-			"`bun run dev` settings: HTTPS `*.localhost` via `portless` (default on). See CONTRIBUTING.",
+			"`bun run dev` HTTPS via Portless (default). Set LOCAL_PORTLESS=off for local Google OAuth — docs/oauth-setup.md.",
 	},
 	{
 		id: "core-secrets",

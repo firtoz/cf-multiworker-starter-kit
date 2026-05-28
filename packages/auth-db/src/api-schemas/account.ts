@@ -36,6 +36,7 @@ export const accountSummarySchema = z.object({
 		google: z.boolean(),
 		github: z.boolean(),
 		email: z.boolean(),
+		googleLoopbackOAuthProxy: z.boolean().optional(),
 	}),
 });
 

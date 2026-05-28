@@ -122,6 +122,7 @@ export async function linkSocialProvider(
 	const result = await postAuthJson("/api/auth/link-social", {
 		provider,
 		callbackURL,
+		errorCallbackURL: callbackURL,
 	});
 	return result;
 }

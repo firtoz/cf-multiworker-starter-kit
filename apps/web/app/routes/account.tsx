@@ -14,6 +14,8 @@ import { AccountEmailsSection } from "~/components/account/AccountEmailsSection"
 import { AccountPasswordForm } from "~/components/account/AccountPasswordForm";
 import { AccountSignInMethods } from "~/components/account/AccountSignInMethods";
 import { BackToHomeLink } from "~/components/shared/BackToHomeLink";
+import { accountLinkErrorFromRequestUrl } from "~/lib/auth-link-error";
+import { googleOAuthPortlessWarningForWebEnv } from "~/lib/google-oauth-portless-warning";
 import type { Route } from "./+types/account";
 
 export const route: RoutePath<"/account"> = "/account";
@@ -33,12 +35,16 @@ export function meta(_args: Route.MetaArgs) {
 	return [{ title: "Account" }, { name: "description", content: "Your account" }];
 }
 
-export async function loader({
-	request,
-}: Route.LoaderArgs): Promise<MaybeError<{ summary: AccountSummary; accountCallbackUrl: string }>> {
+export async function loader({ request }: Route.LoaderArgs): Promise<
+	MaybeError<{
+		summary: AccountSummary;
+		accountPath: string;
+		googlePortlessWarning?: string;
+		linkErrorMessage?: string;
+	}>
+> {
 	const auth = createAuthClient(env.AUTH, request);
 	const accountPath = href("/account");
-	const accountCallbackUrl = new URL(accountPath, request.url).href;
 	const session = await auth.session.get();
 	if (!session) {
 		throw redirect(`${href("/login")}?redirectTo=${encodeURIComponent(href("/account"))}`);
@@ -52,7 +58,18 @@ export async function loader({
 		return fail(summaryResult.error);
 	}
 
-	return success({ summary: summaryResult.result, accountCallbackUrl });
+	const googlePortlessWarning =
+		summaryResult.result.providers.google &&
+		!summaryResult.result.providers.googleLoopbackOAuthProxy
+			? googleOAuthPortlessWarningForWebEnv(env, true)
+			: undefined;
+	const linkErrorMessage = accountLinkErrorFromRequestUrl(request.url);
+	return success({
+		summary: summaryResult.result,
+		accountPath,
+		...(googlePortlessWarning ? { googlePortlessWarning } : {}),
+		...(linkErrorMessage ? { linkErrorMessage } : {}),
+	});
 }
 
 export async function action({
@@ -163,9 +180,11 @@ export default function AccountRoute({ loaderData, actionData }: Route.Component
 			: loaderData.success
 				? loaderData.result.summary
 				: null;
-	const accountCallbackUrl = loaderData.success
-		? loaderData.result.accountCallbackUrl
-		: href("/account");
+	const accountPath = loaderData.success ? loaderData.result.accountPath : href("/account");
+	const googlePortlessWarning = loaderData.success
+		? loaderData.result.googlePortlessWarning
+		: undefined;
+	const linkErrorMessage = loaderData.success ? loaderData.result.linkErrorMessage : undefined;
 
 	if (!summary) {
 		return (
@@ -189,7 +208,12 @@ export default function AccountRoute({ loaderData, actionData }: Route.Component
 				<dd>{summary.user.role}</dd>
 			</dl>
 			<AccountDisplayNameForm initialName={displayName ?? ""} />
-			<AccountSignInMethods summary={summary} callbackURL={accountCallbackUrl} />
+			<AccountSignInMethods
+				summary={summary}
+				accountPath={accountPath}
+				{...(googlePortlessWarning ? { googlePortlessWarning } : {})}
+				{...(linkErrorMessage ? { linkErrorMessage } : {})}
+			/>
 			<AccountEmailsSection summary={summary} />
 			<AccountPasswordForm hasPassword={summary.hasPassword} />
 		</div>

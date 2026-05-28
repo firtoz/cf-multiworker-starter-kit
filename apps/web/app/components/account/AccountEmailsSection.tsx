@@ -27,9 +27,9 @@ export function AccountEmailsSection({ summary }: AccountEmailsSectionProps) {
 		<section className="mt-6 flex flex-col gap-3 border-t border-gray-200 dark:border-gray-700 pt-6">
 			<h2 className="text-lg font-semibold">Email addresses</h2>
 			<p className="text-sm text-gray-600 dark:text-gray-400">
-				Addresses we know from how you sign in (GitHub, Google, or email/password). Connect another
-				provider above to add a different email. You can choose which one we&apos;d use for
-				notifications later; email/password sign-in uses the one marked &quot;Sign-in email&quot;.
+				Addresses we know from how you sign in. Connect another provider above to add a different
+				email. You can choose which one we&apos;d use for notifications later; email/password
+				sign-in uses the one marked &quot;Sign-in email&quot;.
 			</p>
 			{summary.emails.length === 0 ? (
 				<p className="text-sm text-gray-500">No emails recorded yet.</p>

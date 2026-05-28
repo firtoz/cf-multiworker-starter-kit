@@ -11,7 +11,12 @@ import {
 import { resolveStageFromEnv } from "alchemy-utils/deployment-stage";
 import { readProcessEnvTrimmed } from "alchemy-utils/env-requirements";
 import {
+	localGoogleOAuthLoopbackOrigin,
+	shouldEnableLocalGoogleOAuthProxy,
+} from "alchemy-utils/local-google-oauth-dev";
+import {
 	defaultLocalAuthBaseUrl,
+	isPortlessLocalDevEnabled,
 	LOCAL_AUTH_DEV_PORT,
 	LOCAL_WEB_DEV_PORT,
 } from "alchemy-utils/local-portless-dev";
@@ -50,6 +55,10 @@ const localViteOrigin =
 			})()
 		: undefined;
 
+const authOAuthProxyProductionUrl = shouldEnableLocalGoogleOAuthProxy(process.env, stage)
+	? localGoogleOAuthLoopbackOrigin(process.env)
+	: "";
+
 const authSeedOrigins = [
 	...commaSeparatedEnvSegments(process.env["AUTH_SEED_ORIGINS"]),
 	authBaseUrl,
@@ -83,8 +92,18 @@ export const authWorker = await Worker(DEFAULT_WORKER_RESOURCE_ID, {
 		GOOGLE_CLIENT_SECRET: readProcessEnvTrimmed("GOOGLE_CLIENT_SECRET"),
 		GITHUB_CLIENT_ID: readProcessEnvTrimmed("GITHUB_CLIENT_ID"),
 		GITHUB_CLIENT_SECRET: readProcessEnvTrimmed("GITHUB_CLIENT_SECRET"),
+		AUTH_OAUTH_PROXY_PRODUCTION_URL: authOAuthProxyProductionUrl,
 	},
 });
+
+if (stage === "local" && isPortlessLocalDevEnabled(stage) && authOAuthProxyProductionUrl) {
+	console.log({
+		worker: "auth-worker",
+		oauthProxy: "Google OAuth uses loopback redirect URI (GitHub keeps Portless callback)",
+		oauthProxyProductionURL: authOAuthProxyProductionUrl,
+		registerInGoogleConsole: `${authOAuthProxyProductionUrl}/api/auth/callback/google`,
+	});
+}
 
 console.log({
 	worker: "auth-worker",

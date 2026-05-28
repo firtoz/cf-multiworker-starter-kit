@@ -1,6 +1,8 @@
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { styleText } from "node:util";
 import { mergeCloudflareAlchemyAccountEnvInto } from "alchemy-utils/cloudflare-account-env";
+import { isLocalGoogleOAuthPortlessConflict } from "alchemy-utils/local-google-oauth-dev";
 import { parse as parseDotenv } from "dotenv";
 import {
 	missingLocalDevConfigurationKeys,
@@ -24,7 +26,19 @@ export function loadLocalDevEnv(repoRoot: string): Record<string, string | undef
 }
 
 export function runLocalDevEnvPreflight(repoRoot: string): void {
-	const missing = missingLocalDevConfigurationKeys(loadLocalDevEnv(repoRoot));
+	const env = loadLocalDevEnv(repoRoot);
+	const missing = missingLocalDevConfigurationKeys(env);
+	if (isLocalGoogleOAuthPortlessConflict(env, "local")) {
+		console.warn("");
+		console.warn(
+			styleText(
+				"red",
+				"[dev:preflight] Google OAuth + Portless: loopback OAuth proxy is not active — Google sign-in may fail.",
+			),
+		);
+		console.warn("  See docs/oauth-setup.md (Portless + Google).");
+		console.warn("");
+	}
 	if (missing.length === 0) {
 		return;
 	}

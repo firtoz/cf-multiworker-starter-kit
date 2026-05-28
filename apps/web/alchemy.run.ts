@@ -12,7 +12,9 @@ import { isPrStage, resolveStageFromEnv } from "alchemy-utils/deployment-stage";
 import { readProcessEnvTrimmed } from "alchemy-utils/env-requirements";
 import {
 	isPortlessLocalDevEnabled,
+	localWebPortlessHostname,
 	localWebPortlessRouteName,
+	portlessRunShellEnvPrefix,
 } from "alchemy-utils/local-portless-dev";
 import { pickListenPort } from "alchemy-utils/pick-listen-port";
 import {
@@ -75,7 +77,7 @@ const localDevListenPort = portlessEnabled
 
 /** `portless run` then `react-router dev` (Turbo `dev` already runs `typegen:local` where configured). */
 const portlessWrappedLocalDev = portlessEnabled
-	? `portless run --name ${localWebPortlessName} --app-port ${localDevListenPort} bunx react-router dev --port ${localDevListenPort}`
+	? `${portlessRunShellEnvPrefix(process.env)}portless run --name ${localWebPortlessName} --app-port ${localDevListenPort} bunx react-router dev --port ${localDevListenPort}`
 	: undefined;
 
 /** Turbo **`deploy:*`** depends on **`typegen`** (see **`turbo.json`**) — this is **`react-router build`** only. */
@@ -113,6 +115,7 @@ export const web = await ReactRouter(DEFAULT_REACT_ROUTER_WEB_RESOURCE_ID, {
 		PING: pingWorker,
 		OTHER: otherWorker,
 		STAGE: stage,
+		LOCAL_PORTLESS: readProcessEnvTrimmed("LOCAL_PORTLESS"),
 		POSTHOG_KEY: readProcessEnvTrimmed("POSTHOG_KEY"),
 		POSTHOG_HOST: readProcessEnvTrimmed("POSTHOG_HOST"),
 		POSTHOG_SITE: readProcessEnvTrimmed("POSTHOG_SITE"),
@@ -135,7 +138,7 @@ const portlessRaw = process.env["PORTLESS_URL"]?.trim();
  */
 const portlessDerivedPublicBase =
 	stage === "local" && portlessWrappedLocalDev
-		? `https://${localWebPortlessName}.localhost`
+		? `https://${localWebPortlessHostname(process.env)}`
 		: undefined;
 const portlessDevPublicUrl = (() => {
 	if (stage !== "local") {

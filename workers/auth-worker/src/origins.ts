@@ -21,18 +21,31 @@ export async function getTrustedOrigins(kv: KVNamespace): Promise<string[]> {
 	return parsed;
 }
 
+function normalizeOriginSeeds(seeds: readonly string[]): string[] {
+	return [...new Set(seeds.map((s) => s.trim()).filter((s) => s.length > 0))];
+}
+
 /** When KV is empty, write `seeds` once (deploy / local dev bootstrap). */
 export async function ensureTrustedOriginsSeeded(
 	kv: KVNamespace,
 	seeds: readonly string[],
 ): Promise<string[]> {
+	const normalized = normalizeOriginSeeds(seeds);
 	const current = await getTrustedOrigins(kv);
-	if (current.length > 0 || seeds.length === 0) {
+	if (normalized.length === 0) {
 		return current;
 	}
-	const unique = [...new Set(seeds.map((s) => s.trim()).filter((s) => s.length > 0))];
-	await setTrustedOrigins(kv, unique);
-	return unique;
+	if (current.length === 0) {
+		await setTrustedOrigins(kv, normalized);
+		return normalized;
+	}
+	const missing = normalized.filter((origin) => !current.includes(origin));
+	if (missing.length === 0) {
+		return current;
+	}
+	const merged = [...current, ...missing];
+	await setTrustedOrigins(kv, merged);
+	return merged;
 }
 
 export async function setTrustedOrigins(kv: KVNamespace, origins: string[]): Promise<void> {

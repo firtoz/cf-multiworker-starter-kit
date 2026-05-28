@@ -4,8 +4,9 @@ import * as authSchema from "@internal/auth-db/schema";
 import { PRODUCT_PREFIX } from "alchemy-utils/worker-peer-scripts";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
-import { anonymous } from "better-auth/plugins";
+import { anonymous, oAuthProxy } from "better-auth/plugins";
 import { generateAnonymousGuestName } from "./guest-display-name";
+import { configureLocalGoogleOAuthProxy } from "./local-oauth-proxy-patch";
 
 const GUEST_SESSION_SECONDS = 60 * 60 * 24 * 7;
 
@@ -19,6 +20,8 @@ export type AuthWorkerEnv = {
 	GITHUB_CLIENT_ID: string;
 	GITHUB_CLIENT_SECRET: string;
 	AUTH_SEED_ORIGINS: string;
+	/** When set (local Portless + Google), Better Auth `oAuthProxy` uses this as the OAuth redirect host. */
+	AUTH_OAUTH_PROXY_PRODUCTION_URL?: string;
 };
 
 function bootstrapAdminEmails(raw: string): Set<string> {
@@ -77,6 +80,22 @@ export function createAuth(env: AuthWorkerEnv, trustedOrigins: string[]) {
 					// Chat history lives in per-room DO SQLite; linking keeps the new account only.
 				},
 			}),
+			...(env.AUTH_OAUTH_PROXY_PRODUCTION_URL?.trim()
+				? [
+						(() => {
+							const productionURL = env.AUTH_OAUTH_PROXY_PRODUCTION_URL.trim();
+							const plugin = oAuthProxy({
+								productionURL,
+								currentURL: env.AUTH_BASE_URL,
+							});
+							configureLocalGoogleOAuthProxy(plugin, {
+								productionURL,
+								browserBaseUrl: env.AUTH_BASE_URL,
+							});
+							return plugin;
+						})(),
+					]
+				: []),
 		],
 		user: {
 			additionalFields: {

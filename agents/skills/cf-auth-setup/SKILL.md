@@ -22,7 +22,7 @@ Use when configuring authentication for a fork of this starter kit: env secrets,
    - **`WEB_DOMAINS`** (optional) — when auth is proxied on the web worker (`/api/auth/*`), first hostname becomes the auth public URL
    - **Local dev** defaults to the web Portless URL (`https://<PRODUCT_PREFIX>-web.localhost`)
    - **workers.dev-only** staging/prod — Alchemy infers the web worker URL from Cloudflare API (no extra env)
-   - Optional: `GOOGLE_*`, `GITHUB_*` OAuth credentials — step-by-step: [`docs/oauth-setup.md`](../../docs/oauth-setup.md)
+   - Optional: `GOOGLE_*`, `GITHUB_*` — [`docs/oauth-setup.md`](../../docs/oauth-setup.md). **Local Portless + Google:** register `http://127.0.0.1:5173/api/auth/callback/google`; Better Auth `oAuthProxy` keeps browsing on `https://<prefix>-web.localhost`.
 3. Run **`bun run setup:local`** (or staging/prod) so secrets flow into dotfiles and GitHub sync.
 4. **OAuth consoles** — register callback URLs (see [`docs/oauth-setup.md`](../../docs/oauth-setup.md)):
    - `https://<auth-host>/api/auth/callback/google`

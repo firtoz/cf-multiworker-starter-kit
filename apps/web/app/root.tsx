@@ -16,11 +16,11 @@ import {
 	Scripts,
 	ScrollRestoration,
 } from "react-router";
+import { LastLoginMethodSync } from "~/components/auth/LastLoginMethodSync";
 import {
 	PostHogAnalyticsProvider,
 	type PostHogLoaderAnalytics,
 } from "~/components/client/PostHogAnalytics";
-import { LastLoginMethodSync } from "~/components/auth/LastLoginMethodSync";
 import { SiteNav } from "~/components/layout/SiteNav";
 import { getPostHogClientConfig, getPostHogRuntimeTags } from "~/lib/analytics-config.server";
 

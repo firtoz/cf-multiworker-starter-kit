@@ -52,7 +52,8 @@ export const AUTH_WORKER_ENV_REQUIREMENTS: readonly EnvRequirement[] = [
 		optionalSetupModes: ["local", "staging", "prod"],
 		githubSync: "optional",
 		title: "Google OAuth client ID",
-		description: "OAuth 2.0 client ID from Google Cloud Console",
+		description:
+			"OAuth 2.0 client ID · local Portless: register http://127.0.0.1:5173/api/auth/callback/google (see docs/oauth-setup.md)",
 		plaintextInSetup: true,
 	},
 	{
@@ -63,7 +64,8 @@ export const AUTH_WORKER_ENV_REQUIREMENTS: readonly EnvRequirement[] = [
 		optionalSetupModes: ["local", "staging", "prod"],
 		githubSync: "optional",
 		title: "Google OAuth client secret",
-		description: "OAuth 2.0 client secret from Google Cloud Console",
+		description:
+			"OAuth 2.0 client secret · local Portless: loopback callback in Google console (docs/oauth-setup.md)",
 		canAutoGenerate: false,
 	},
 	{

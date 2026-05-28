@@ -6,6 +6,7 @@ import { href, redirect } from "react-router";
 import { LoginPanel } from "~/components/auth/LoginPanel";
 import { ClientOnly } from "~/components/client/ClientOnly";
 import { BackToHomeLink } from "~/components/shared/BackToHomeLink";
+import { googleOAuthPortlessWarningForWebEnv } from "~/lib/google-oauth-portless-warning";
 import type { Route } from "./+types/login";
 
 export const route: RoutePath<"/login"> = "/login";
@@ -16,7 +17,9 @@ export function meta(_args: Route.MetaArgs) {
 
 export async function loader({
 	request,
-}: Route.LoaderArgs): Promise<MaybeError<{ redirectTo: string; providers: AuthProviders }>> {
+}: Route.LoaderArgs): Promise<
+	MaybeError<{ redirectTo: string; providers: AuthProviders; googlePortlessWarning?: string }>
+> {
 	const session = await getSession(env.AUTH, request);
 	const url = new URL(request.url);
 	const redirectTo = url.searchParams.get("redirectTo")?.trim() || href("/");
@@ -24,7 +27,15 @@ export async function loader({
 		throw redirect(redirectTo);
 	}
 	const providers = await getAuthProviders(env.AUTH);
-	return success({ redirectTo, providers });
+	const googlePortlessWarning =
+		providers.google && !providers.googleLoopbackOAuthProxy
+			? googleOAuthPortlessWarningForWebEnv(env, true)
+			: undefined;
+	return success({
+		redirectTo,
+		providers,
+		...(googlePortlessWarning ? { googlePortlessWarning } : {}),
+	});
 }
 
 export default function LoginRoute({ loaderData }: Route.ComponentProps) {
@@ -43,6 +54,9 @@ export default function LoginRoute({ loaderData }: Route.ComponentProps) {
 				<LoginPanel
 					redirectTo={loaderData.result.redirectTo}
 					providers={loaderData.result.providers}
+					{...(loaderData.result.googlePortlessWarning
+						? { googlePortlessWarning: loaderData.result.googlePortlessWarning }
+						: {})}
 				/>
 			</ClientOnly>
 		</div>

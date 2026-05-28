@@ -68,7 +68,7 @@ const localDevRequirements: readonly EnvRequirement[] = [
 		githubSync: "never",
 		title: "Wrap local dev with Portless (HTTPS `*.localhost`)",
 		description:
-			"`on` or omit (default): `alchemy dev` runs Vite behind `portless run` (`--name` = `PRODUCT_PREFIX` + SSR `web` in `alchemy.run.ts`, e.g. `starter-web`). `off`: plain `http://localhost:<port>` only.",
+			"`on` or omit (default): Portless HTTPS `*.localhost` (Google OAuth uses loopback proxy). `off`: plain `http://127.0.0.1:<port>`. See docs/oauth-setup.md.",
 		plaintextInSetup: true,
 	},
 ];

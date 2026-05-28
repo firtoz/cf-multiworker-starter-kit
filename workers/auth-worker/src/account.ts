@@ -79,6 +79,64 @@ export function registerAccountRoutes(
 		const emailRowsForLookup = emailRows.map((r) => ({ email: r.email, source: r.source }));
 
 		const env = c.env;
+		const providers = {
+			google: Boolean(env.GOOGLE_CLIENT_ID?.trim() && env.GOOGLE_CLIENT_SECRET?.trim()),
+			github: Boolean(env.GITHUB_CLIENT_ID?.trim() && env.GITHUB_CLIENT_SECRET?.trim()),
+			email: true,
+			googleLoopbackOAuthProxy: Boolean(env.AUTH_OAUTH_PROXY_PRODUCTION_URL?.trim()),
+		};
+
+		const signInMethods = [
+			{
+				provider: "email" as const,
+				linked: emailLinked,
+				email: emailLinked ? signInEmail : null,
+			},
+			...(providers.google
+				? [
+						{
+							provider: "google" as const,
+							linked: googleLinked,
+							accountId: googleAccount?.accountId,
+							email: googleLinked
+								? oauthProviderEmail("google", googleAccount, emailRowsForLookup)
+								: null,
+						},
+					]
+				: []),
+			...(providers.github
+				? [
+						{
+							provider: "github" as const,
+							linked: githubLinked,
+							accountId: githubAccount?.accountId,
+							email: githubLinked
+								? oauthProviderEmail("github", githubAccount, emailRowsForLookup)
+								: null,
+						},
+					]
+				: []),
+		];
+
+		const emails = emailRows
+			.filter((row) => {
+				if (row.source === "google" && !providers.google) {
+					return false;
+				}
+				if (row.source === "github" && !providers.github) {
+					return false;
+				}
+				return true;
+			})
+			.map((row) => ({
+				id: row.id,
+				email: row.email,
+				source: row.source,
+				verified: row.verified,
+				isNotificationPreferred: row.isNotificationPreferred,
+				isSignInEmail: row.email.toLowerCase() === signInEmail,
+			}));
+
 		const summary = accountSummarySchema.parse({
 			user: mapUserWithRole({
 				id: session.user.id,
@@ -88,43 +146,10 @@ export function registerAccountRoutes(
 				role: (session.user as { role?: unknown }).role,
 				isAnonymous: (session.user as { isAnonymous?: boolean | null }).isAnonymous,
 			}),
-			signInMethods: [
-				{
-					provider: "email" as const,
-					linked: emailLinked,
-					email: emailLinked ? signInEmail : null,
-				},
-				{
-					provider: "google" as const,
-					linked: googleLinked,
-					accountId: googleAccount?.accountId,
-					email: googleLinked
-						? oauthProviderEmail("google", googleAccount, emailRowsForLookup)
-						: null,
-				},
-				{
-					provider: "github" as const,
-					linked: githubLinked,
-					accountId: githubAccount?.accountId,
-					email: githubLinked
-						? oauthProviderEmail("github", githubAccount, emailRowsForLookup)
-						: null,
-				},
-			],
-			emails: emailRows.map((row) => ({
-				id: row.id,
-				email: row.email,
-				source: row.source,
-				verified: row.verified,
-				isNotificationPreferred: row.isNotificationPreferred,
-				isSignInEmail: row.email.toLowerCase() === signInEmail,
-			})),
+			signInMethods,
+			emails,
 			hasPassword,
-			providers: {
-				google: Boolean(env.GOOGLE_CLIENT_ID?.trim() && env.GOOGLE_CLIENT_SECRET?.trim()),
-				github: Boolean(env.GITHUB_CLIENT_ID?.trim() && env.GITHUB_CLIENT_SECRET?.trim()),
-				email: true,
-			},
+			providers,
 		});
 
 		return c.json(summary);

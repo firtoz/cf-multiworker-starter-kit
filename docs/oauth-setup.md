@@ -4,6 +4,25 @@ This starter kit ships with **Better Auth** on the `auth-worker`. Email/password
 
 **Related:** [Auth worker checklist](../agents/skills/cf-auth-setup/SKILL.md) · [`.env.example`](../.env.example) (auth section) · [GitHub Environments sync](github-admin.md)
 
+## Local dev: Portless + Google (loopback OAuth proxy)
+
+Default **`bun run dev`** uses **Portless** (`https://starter-web.localhost`). **Google’s console rejects `*.localhost`** redirect URIs — so you register **loopback** only:
+
+```text
+http://127.0.0.1:5173/api/auth/callback/google
+```
+
+(Match **`PORT`** in `.env.local` if you change it.)
+
+With **both** Portless (default) and **`GOOGLE_*`** set, the auth worker enables Better Auth’s **`oAuthProxy`** plugin for **Google only** (including **`/link-social`** on `/account`): you keep browsing on Portless, but the OAuth redirect URI sent to **Google** uses **`127.0.0.1`**. **GitHub** is unchanged — register **`https://<prefix>-web.localhost/api/auth/callback/github`** on your GitHub OAuth app (GitHub allows `*.localhost`; do **not** add the loopback GitHub URL unless you use `LOCAL_PORTLESS=off`). **Sign-in with Google** finishes via **`/oauth-proxy-callback`**; **Connect Google on `/account`** links to your existing session (no new user). After Google returns to loopback, sign-in redirects to **`https://<prefix>-web.localhost/api/auth/oauth-proxy-callback`** (not `https://127.0.0.1` — HTTP-only, causes `ERR_SSL_PROTOCOL_ERROR`).
+
+| Mode | Browse at | Google redirect URI in console | GitHub callback URL in OAuth app |
+| --- | --- | --- | --- |
+| Portless + `GOOGLE_*` (default trick) | `https://starter-web.localhost` | `http://127.0.0.1:5173/api/auth/callback/google` | `https://starter-web.localhost/api/auth/callback/github` |
+| `LOCAL_PORTLESS=off` | `http://127.0.0.1:5173` | Same loopback URL | `http://127.0.0.1:5173/api/auth/callback/github` |
+
+**`LOCAL_PORTLESS=off`** is still valid if you prefer one origin everywhere (no proxy). See [§2](#2-google--local-dev--what-actually-works).
+
 ## What you configure
 
 | Env key | Where it comes from |
@@ -43,10 +62,11 @@ Alchemy sets the auth worker **`AUTH_BASE_URL`** binding to that public web URL 
 
 **Resolution order** (first match wins):
 
-1. **Local dev** — `https://<PRODUCT_PREFIX>-web.localhost` (Portless; stock prefix is `starter` → `https://starter-web.localhost`)
-2. **`AUTH_DOMAINS`** — first hostname (optional dedicated auth host, e.g. `auth.example.com`)
-3. **`WEB_DOMAINS`** — first hostname (typical custom-domain setup; auth is proxied on the web worker at `/api/auth/*`)
-4. **workers.dev** — inferred web worker URL when no custom domains are set (needs Cloudflare API creds at deploy)
+1. **Local dev + Portless (default)** — `https://<PRODUCT_PREFIX>-web.localhost` (GitHub ✅ · Google ✅ with loopback callback in Google — see [Local dev: Portless + Google](#local-dev-portless--google-loopback-oauth-proxy))
+2. **Local dev + `LOCAL_PORTLESS=off`** — `http://127.0.0.1:<port>` (Google ✅)
+3. **`AUTH_DOMAINS`** — first hostname (optional dedicated auth host, e.g. `auth.example.com`)
+4. **`WEB_DOMAINS`** — first hostname (typical custom-domain setup; auth is proxied on the web worker at `/api/auth/*`)
+5. **workers.dev** — inferred web worker URL when no custom domains are set (needs Cloudflare API creds at deploy)
 
 **Default recommendation:** use the **web-proxy** pattern — set `WEB_DOMAINS` for production, or rely on workers.dev for staging-only stacks. Skip `AUTH_DOMAINS` unless you intentionally split auth onto its own hostname.
 
@@ -63,7 +83,9 @@ Examples:
 
 | Environment | Auth base URL | Google callback |
 | --- | --- | --- |
-| Local (stock prefix) | `https://starter-web.localhost` | `https://starter-web.localhost/api/auth/callback/google` |
+| Local + Portless (default) | `https://starter-web.localhost` | GitHub ✅ · Google ✅ (proxy; register loopback callback in Google) |
+| Local + `LOCAL_PORTLESS=off` | `http://127.0.0.1:5173` | Google ✅ · GitHub ✅ (single origin) |
+| Staging / production | `https://app.example.com` or workers.dev | Google ✅ and GitHub ✅ |
 | Custom domain | `https://app.example.com` | `https://app.example.com/api/auth/callback/google` |
 | Dedicated auth host | `https://auth.example.com` | `https://auth.example.com/api/auth/callback/google` |
 
@@ -129,27 +151,134 @@ bun run setup:prod && bun run github:sync:prod
 
 ## Google — step by step
 
-### 1. Google Cloud project & consent screen
+Google’s console has two separate pieces. Finishing **Getting started** (consent / branding) is **not** enough — this app needs an **OAuth client** (Client ID + secret). Until you create one, **OAuth overview** shows *“You haven’t configured any OAuth clients for this project yet.”* and `/login` will not show Google.
 
-1. Open [Google Cloud Console](https://console.cloud.google.com/).
-2. Create or select a **project**.
-3. **APIs & Services → OAuth consent screen**:
-   - Choose **External** (or **Internal** for Workspace-only apps).
-   - Fill required app info (name, support email, developer contact).
-   - **Scopes** — for basic sign-in, the default `openid`, `email`, and `profile` scopes (Better Auth requests these) are enough.
-   - Add **Test users** while the app is in **Testing** mode (only those accounts can sign in until you publish).
+**Where to work in the console:** pick your project (top bar) → left nav **Google Auth Platform** (or search “OAuth” in the top search box). You’ll see **Overview**, **Branding**, **Audience**, **Clients**, etc.
 
-### 2. Create OAuth client credentials
+### 1. Project & consent (Getting started / Branding / Audience)
 
-1. **APIs & Services → Credentials → Create credentials → OAuth client ID**.
+If you already ran **Getting started**, you can skip most of this and only confirm the items below.
+
+1. Open [Google Cloud Console](https://console.cloud.google.com/) and select your **project** (e.g. “CF Multiworker Starter Kit”).
+2. Go to **Google Auth Platform** (hamburger menu → **APIs & Services** may also show **OAuth consent screen** on older layouts — same project, same data).
+3. **Branding** (replaces much of the old “OAuth consent screen” wizard):
+   - App name, support email, developer contact — required for sign-in.
+   - User type **External** (public) or **Internal** (Google Workspace only).
+4. **Audience**:
+   - While publishing status is **Testing**, only accounts listed as **Test users** can sign in. Add the Google account(s) you’ll use locally.
+   - Scopes: basic sign-in uses `openid`, `email`, `profile` (Better Auth requests these; defaults are usually fine).
+5. You do **not** need extra APIs enabled for “Sign in with Google” on a web app — skip API Library unless Google prompts you for something specific.
+
+### 2. Google + local dev — what actually works
+
+**Google’s console only accepts redirect URIs that are either:**
+
+1. **Loopback** — `http://localhost:<port>` or `http://127.0.0.1:<port>` (what Google documents for local testing), or  
+2. **A real public hostname** — `https://app.example.com`, a **workers.dev** deploy URL, a tunnel URL, etc.
+
+It **rejects** special/dev TLDs such as **`.localhost`**, **`.test`**, **`.local`**, and bare hostnames like `myapp.local` — you’ll see:
+
+> *Invalid origin: Must end with a public top-level domain (such as .com or .org).*
+
+**GitHub** is more permissive (`https://starter-web.localhost` works). **Google is not.**
+
+**Authorized JavaScript origins** can stay **empty** for this app (server redirect flow). You only need a valid **Authorized redirect URI**.
+
+#### Option A — Portless + loopback proxy (default when `GOOGLE_*` is set)
+
+Keep Portless on. Register **`http://127.0.0.1:5173/api/auth/callback/google`** in Google Cloud (not `https://starter-web.localhost`). Click **Continue with Google** on `https://starter-web.localhost` — the auth worker proxies OAuth through loopback automatically.
+
+#### Option B — Plain loopback only (`LOCAL_PORTLESS=off`)
+
+Best when you want a single origin (no proxy) on your laptop.
+
+1. In **`.env.local`**:
+   ```bash
+   LOCAL_PORTLESS=off
+   ```
+2. Restart **`bun run dev`**. Open the URL Vite prints — usually **`http://127.0.0.1:5173`** (or `http://localhost:5173`).
+3. In the Google client, **Authorized redirect URIs** (match your port exactly):
+   ```text
+   http://127.0.0.1:5173/api/auth/callback/google
+   ```
+   If your dev server uses another port, copy it from the terminal / browser bar. You can add both `localhost` and `127.0.0.1` entries if you switch between them.
+4. On your **GitHub** OAuth app, **add** the same loopback callback (keep `starter-web.localhost` too if you still use Portless sometimes):
+   ```text
+   http://127.0.0.1:5173/api/auth/callback/github
+   ```
+
+Trade-off: no Portless HTTPS locally while this is set; cookies and auth use plain HTTP on loopback (fine for dev).
+
+#### Option C — Keep Portless for GitHub, use staging for Google
+
+1. Develop day-to-day with default Portless → **`https://starter-web.localhost`** + GitHub + email.
+2. Configure Google only on a **deployed** URL (PR preview or staging):
+   - Deploy once, note the web URL (e.g. `https://<worker>.workers.dev` or `WEB_DOMAINS`).
+   - Register `https://<that-host>/api/auth/callback/google` in Google Cloud.
+   - Put `GOOGLE_*` in **`.env.staging`** and test sign-in on the live preview.
+
+No local Google button until you add loopback (Option A) or use staging (Option C).
+
+#### Option D — HTTPS tunnel with a public hostname
+
+Use when you want **HTTPS** and a **real TLD** locally (e.g. shareable link, closer to prod).
+
+1. Run the app (Portless or `LOCAL_PORTLESS=off` — tunnel forwards to whatever port Vite uses, often `5173`).
+2. Start a tunnel to that port, for example:
+   - [Cloudflare Tunnel](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/) (`cloudflared tunnel --url http://127.0.0.1:5173`)
+   - [ngrok](https://ngrok.com/) (`ngrok http 5173`)
+3. Copy the **https** public URL (e.g. `https://abc123.ngrok-free.app`).
+4. Google client redirect URI:
+   ```text
+   https://abc123.ngrok-free.app/api/auth/callback/google
+   ```
+5. Open the app **through the tunnel URL** when testing Google (not `starter-web.localhost`).
+6. If sign-in returns **403** / untrusted origin, add the tunnel origin in **`/admin/origins`** or **`AUTH_SEED_ORIGINS`** in `.env.local` (comma-separated `https://...` origins).
+
+Tunnel URLs change when you restart the tunnel unless you use a reserved ngrok domain / named Cloudflare tunnel.
+
+#### Option E — Domain you own + `/etc/hosts`
+
+1. Pick a hostname you control, e.g. `dev.yourdomain.com`.
+2. Point it to loopback in `/etc/hosts`:
+   ```text
+   127.0.0.1 dev.yourdomain.com
+   ```
+3. Register in Google:
+   ```text
+   https://dev.yourdomain.com/api/auth/callback/google
+   ```
+4. You need HTTPS on that host (reverse proxy, tunnel, or local TLS) and trusted origins configured — more setup than Option A; use if you already standardize on a dev subdomain.
+
+#### What does **not** work in Google’s form (local)
+
+| Approach | Why |
+| --- | --- |
+| `https://starter-web.localhost` in Google console | Google rejects `*.localhost` — register **`http://127.0.0.1:5173/...`** instead (proxy handles the rest) |
+| `PORTLESS_TLD=test` → `https://starter-web.test` | `.test` is reserved; Google rejects it like `.localhost` |
+| `myapp.local`, `.dev` on loopback | `.dev` has HSTS on the real internet; avoid for local fake domains |
+| `nip.io` / `sslip.io` | Unreliable in Google’s validator; loopback is simpler |
+
+**Practical recommendation:** use **Option A** (Portless + loopback callback in Google) for day-to-day local Google, **Option B** if you want one origin, or **Option C** for Google on staging only.
+
+### 3. Create the OAuth client (required — fixes “no OAuth clients” on Overview)
+
+This is the step that actually produces `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`.
+
+**From OAuth overview:**
+
+1. **Overview → Create OAuth client** or **Clients → Create client**.
 2. Application type: **Web application**.
-3. **Authorized JavaScript origins** (recommended):
-   - `https://<auth-base-host>` (same host as Step 0, no path)
-4. **Authorized redirect URIs**:
-   - `https://<auth-base-host>/api/auth/callback/google`
-5. Create and copy **Client ID** and **Client secret**.
+3. **Name** — e.g. `starter local web`.
+4. **Authorized JavaScript origins** — leave empty, **or** add your origin from the table above (no path) if Google accepts it for your chosen option.
+5. **Authorized redirect URIs** — must match your chosen option in [§2](#2-google--local-dev--what-actually-works), e.g. `http://127.0.0.1:5173/api/auth/callback/google` for loopback dev.
+6. **Create** → copy **Client ID** and **Client secret** (secret shown once).
 
-### 3. Add to env
+**Older console path (same result):** **APIs & Services → Credentials → Create credentials → OAuth client ID** → **Web application** → same origins and redirect URI as above.
+
+After this, **Overview → Metrics** should stop saying “no OAuth clients,” and **Clients** should list your new Web client.
+
+### 4. Add to env
 
 In **`.env.local`**:
 
@@ -160,20 +289,20 @@ GOOGLE_CLIENT_SECRET=GOCSPX-...
 
 Re-run `bun run setup:local` if needed, then `bun run dev`.
 
-### 4. Multiple environments
+### 5. Multiple environments
 
 Same as GitHub: separate OAuth clients per environment, or one client with every origin + redirect URI listed.
 
 Sync staging/production secrets with `github:sync:staging` / `github:sync:prod` after updating dotfiles.
 
-### 5. Publish (production)
+### 6. Publish (production)
 
-While the consent screen is **Testing**, only test users can sign in. Before opening to all users:
+While the app is in **Testing**, only **Test users** (Audience) can sign in. Before opening to everyone:
 
-1. Complete Google’s verification requirements if you use sensitive scopes.
-2. **OAuth consent screen → Publish app**.
+1. Complete Google’s verification if you use sensitive scopes beyond basic profile/email.
+2. **Audience** (or legacy **OAuth consent screen**) → **Publish app**.
 
-### 6. Verify
+### 7. Verify
 
 1. `/login` shows **Continue with Google**.
 2. Sign in → `/account` shows your Google profile.
@@ -200,7 +329,10 @@ While the consent screen is **Testing**, only test users can sign in. Before ope
 | No Google/GitHub button on `/login` | Missing or empty `*_CLIENT_ID` / `*_CLIENT_SECRET` | Set both keys; restart `bun run dev` |
 | Provider error: redirect URI mismatch | Callback URL in console ≠ resolved auth URL | Fix console URL; check `WEB_DOMAINS` / `AUTH_DOMAINS` / Portless hostname |
 | **403** on sign-in (especially anonymous → OAuth) | Untrusted `Origin` | Add origin in `/admin/origins` or `AUTH_SEED_ORIGINS`; see [cf-auth-setup](../agents/skills/cf-auth-setup/SKILL.md) |
-| Google “Access blocked” / app not verified | Consent screen still in **Testing** | Add your account as a test user, or publish the app |
+| Google “Access blocked” / app not verified | Consent screen still in **Testing** | **Audience → Test users** — add your Google account, or publish the app |
+| OAuth overview: “no OAuth clients yet” | Only finished Getting started / branding | **Overview → Create OAuth client** or **Clients → Create client** (Web application) — see [§3](#3-create-the-oauth-client-required--fixes-no-oauth-clients-on-overview) |
+| Google: “Invalid origin” for `*.localhost` / `*.test` | Google only allows loopback or real public domains | **`LOCAL_PORTLESS=off`** + `http://127.0.0.1:5173/...`, tunnel, or staging — see [§2](#2-google--local-dev--what-actually-works) |
+| Created client but no button on `/login` | Env keys missing or dev not restarted | Set **both** `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` in `.env.local`, then `bun run dev` |
 | Signed in but not admin | Email not in bootstrap list | Add email to `AUTH_BOOTSTRAP_ADMIN_EMAILS` **before** first login, or promote via admin UI / DB |
 
 ---

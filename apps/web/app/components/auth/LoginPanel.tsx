@@ -1,6 +1,8 @@
 import type { AuthProviders } from "@internal/auth-client";
 import { useCallback, useEffect, useState } from "react";
 import { EmailAuthForm } from "~/components/auth/EmailAuthForm";
+import { GoogleOAuthPortlessWarning } from "~/components/auth/GoogleOAuthPortlessWarning";
+import { authCallbackUrl } from "~/lib/auth-callback-url";
 import { signInWithSocial } from "~/lib/auth-email-client";
 import {
 	getLastLoginMethod,
@@ -11,11 +13,8 @@ import {
 type LoginPanelProps = {
 	redirectTo: string;
 	providers: AuthProviders;
+	googlePortlessWarning?: string;
 };
-
-function authCallbackUrl(redirectTo: string): string {
-	return `${window.location.origin}${redirectTo.startsWith("/") ? redirectTo : `/${redirectTo}`}`;
-}
 
 function isMethodAvailable(method: LastLoginMethod, providers: AuthProviders): boolean {
 	if (method === "email") {
@@ -27,7 +26,7 @@ function isMethodAvailable(method: LastLoginMethod, providers: AuthProviders): b
 	return providers.github;
 }
 
-export function LoginPanel({ redirectTo, providers }: LoginPanelProps) {
+export function LoginPanel({ redirectTo, providers, googlePortlessWarning }: LoginPanelProps) {
 	const callback = authCallbackUrl(redirectTo);
 	const [error, setError] = useState<string | null>(null);
 	const [busyProvider, setBusyProvider] = useState<"google" | "github" | null>(null);
@@ -65,6 +64,10 @@ export function LoginPanel({ redirectTo, providers }: LoginPanelProps) {
 		<div className="max-w-md mx-auto flex flex-col gap-4 p-6 border border-gray-200 dark:border-gray-700 rounded-2xl">
 			<h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Sign in</h1>
 
+			{googlePortlessWarning ? (
+				<GoogleOAuthPortlessWarning message={googlePortlessWarning} />
+			) : null}
+
 			{lastUsedAvailable ? (
 				<div className="rounded-xl border-2 border-blue-600/50 dark:border-blue-500/40 bg-blue-50/80 dark:bg-blue-950/30 px-4 py-4 flex flex-col gap-3">
 					<p className="text-xs font-semibold uppercase tracking-wide text-blue-800 dark:text-blue-300">
@@ -73,7 +76,7 @@ export function LoginPanel({ redirectTo, providers }: LoginPanelProps) {
 					{lastUsedAvailable === "google" ? (
 						<button
 							type="button"
-							disabled={busyProvider !== null}
+							disabled={busyProvider !== null || Boolean(googlePortlessWarning)}
 							className="inline-flex justify-center rounded-lg bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 px-4 py-2.5 text-sm font-medium disabled:opacity-50"
 							onClick={() => onSocialSignIn("google")}
 						>
@@ -90,21 +93,21 @@ export function LoginPanel({ redirectTo, providers }: LoginPanelProps) {
 							{busyProvider === "github" ? "Redirecting…" : "Continue with GitHub"}
 						</button>
 					) : null}
-					{lastUsedAvailable === "email" ? (
-						<EmailAuthForm redirectTo={redirectTo} />
-					) : null}
+					{lastUsedAvailable === "email" ? <EmailAuthForm redirectTo={redirectTo} /> : null}
 				</div>
 			) : null}
 
 			{showOtherSocial || showOtherEmail ? (
 				<>
 					{lastUsedAvailable ? (
-						<p className="text-center text-xs text-gray-500 dark:text-gray-400">Other ways to sign in</p>
+						<p className="text-center text-xs text-gray-500 dark:text-gray-400">
+							Other ways to sign in
+						</p>
 					) : null}
 					{showGoogle ? (
 						<button
 							type="button"
-							disabled={busyProvider !== null}
+							disabled={busyProvider !== null || Boolean(googlePortlessWarning)}
 							className="inline-flex justify-center rounded-lg border border-gray-300 dark:border-gray-600 px-4 py-2 text-sm font-medium disabled:opacity-50"
 							onClick={() => onSocialSignIn("google")}
 						>
@@ -121,9 +124,7 @@ export function LoginPanel({ redirectTo, providers }: LoginPanelProps) {
 							{busyProvider === "github" ? "Redirecting…" : "Continue with GitHub"}
 						</button>
 					) : null}
-					{showOtherEmail ? (
-						<EmailAuthForm redirectTo={redirectTo} />
-					) : null}
+					{showOtherEmail ? <EmailAuthForm redirectTo={redirectTo} /> : null}
 				</>
 			) : null}
 
