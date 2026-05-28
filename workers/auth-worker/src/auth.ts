@@ -9,6 +9,7 @@ import { anonymous, oAuthProxy } from "better-auth/plugins";
 import { generateAnonymousGuestName } from "./guest-display-name";
 import { graduateAnonymousUserFromOAuthAccount } from "./guest-graduate";
 import { configureLocalGoogleOAuthProxy } from "./local-oauth-proxy-patch";
+import { configurePassthroughOAuthProxy } from "./oauth-proxy-passthrough-patch";
 
 const GUEST_SESSION_SECONDS = 60 * 60 * 24 * 7;
 
@@ -89,6 +90,11 @@ export function createAuth(env: AuthWorkerEnv, trustedOrigins: string[]) {
 							});
 							if (isLoopbackOAuthProxyProductionUrl(productionURL)) {
 								configureLocalGoogleOAuthProxy(plugin, {
+									productionURL,
+									browserBaseUrl: env.AUTH_BASE_URL,
+								});
+							} else {
+								configurePassthroughOAuthProxy(plugin, {
 									productionURL,
 									browserBaseUrl: env.AUTH_BASE_URL,
 								});

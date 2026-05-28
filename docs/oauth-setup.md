@@ -454,10 +454,12 @@ https://<staging-web-host>/api/auth/callback/github
 
 **This starter kit proxies PR preview OAuth through staging** (Better Auth [`oAuthProxy`](https://www.better-auth.com/docs/plugins/oauth-proxy)):
 
-1. User clicks **Continue with GitHub** on the PR preview URL.
+1. User clicks **Continue with GitHub** on the PR preview URL (login or guest upgrade / **Quick connect**).
 2. GitHub redirects to the **staging** callback (registered above).
 3. Staging auth exchanges the code and redirects back to the PR preview with an encrypted profile.
-4. The PR preview auth worker creates the session in its own D1 database.
+4. The PR preview auth worker creates the session in its own D1 database (sign-in) or links the provider on the existing guest account (**`/link-social`**).
+
+Stock Better Auth `oAuthProxy` only hooks **`/sign-in/social`**; this starter kit also patches **`/link-social`** for PR passthrough (see [`oauth-proxy-passthrough-patch.ts`](../workers/auth-worker/src/oauth-proxy-passthrough-patch.ts)). **Redeploy staging** after changing that patch — staging receives the OAuth callback before the preview finishes linking.
 
 Requirements:
 
