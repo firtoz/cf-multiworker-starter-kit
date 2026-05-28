@@ -1,0 +1,45 @@
+{
+	"name": "auth-worker",
+	"private": true,
+	"type": "module",
+	"alchemy": {
+		"app": "auth"
+	},
+	"exports": {
+		"./alchemy": "./alchemy.run.ts",
+		"./hono-app": "./src/hono-app.ts",
+		"./workers/rpc": "./workers/rpc.ts"
+	},
+	"scripts": {
+		"deploy:prod": "alchemy-cli --stage prod deploy",
+		"deploy:staging": "alchemy-cli --stage staging deploy",
+		"deploy:preview": "alchemy-cli --stage preview deploy",
+		"destroy:prod": "alchemy-cli --stage prod destroy",
+		"destroy:staging": "alchemy-cli --stage staging destroy",
+		"destroy:preview": "alchemy-cli --stage preview destroy",
+		"dev": "alchemy-cli --stage local dev",
+		"typegen": "node -e \"process.exit(0)\"",
+		"typecheck": "tsgo --noEmit -p ./tsconfig.json",
+		"lint": "biome check --write .",
+		"lint:format": "biome format --write ."
+	},
+	"dependencies": {
+		"@internal/auth-client": "workspace:*",
+		"@internal/auth-db": "workspace:*",
+		"@internal/chat-contract": "workspace:*",
+		"better-auth": "catalog:",
+		"drizzle-orm": "catalog:",
+		"hono": "catalog:",
+		"unique-names-generator": "^4.7.1"
+	},
+	"devDependencies": {
+		"state-hub": "workspace:*",
+		"alchemy-utils": "workspace:*",
+		"@cloudflare/workers-types": "catalog:",
+		"@typescript/native-preview": "catalog:",
+		"@biomejs/biome": "catalog:",
+		"@types/node": "catalog:",
+		"alchemy": "catalog:",
+		"typescript": "catalog:"
+	}
+}

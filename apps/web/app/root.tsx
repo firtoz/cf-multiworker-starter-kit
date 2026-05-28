@@ -1,5 +1,6 @@
 import { env } from "cloudflare:workers";
 import { type MaybeError, success } from "@firtoz/maybe-error";
+import { type AuthUser, getSession } from "@internal/auth-client";
 import type { Route } from "./+types/root";
 import "./app.css";
 
@@ -19,10 +20,12 @@ import {
 	PostHogAnalyticsProvider,
 	type PostHogLoaderAnalytics,
 } from "~/components/client/PostHogAnalytics";
+import { SiteNav } from "~/components/layout/SiteNav";
 import { getPostHogClientConfig, getPostHogRuntimeTags } from "~/lib/analytics-config.server";
 
 type RootLoaderData = {
 	analytics: PostHogLoaderAnalytics;
+	user: AuthUser | null;
 };
 
 const CRITICAL_FONT_FACE_CSS = `
@@ -92,12 +95,14 @@ export const links: Route.LinksFunction = () => [
 	},
 ];
 
-export async function loader(_args: Route.LoaderArgs): Promise<MaybeError<RootLoaderData>> {
+export async function loader({ request }: Route.LoaderArgs): Promise<MaybeError<RootLoaderData>> {
+	const session = await getSession(env.AUTH, request);
 	return success({
 		analytics: {
 			...getPostHogClientConfig(env),
 			runtimeTags: getPostHogRuntimeTags(env),
 		},
+		user: session?.user ?? null,
 	});
 }
 
@@ -143,19 +148,26 @@ export function Layout({ children }: { children: React.ReactNode }) {
 }
 
 export default function App({ loaderData }: Route.ComponentProps) {
+	const shell = (user: AuthUser | null, outlet: React.ReactNode) => (
+		<>
+			<SiteNav user={user} />
+			{outlet}
+		</>
+	);
+
 	if (!loaderData.success) {
-		return <Outlet />;
+		return shell(null, <Outlet />);
 	}
 
-	const { analytics } = loaderData.result;
+	const { analytics, user } = loaderData.result;
 
 	if (!analytics.enabled) {
-		return <Outlet />;
+		return shell(user, <Outlet />);
 	}
 
 	return (
 		<PostHogAnalyticsProvider analytics={analytics}>
-			<Outlet />
+			{shell(user, <Outlet />)}
 		</PostHogAnalyticsProvider>
 	);
 }

@@ -1,13 +1,19 @@
-import { mkdirSync, writeFileSync } from "node:fs";
-import path from "node:path";
 import { mainDb } from "@internal/db/alchemy";
 import alchemy from "alchemy";
 import { ReactRouter } from "alchemy/cloudflare";
 import { requireAlchemyPassword, requireEnv } from "alchemy-utils";
 import { alchemyCiCloudStateStoreOptions } from "alchemy-utils/alchemy-cloud-state-store";
-import { CI_WEB_DEPLOY_URL_RELPATH } from "alchemy-utils/ci-deploy-web-url";
+import {
+	CI_WEB_DEPLOY_URL_RELPATH,
+	resolvePublicWebUrlForCi,
+	writeCiDeployUrlIfGithubActions,
+} from "alchemy-utils/ci-deploy-web-url";
 import { isPrStage, resolveStageFromEnv } from "alchemy-utils/deployment-stage";
 import { readProcessEnvTrimmed } from "alchemy-utils/env-requirements";
+import {
+	isPortlessLocalDevEnabled,
+	localWebPortlessRouteName,
+} from "alchemy-utils/local-portless-dev";
 import { pickListenPort } from "alchemy-utils/pick-listen-port";
 import {
 	reactRouterDomainsFromProcessEnv,
@@ -16,8 +22,8 @@ import {
 import {
 	ALCHEMY_APP_IDS,
 	DEFAULT_REACT_ROUTER_WEB_RESOURCE_ID,
-	PRODUCT_PREFIX,
 } from "alchemy-utils/worker-peer-scripts";
+import { authWorker } from "auth-worker/alchemy";
 import { chatroomWorker } from "chatroom-do/alchemy";
 import { otherWorker } from "other-worker/alchemy";
 import { pingWorker } from "ping-do/alchemy";
@@ -46,22 +52,14 @@ const chatroomInternalSecretRaw = requireEnv(
 	app,
 );
 const chatroomInternalSecret = alchemy.secret(chatroomInternalSecretRaw);
-const ChatroomDo = chatroomWorker.bindings.ChatroomDo;
 const PingDo = pingWorker.bindings.PingDo;
 
 const skipWebCustomHostnames = isPrStage(stage);
 const webDomains = skipWebCustomHostnames ? [] : [...reactRouterDomainsFromProcessEnv()];
 const webRoutes = skipWebCustomHostnames ? [] : [...reactRouterRoutesFromProcessEnv()];
 
-/** Portless `--name`: `PRODUCT_PREFIX` + same segment as `ReactRouter(...)` resource id (`web` ⇒ e.g. `starter-web`). */
-const localWebPortlessRouteName = `${PRODUCT_PREFIX}-${DEFAULT_REACT_ROUTER_WEB_RESOURCE_ID}`;
-
-/** `LOCAL_PORTLESS` in repo-root `.env.local`: omit or `on` (default) ⇒ Portless; `off` ⇒ plain `http://localhost`. */
-function isLocalPortlessExplicitlyDisabled(): boolean {
-	return process.env["LOCAL_PORTLESS"]?.trim().toLowerCase() === "off";
-}
-
-const usePortlessLocalDev = stage === "local" && !isLocalPortlessExplicitlyDisabled();
+const portlessEnabled = isPortlessLocalDevEnabled(stage);
+const localWebPortlessName = localWebPortlessRouteName();
 
 /** `PORT` when set and positive; otherwise `undefined`. */
 function explicitPortFromEnv(env: NodeJS.ProcessEnv): number | undefined {
@@ -71,13 +69,13 @@ function explicitPortFromEnv(env: NodeJS.ProcessEnv): number | undefined {
 
 const explicitListenPort = explicitPortFromEnv(process.env);
 /** Portless: honor `PORT`, else `get-port` from 5173 on 127.0.0.1. Otherwise unused for `dev` command — `5173` matches Vite default. */
-const localDevListenPort = usePortlessLocalDev
+const localDevListenPort = portlessEnabled
 	? (explicitListenPort ?? (await pickListenPort({ preferred: 5173, host: "127.0.0.1" })))
 	: (explicitListenPort ?? 5173);
 
 /** `portless run` then `react-router dev` (Turbo `dev` already runs `typegen:local` where configured). */
-const portlessWrappedLocalDev = usePortlessLocalDev
-	? `portless run --name ${localWebPortlessRouteName} --app-port ${localDevListenPort} bunx react-router dev --port ${localDevListenPort}`
+const portlessWrappedLocalDev = portlessEnabled
+	? `portless run --name ${localWebPortlessName} --app-port ${localDevListenPort} bunx react-router dev --port ${localDevListenPort}`
 	: undefined;
 
 /** Turbo **`deploy:*`** depends on **`typegen`** (see **`turbo.json`**) — this is **`react-router build`** only. */
@@ -109,7 +107,8 @@ export const web = await ReactRouter(DEFAULT_REACT_ROUTER_WEB_RESOURCE_ID, {
 	bindings: {
 		DB: mainDb,
 		CHATROOM_INTERNAL_SECRET: chatroomInternalSecret,
-		ChatroomDo,
+		AUTH: authWorker,
+		CHATROOM: chatroomWorker,
 		PingDo,
 		PING: pingWorker,
 		OTHER: otherWorker,
@@ -136,7 +135,7 @@ const portlessRaw = process.env["PORTLESS_URL"]?.trim();
  */
 const portlessDerivedPublicBase =
 	stage === "local" && portlessWrappedLocalDev
-		? `https://${localWebPortlessRouteName}.localhost`
+		? `https://${localWebPortlessName}.localhost`
 		: undefined;
 const portlessDevPublicUrl = (() => {
 	if (stage !== "local") {
@@ -147,16 +146,9 @@ const portlessDevPublicUrl = (() => {
 	return fromEnv ?? fromFlag;
 })();
 
-console.log({ webUrl: portlessDevPublicUrl ?? web.url });
-/** GitHub Actions: write URL for deploy workflows — see **`CI_WEB_DEPLOY_URL_RELPATH`**. */
-if (process.env["GITHUB_ACTIONS"] === "true" && web.url) {
-	const root = process.env["GITHUB_WORKSPACE"]?.trim();
-	if (root) {
-		const filePath = path.join(root, CI_WEB_DEPLOY_URL_RELPATH);
-		mkdirSync(path.dirname(filePath), { recursive: true });
-		writeFileSync(filePath, `${web.url.trim()}\n`, "utf8");
-	}
-}
+const ciWebPublicUrl = resolvePublicWebUrlForCi({ stage, workersDevUrl: web.url });
+console.log({ webUrl: portlessDevPublicUrl ?? ciWebPublicUrl ?? web.url });
+writeCiDeployUrlIfGithubActions(CI_WEB_DEPLOY_URL_RELPATH, ciWebPublicUrl ?? web.url);
 
 // PR preview comments belong in `.github/workflows/pr-deploy.yml`. Avoid `alchemy/github`
 // `GitHubComment` here on CI + `STAGE=pr-*` — `verifyGitHubAuth` often 404s for fork/private PRs.

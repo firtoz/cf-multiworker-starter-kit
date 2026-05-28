@@ -1,9 +1,14 @@
 import alchemy from "alchemy";
-import { DurableObjectNamespace, Worker } from "alchemy/cloudflare";
+import { DurableObjectNamespace, Worker, WorkerRef } from "alchemy/cloudflare";
 import { requireAlchemyPassword, requireEnv } from "alchemy-utils";
 import { alchemyCiCloudStateStoreOptions } from "alchemy-utils/alchemy-cloud-state-store";
 import { resolveStageFromEnv } from "alchemy-utils/deployment-stage";
-import { ALCHEMY_APP_IDS, DEFAULT_WORKER_RESOURCE_ID } from "alchemy-utils/worker-peer-scripts";
+import {
+	ALCHEMY_APP_IDS,
+	DEFAULT_WORKER_RESOURCE_ID,
+	omitDefaultPhysicalWorkerScriptName,
+} from "alchemy-utils/worker-peer-scripts";
+import type { AuthWorkerRpc } from "../auth-worker/workers/rpc";
 
 const stage = resolveStageFromEnv();
 const app = await alchemy(ALCHEMY_APP_IDS.chatroom, {
@@ -17,6 +22,8 @@ const chatroomInternalSecretRaw = requireEnv(
 	app,
 );
 const chatroomInternalSecret = alchemy.secret(chatroomInternalSecretRaw);
+
+const PEER_AUTH_SCRIPT_NAME = omitDefaultPhysicalWorkerScriptName(ALCHEMY_APP_IDS.auth, app.stage);
 
 export const ChatroomDo = await DurableObjectNamespace<Rpc.DurableObjectBranded>(
 	"chatroom-do-ChatroomDo-class",
@@ -35,8 +42,11 @@ export const chatroomWorker = await Worker(DEFAULT_WORKER_RESOURCE_ID, {
 	bindings: {
 		CHATROOM_INTERNAL_SECRET: chatroomInternalSecret,
 		ChatroomDo,
+		AUTH: WorkerRef<AuthWorkerRpc>({ service: PEER_AUTH_SCRIPT_NAME }),
 	},
 });
+
+export type { ChatroomWorkerRpc } from "./workers/rpc";
 
 console.log({ worker: "chatroom-do", scriptName: chatroomWorker.name });
 

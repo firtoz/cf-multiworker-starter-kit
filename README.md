@@ -19,7 +19,8 @@ A production-minded starter for full-stack Cloudflare apps: React Router on Work
 
 - **React Router 7 on Workers** — streaming SSR, Tailwind, typed loaders/actions, form actions.
 - **Durable Object examples** — Hono RPC-style access, service bindings, Socka WebSockets (`/chat`).
-- **D1 + Drizzle** — generated migrations and a `/visitors` route.
+- **Better Auth (`auth-worker`)** — email/password + optional Google/GitHub, admin UI (`/admin`), account display names; anonymous guests on `/chat` (7-day sliding session, random names like `Coastal-Falcon`).
+- **D1 + Drizzle** — root app DB (`/visitors`) plus separate auth D1 (`@internal/auth-db`).
 - **Typed bindings** — package-local `alchemy.run.ts` → Worker `env` types.
 - **Deploy story** — Turbo + Alchemy, staging/production, PR previews (details below only when you need them).
 
@@ -28,6 +29,7 @@ A production-minded starter for full-stack Cloudflare apps: React Router on Work
 | Goal | Where |
 |------|--------|
 | Web routes, SSR, bindings, forms | [`apps/web/README.md`](apps/web/README.md) |
+| Auth, OAuth, admin, anonymous chat guests | [`docs/oauth-setup.md`](docs/oauth-setup.md) (Google/GitHub) · [`agents/skills/cf-auth-setup/SKILL.md`](agents/skills/cf-auth-setup/SKILL.md) · [`.env.example`](.env.example) |
 | GitHub Environments, rulesets, what runs in CI, custom domains | [`docs/github-admin.md`](docs/github-admin.md) |
 | `.env.local` / staging / prod secrets | [`.env.example`](.env.example) · [`agents/skills/cf-workers-env-local/SKILL.md`](agents/skills/cf-workers-env-local/SKILL.md) |
 | Full rebrand (package names, UI copy) | [`agents/skills/project-init/SKILL.md`](agents/skills/project-init/SKILL.md) |
@@ -66,7 +68,7 @@ bun alchemy login
 
 Then rerun **`bun run quickstart`** (or **`bun run dev`** if `.env.local` is already set).
 
-Open the URL Vite prints — with Portless (default), **`Local:`** is **`https://<PRODUCT_PREFIX>-web.localhost/`** (see [CONTRIBUTING — Portless](CONTRIBUTING.md#local-https-dev-portless)); otherwise often **`http://localhost:5173`**. Try **`/`**, **`/visitors`**, **`/ping-do`**, **`/chat`**.
+Open the URL Vite prints — with Portless (default), **`Local:`** is **`https://<PRODUCT_PREFIX>-web.localhost/`** (see [CONTRIBUTING — Portless](CONTRIBUTING.md#local-https-dev-portless)); otherwise often **`http://localhost:5173`**. Try **`/`**, **`/visitors`**, **`/ping-do`**, **`/chat`** (anonymous guest sign-in), **`/login`**, **`/account`**. Set **`AUTH_BOOTSTRAP_ADMIN_EMAILS`** in **`.env.local`** to access **`/admin`** after signing in with that email.
 
 ### Deploy with GitHub Actions (optional)
 
@@ -80,7 +82,7 @@ You need a Cloudflare **API token** and **Account ID** from the dashboard (this 
 2. **`bun run setup:staging`** then **`bun run github:sync:staging`** (or **`bun run onboard:staging`**).
 3. **`bun run setup:prod`** then **`bun run github:sync:prod`** (or **`bun run onboard:prod`**).
 
-Per-environment secrets (**`ALCHEMY_PASSWORD`**, **`CHATROOM_INTERNAL_SECRET`**, optional **`WEB_*`**) stay in each stage dotfile (or GitHub Environments after sync).
+Per-environment secrets (**`ALCHEMY_PASSWORD`**, **`CHATROOM_INTERNAL_SECRET`**, **`BETTER_AUTH_SECRET`**, **`AUTH_ADMIN_SECRET`**, optional **`AUTH_BOOTSTRAP_ADMIN_EMAILS`**, optional **`WEB_*`**) stay in each stage dotfile (or GitHub Environments after sync). **No auth URL env var** — Alchemy derives the public auth URL from **`AUTH_DOMAINS`**, **`WEB_DOMAINS`**, or web **workers.dev** (see [cf-auth-setup](agents/skills/cf-auth-setup/SKILL.md)).
 
 With [`gh`](https://cli.github.com/) authenticated and repo admin rights, from a trusted machine:
 
@@ -134,13 +136,16 @@ Each command runs the **full** Turbo graph (shared Alchemy state, D1 + migration
 ├── apps/
 │   └── web/                    # React Router app + Worker entry
 ├── durable-objects/
+│   ├── auth-worker/            # Better Auth API, admin routes, trusted origins KV
 │   ├── chatroom-do/
 │   ├── ping-do/
 │   └── other-worker/
 ├── packages/
 │   ├── alchemy-utils/          # PRODUCT_PREFIX, app ids, alchemy-cli
+│   ├── auth-client/            # getSession, ensureChatSession, binding headers for AUTH.fetch
+│   ├── auth-db/                # Better Auth D1 schema + migrations
 │   ├── chat-contract/
-│   ├── db/                     # D1 schema + Drizzle migrations
+│   ├── db/                     # App D1 schema + Drizzle migrations (/visitors)
 │   ├── scripts/                # quickstart, setup, onboard, GitHub sync helpers
 │   └── state-hub/              # shared remote Alchemy state (non-local STAGE)
 ├── stacks/                     # admin / GitHub sync (Alchemy)
@@ -162,7 +167,7 @@ bun run lint
 bun run build
 ```
 
-Run **`typegen`** after routes, `alchemy.run.ts`, or binding/env changes. Run **`bun run db:generate`** after editing `packages/db/src/schema.ts`. Do not hand-edit Drizzle SQL/snapshots, React Router `+types`, or `.alchemy/`.
+Run **`typegen`** after routes, `alchemy.run.ts`, or binding/env changes. Run **`bun run db:generate`** after editing `packages/db/src/schema.ts`; run **`bun run db:generate:auth`** after editing `packages/auth-db/src/schema.ts`. Do not hand-edit Drizzle SQL/snapshots, React Router `+types`, or `.alchemy/`.
 
 Bindings in app code:
 
@@ -204,7 +209,7 @@ More context: [`agents/skills/multiworker-workflow/SKILL.md`](agents/skills/mult
 
 ## Security posture
 
-Real infra + demo routes: treat as a starting point. **This** repository’s stock workflows use GitHub Environments for **same-repo** PR previews (**`staging`**), production deploys from **`production`**, and guardrails so **fork** PRs never receive preview deploy secrets. Add your own auth, CSP, rate limits, and least-privilege tokens before launch. See [`docs/github-admin.md`](docs/github-admin.md) and [`agents/skills/cf-workers-env-local/SKILL.md`](agents/skills/cf-workers-env-local/SKILL.md).
+Real infra + demo routes: treat as a starting point. **This** repository’s stock workflows use GitHub Environments for **same-repo** PR previews (**`staging`**), production deploys from **`production`**, and guardrails so **fork** PRs never receive preview deploy secrets. Auth is included for demonstration (Better Auth + admin UI + anonymous chat guests)—harden for production (CSP, rate limits, OAuth review, least-privilege tokens). See [`agents/skills/cf-auth-setup/SKILL.md`](agents/skills/cf-auth-setup/SKILL.md), [`docs/github-admin.md`](docs/github-admin.md), and [`agents/skills/cf-workers-env-local/SKILL.md`](agents/skills/cf-workers-env-local/SKILL.md).
 
 ## Contributing
 

@@ -81,20 +81,18 @@ For versions shared across workspaces, **`package.json` → `workspaces.catalog`
 
 ## D1 and Alchemy migrations
 
-The root D1 schema source of truth is `packages/db/src/schema.ts`. Do not add runtime `CREATE TABLE` fallbacks in app loaders/actions to compensate for missed migrations.
+**App D1** — source of truth: `packages/db/src/schema.ts`. After changes: `bun run db:generate`, then `bun run dev` or the right `deploy:*`. Turbo/Alchemy applies migrations through `packages/db/alchemy.run.ts` (`D1Database.migrationsDir` → `packages/db/drizzle`). The web app binds `mainDb` from `@internal/db/alchemy`.
 
-After D1 schema changes:
+**Auth D1** — source of truth: `packages/auth-db/src/schema.ts`. After changes: `bun run db:generate:auth`, then restart dev or deploy. Migrations apply via `packages/auth-db/alchemy.run.ts`; the auth worker binds `authDb` from `@internal/auth-db/alchemy`.
 
-1. Run `bun run db:generate`.
-2. Run `bun run dev` or the right stage deploy, e.g. `bun run deploy:prod` / `deploy:staging` (preview: `deploy:preview` with `STAGE=pr-<n>` from CI).
-3. Turbo/Alchemy applies migrations through `packages/db/alchemy.run.ts` (`D1Database.migrationsDir` → `packages/db/drizzle`). The web app binds `mainDb` from `@internal/db/alchemy`.
+Do not add runtime `CREATE TABLE` fallbacks in app loaders/actions to compensate for missed migrations.
 
-There is no separate D1 migrate command: Alchemy applies the generated migrations when the database app runs during **`bun run dev`** or **`bun run deploy:*`**.
+There is no separate D1 migrate command: Alchemy applies generated migrations when the database app runs during **`bun run dev`** or **`bun run deploy:*`**.
 
 If local dev still reports `no such table`:
 
-- Check that `bun run db:generate` produced or preserved the expected migration.
-- Check that `packages/db/alchemy.run.ts` still points `D1Database.migrationsDir` at `packages/db/drizzle`.
+- Check that the right generator ran (`db:generate` vs `db:generate:auth`) and produced or preserved the expected migration.
+- Check that each package `alchemy.run.ts` still points `D1Database.migrationsDir` at the correct `drizzle/` folder.
 - Restart `bun run dev`.
 - If generated local state is stale, stop dev and remove the relevant local `.alchemy/` app state before restarting. Do not commit `.alchemy/`.
 
@@ -123,14 +121,14 @@ Access in app code: `import { env } from "cloudflare:workers"` only.
 - **Adding a CI-used env var** — Declare it in the package sidecar **`env.requirements.ts`** for setup/sync, bind or read it in the package **`alchemy.run.ts`**, document it in **`.env.example`**, then add it to root **`turbo.json`** **`globalEnv`** and the deploy workflow **`env:`** blocks that need it (`main-push.yml`, `prod-deploy.yml`, `pr-deploy.yml`; also preview destroy when `alchemy.run.ts` requires it at module scope). Run **`bun run typegen`**, **`typecheck`**, and **`lint`**.
 - **Must-match password** — `requireAlchemyPassword(app)` needs **`ALCHEMY_PASSWORD`**; the example chatroom path needs **`CHATROOM_INTERNAL_SECRET`**. **`ALCHEMY_PASSWORD`** must be the **same** for every **`alchemy deploy`** on that stage (local dotfiles **and** GitHub **secrets**).
 - **Must-match state token (defaults to one Cloudflare account)** — **`ALCHEMY_STATE_TOKEN`** is one **literal** bearer secret for **`alchemy-state-service`** ([Alchemy: same for all deployments on the account](https://alchemy.run/guides/cloudflare-state-store/)). Align **every** place that hits that Worker: repo **`.env.staging`** / **`.env.production`**, **all** relevant GitHub Environment **secrets** for deploy/teardown/preview when they use **`secrets.ALCHEMY_STATE_TOKEN`**, laptop **`deploy`** sessions, **and every other codebase** deploying to the **same** **`CLOUDFLARE_ACCOUNT_ID`** with the **default** state store (**not** a fresh token “for prod”). See [cf-workers-env-local §3](../cf-workers-env-local/SKILL.md).
-- **`github:sync:*` (trusted machine only)** — **`bun run github:sync:staging`** / **`github:sync:prod`** invoke **`alchemy-cli --stage staging|prod --app admin --entry stacks/admin.ts deploy`** (**[`stacks/admin.ts`](../../../stacks/admin.ts)**) with **`GITHUB_SYNC_*`** from **`dotenv-cli`**, pushing GitHub **secrets** (Alchemy password, chatroom secret, **`CLOUDFLARE_API_TOKEN`**) and **variables** (**`CLOUDFLARE_ACCOUNT_ID`**, **`DEPLOY_ENABLED=true`** when omitted in the dotfile). Defaults to **`gh auth token`** / **`gh repo view`** — do **not** run this from routine CI.
+- **`github:sync:*` (trusted machine only)** — **`bun run github:sync:staging`** / **`github:sync:prod`** invoke **`alchemy-cli --stage staging|prod --app admin --entry stacks/admin.ts deploy`** (**[`stacks/admin.ts`](../../../stacks/admin.ts)**) with **`GITHUB_SYNC_*`** from **`dotenv-cli`**, pushing GitHub **secrets** (Alchemy password, chatroom secret, Better Auth secrets, **`CLOUDFLARE_API_TOKEN`**, etc. — see **`env.requirements.ts`** sidecars) and **variables** (**`CLOUDFLARE_ACCOUNT_ID`**, optional **`WEB_*`**, **`DEPLOY_ENABLED=true`** when omitted in the dotfile). Defaults to **`gh auth token`** / **`gh repo view`** — do **not** run this from routine CI. Deploy jobs that use **`environment: staging`** / **`production`** receive synced **secrets** automatically (no per-key **`env:`** block required unless Turbo **`globalEnv`** filtering applies to **variables**).
 - **Repo policy (not dotenv)** — Merge toggles, rulesets (`main`: PR-only for writers by default with **Repository admin** bypass; **`allowRepositoryAdminBypassOnMain`** / **`requirePullRequestBeforeMerge`** in **[`config/github.policy.ts`](../../../config/github.policy.ts)**), and Environment deployment rules live under **`github.sync.*`** and **`github.environments.*`**. Staging sync can apply REST + rulesets; see README *GitHub admin sync reference*, [`github-repository-settings-sync.ts`](../../../stacks/github-repository-settings-sync.ts), [`github-repo-rulesets-sync.ts`](../../../stacks/github-repo-rulesets-sync.ts).
 - **`github:env:*`** — Updates **only** GitHub **`RepositoryEnvironment`** deployment protection from the policy file ([`github-repository-environment-from-env.ts`](../../../stacks/github-repository-environment-from-env.ts)); **`alchemy-cli`** + **`GITHUB_SYNC_*`** from **`dotenv-cli`** supplies local process env when you run **`bun github:env:staging`** / **`github:env:prod`**.
 - **Interactive setup** — **`bun run quickstart`** (local) and **`bun run onboard:staging`** / **`onboard:prod`** (CI bootstrap — README *Quick start*). **`bun run github:setup`** prints an Actions overview. **`bun run setup`** / **`setup:local`** opens the variable browser; **`bun run setup -- --yes`** (or **`bun packages/scripts/src/setup-env.ts --yes`**) is for automation and only auto-fills regeneratable keys.
 - **Further reading** — [Alchemy encryption password](https://alchemy.run/concepts/secret/#encryption-password), [GitHubSecret](https://alchemy.run/providers/github/secret/), [Getting started](https://alchemy.run/getting-started/) — **`CLOUDFLARE_API_TOKEN`**.
 
-- **Local dev** — `bun run dev` runs a filtered `turbo run dev` (web + **`@internal/db`** + worker apps), each via **`alchemy-cli --stage local dev`** ([Alchemy monorepo](https://alchemy.run/guides/turborepo/)).
-   - **Smoke:** hit `/`, `/visitors`, `/ping-do`, `/chat` once (SSR, D1, cross-worker bindings, chat WebSockets).
+- **Local dev** — `bun run dev` runs a filtered `turbo run dev` (`@internal/web`, `@internal/db`, `@internal/auth-db`, `auth-worker`, `chatroom-do`, `ping-do`, `other-worker`), each via **`alchemy-cli --stage local dev`** ([Alchemy monorepo](https://alchemy.run/guides/turborepo/)).
+   - **Smoke:** hit `/`, `/visitors`, `/ping-do`, `/chat`, `/login`, `/account` once (SSR, D1, auth proxy, cross-worker bindings, chat WebSockets).
    - **Stale web / dead port:** if the log shows `webUrl` for **5173** but the port is dead after a crash, delete the **`.alchemy/pids/`** pid file for the web package and ensure its **`.alchemy/logs/`** log file exists (empty is fine) before restart—Alchemy’s log follower expects it.
 
 ## Completion checklist (before you stop)
@@ -143,7 +141,8 @@ Access in app code: `import { env } from "cloudflare:workers"` only.
 
 ## Related
 
+- [cf-auth-setup/SKILL.md](../cf-auth-setup/SKILL.md) — auth D1, OAuth, public URL ladder.
 - [cf-socka-realtime/SKILL.md](../cf-socka-realtime/SKILL.md) — realtime WebSocket + canvas/pointer and pre-merge checks.
 - [multiworker-gotchas](../multiworker-gotchas/SKILL.md) — numbered gotchas and edge cases.
 - [project-init](../project-init/SKILL.md) — rename workers/docs after forking the template.
-- [packages/scripts/src/dev-preflight.ts](../../../packages/scripts/src/dev-preflight.ts) — `scripts#dev:preflight` runs Alchemy state password checks (Turbo `dev` dependency).
+- [packages/scripts/src/dev-preflight.ts](../../../packages/scripts/src/dev-preflight.ts) — `scripts#dev:preflight` validates repo-root `.env.local` keys (`requiredIn: local` from `collected-env-requirements.ts`) and Alchemy state password (Turbo `dev` dependency).

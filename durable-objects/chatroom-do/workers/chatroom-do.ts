@@ -2,6 +2,9 @@ import { SockaDoSession, type SockaDoSessionConfig, SockaWebSocketDO } from "@fi
 import {
 	CHAT_DISPLAY_NAME_MAX_CHARS,
 	CHAT_MESSAGE_TEXT_MAX_CHARS,
+	CHATROOM_AUTH_DISPLAY_NAME_HEADER,
+	CHATROOM_AUTH_IS_GUEST_HEADER,
+	CHATROOM_AUTH_USER_ID_HEADER,
 	CHATROOM_INTERNAL_SECRET_HEADER,
 	type ChatMessageRow,
 	chatContract,
@@ -14,11 +17,11 @@ import migrationConfig from "../drizzle/migrations.js";
 import * as schema from "../src/schema";
 import { chatMessagesTable } from "../src/schema";
 
-type SessionData = { userId: string; displayName: string };
+type SessionData = { userId: string; displayName: string; isGuest: boolean };
 
 const TTL_MS = 15 * 60 * 1000;
 
-function sortPresence(users: { userId: string; displayName: string }[]) {
+function sortPresence(users: { userId: string; displayName: string; isGuest: boolean }[]) {
 	return [...users].sort(
 		(a, b) => a.displayName.localeCompare(b.displayName) || a.userId.localeCompare(b.userId),
 	);
@@ -44,11 +47,24 @@ function chatMessageRowFromDb(r: InferSelectModel<typeof chatMessagesTable>): Ch
 			r.displayName.length <= CHAT_DISPLAY_NAME_MAX_CHARS
 				? r.displayName
 				: r.displayName.slice(0, CHAT_DISPLAY_NAME_MAX_CHARS),
+		isGuest: r.isGuest,
 		text:
 			r.text.length <= CHAT_MESSAGE_TEXT_MAX_CHARS
 				? r.text
 				: r.text.slice(0, CHAT_MESSAGE_TEXT_MAX_CHARS),
 	};
+}
+
+function presenceFromSession(data: SessionData) {
+	return {
+		userId: data.userId,
+		displayName: data.displayName,
+		isGuest: data.isGuest,
+	};
+}
+
+function isGuestFromAttestedHeader(raw: string | null | undefined): boolean {
+	return raw?.trim().toLowerCase() === "true";
 }
 
 export class ChatroomDo extends SockaWebSocketDO<ChatroomSession, Env> {
@@ -75,11 +91,18 @@ export class ChatroomDo extends SockaWebSocketDO<ChatroomSession, Env> {
 
 	override fetch(request: Request): Response | Promise<Response> {
 		const url = new URL(request.url);
-		if (
-			url.pathname === "/websocket" &&
-			request.headers.get(CHATROOM_INTERNAL_SECRET_HEADER) !== this.env.CHATROOM_INTERNAL_SECRET
-		) {
-			return new Response("Unauthorized chatroom websocket", { status: 401 });
+		if (url.pathname === "/websocket") {
+			if (
+				request.headers.get(CHATROOM_INTERNAL_SECRET_HEADER) !==
+				this.env["CHATROOM_INTERNAL_SECRET"]
+			) {
+				return new Response("Unauthorized chatroom websocket", { status: 401 });
+			}
+			const userId = request.headers.get(CHATROOM_AUTH_USER_ID_HEADER)?.trim();
+			const displayName = request.headers.get(CHATROOM_AUTH_DISPLAY_NAME_HEADER)?.trim();
+			if (!userId || !displayName) {
+				return new Response("Missing attested chat identity", { status: 401 });
+			}
 		}
 		return super.fetch(request);
 	}
@@ -89,20 +112,22 @@ export class ChatroomDo extends SockaWebSocketDO<ChatroomSession, Env> {
 			contract: chatContract,
 			wireFormat: "json",
 			createData: (ctx) => {
-				const u = new URL(ctx.req.url);
-				const displayName = u.searchParams.get("name")?.trim() || "anon";
-				return { userId: crypto.randomUUID(), displayName };
+				const userId = ctx.req.header(CHATROOM_AUTH_USER_ID_HEADER)?.trim();
+				const displayName = ctx.req.header(CHATROOM_AUTH_DISPLAY_NAME_HEADER)?.trim();
+				const isGuest = isGuestFromAttestedHeader(ctx.req.header(CHATROOM_AUTH_IS_GUEST_HEADER));
+				if (!userId || !displayName) {
+					throw new Error("Chat requires attested identity headers");
+				}
+				const name =
+					displayName.length <= CHAT_DISPLAY_NAME_MAX_CHARS
+						? displayName
+						: displayName.slice(0, CHAT_DISPLAY_NAME_MAX_CHARS);
+				return { userId, displayName: name, isGuest };
 			},
 			onAttached: async (session) => {
 				this.touchActivityTtl();
-				await session.broadcastPush(
-					"userJoined",
-					{ userId: session.data.userId, displayName: session.data.displayName },
-					true,
-				);
-				const users = sortPresence(
-					session.listPeers().map((d) => ({ userId: d.userId, displayName: d.displayName })),
-				);
+				await session.broadcastPush("userJoined", presenceFromSession(session.data), true);
+				const users = sortPresence(session.listPeers().map((d) => presenceFromSession(d)));
 				await session.broadcastPush("presenceUpdated", { users }, false);
 			},
 			handlers: {
@@ -120,9 +145,7 @@ export class ChatroomDo extends SockaWebSocketDO<ChatroomSession, Env> {
 				},
 				listPresence: async (_input, session) => {
 					this.touchActivityTtl();
-					const users = sortPresence(
-						session.listPeers().map((d) => ({ userId: d.userId, displayName: d.displayName })),
-					);
+					const users = sortPresence(session.listPeers().map((d) => presenceFromSession(d)));
 					return { selfUserId: session.data.userId, users };
 				},
 				setDisplayName: async (input, session) => {
@@ -130,9 +153,7 @@ export class ChatroomDo extends SockaWebSocketDO<ChatroomSession, Env> {
 					const { displayName } = input as { displayName: string };
 					const t = clampChatDisplayNameFromQuery(displayName);
 					session.data.displayName = t;
-					const users = sortPresence(
-						session.listPeers().map((d) => ({ userId: d.userId, displayName: d.displayName })),
-					);
+					const users = sortPresence(session.listPeers().map((d) => presenceFromSession(d)));
 					await session.broadcastPush("presenceUpdated", { users }, false);
 					return { ok: true as const };
 				},
@@ -144,6 +165,7 @@ export class ChatroomDo extends SockaWebSocketDO<ChatroomSession, Env> {
 						ts: Date.now(),
 						userId: session.data.userId,
 						displayName: session.data.displayName,
+						isGuest: session.data.isGuest,
 						text,
 					};
 					await this.getDb().insert(chatMessagesTable).values({
@@ -151,6 +173,7 @@ export class ChatroomDo extends SockaWebSocketDO<ChatroomSession, Env> {
 						ts: row.ts,
 						userId: row.userId,
 						displayName: row.displayName,
+						isGuest: row.isGuest,
 						text: row.text,
 					});
 					await session.broadcastPush("roomMessage", row);
@@ -164,21 +187,16 @@ export class ChatroomDo extends SockaWebSocketDO<ChatroomSession, Env> {
 						ts,
 						clearedByUserId: session.data.userId,
 						clearedByDisplayName: session.data.displayName,
+						clearedByIsGuest: session.data.isGuest,
 					});
 					return { ok: true as const };
 				},
 			},
 			handleClose: async (session) => {
 				this.touchActivityTtl();
-				await session.broadcastPush(
-					"userLeft",
-					{ userId: session.data.userId, displayName: session.data.displayName },
-					true,
-				);
+				await session.broadcastPush("userLeft", presenceFromSession(session.data), true);
 				const users = sortPresence(
-					session
-						.listPeers({ excludeSelf: true })
-						.map((d) => ({ userId: d.userId, displayName: d.displayName })),
+					session.listPeers({ excludeSelf: true }).map((d) => presenceFromSession(d)),
 				);
 				await session.broadcastPush("presenceUpdated", { users }, false);
 			},

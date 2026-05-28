@@ -231,8 +231,8 @@ function rowLabelWhenSet(text: string): string {
 	return `\u001b[22m${styleText("green", text)}\u001b[0m`;
 }
 
-function rowLabelWhenIncomplete(text: string): string {
-	return `\u001b[22m${styleText("yellow", text)}\u001b[0m`;
+function rowLabelWhenMissingRequired(text: string): string {
+	return `\u001b[22m${styleText("red", text)}\u001b[0m`;
 }
 
 function emptyKeyDisplayForSetupList(defaultIfUnset: string | undefined): string {
@@ -271,7 +271,7 @@ function categorySummaryLine(raw: string, group: SetupCategoryGroup, mode: Setup
 	const title = ENV_SETUP_CATEGORY_LABEL[category];
 	const frac = `${set}/${total}`;
 	const line = requiredOk ? `${title} · ${frac}` : `${title} · ${frac} (incomplete)`;
-	return requiredOk ? rowLabelWhenSet(line) : rowLabelWhenIncomplete(line);
+	return requiredOk ? rowLabelWhenSet(line) : rowLabelWhenMissingRequired(line);
 }
 
 function navGroupById(groupId: string): EnvSetupCategoryNavGroup | undefined {
@@ -298,7 +298,7 @@ function navGroupSummaryLine(
 	const title = nav.label;
 	const frac = `${set}/${total}`;
 	const line = requiredOk ? `${title} · ${frac}` : `${title} · ${frac} (incomplete)`;
-	return requiredOk ? rowLabelWhenSet(line) : rowLabelWhenIncomplete(line);
+	return requiredOk ? rowLabelWhenSet(line) : rowLabelWhenMissingRequired(line);
 }
 
 function setupMainCategoryPicks(
@@ -370,6 +370,7 @@ function rowLabel(raw: string, key: string, mode: SetupMode): string {
 	const set = hasValue(raw, key);
 	const box = set ? "[x]" : "[ ]";
 	const reqWord = isOptionalSetupKey(key, mode) ? "optional" : "required";
+	const optional = isOptionalSetupKey(key, mode);
 	if (!isMaskedKey(key)) {
 		const v = captureEnvAssignmentLine(raw, key) ?? "";
 		const emptyHint = SETUP_LIST_EMPTY_DEFAULT_HINT[key];
@@ -377,10 +378,16 @@ function rowLabel(raw: string, key: string, mode: SetupMode): string {
 			? truncateForList(v, 42)
 			: truncateForList(emptyKeyDisplayForSetupList(emptyHint), 72);
 		const line = `${box} ${key} · ${reqWord} · ${show}`;
-		return set ? rowLabelWhenSet(line) : line;
+		if (set) {
+			return rowLabelWhenSet(line);
+		}
+		return optional ? line : rowLabelWhenMissingRequired(line);
 	}
 	const line = `${box} ${key} · ${reqWord} · ${set ? "set (masked)" : "unset"}`;
-	return set ? rowLabelWhenSet(line) : line;
+	if (set) {
+		return rowLabelWhenSet(line);
+	}
+	return optional ? line : rowLabelWhenMissingRequired(line);
 }
 
 /**
@@ -729,10 +736,10 @@ function rowLabelAccount(raw: string, key: string): string {
 		const v = captureEnvAssignmentLine(raw, key) ?? "";
 		const show = set ? truncateForList(v, 42) : "unset";
 		const line = `${box} ${key} · ${reqWord} · ${show}`;
-		return set ? rowLabelWhenSet(line) : line;
+		return set ? rowLabelWhenSet(line) : rowLabelWhenMissingRequired(line);
 	}
 	const line = `${box} ${key} · ${reqWord} · ${set ? "set (masked)" : "unset"}`;
-	return set ? rowLabelWhenSet(line) : line;
+	return set ? rowLabelWhenSet(line) : rowLabelWhenMissingRequired(line);
 }
 
 async function runInteractiveCloudflareAlchemyAccountSession(

@@ -7,7 +7,7 @@ description: Alchemy + env files — repo-root `.env.local` (dev), `.env.staging
 
 ## When to use this skill
 
-- Adding, renaming, or documenting environment variables for the web worker, chatroom worker, or D1.
+- Adding, renaming, or documenting environment variables for the web worker, auth worker, chatroom worker, or D1.
 - Local dev shows missing vars for Alchemy (each package runs **`alchemy-cli --stage local dev`** from its **`package.json`**, using **`alchemy.app`** → **`alchemy dev --app <id>`**; see [Alchemy Turborepo](https://alchemy.run/guides/turborepo/)).
 - How **`bun run typegen`** / **`bun run typecheck`** relate to infra (`alchemy.run.ts`) vs deploy-time secrets (**`.env.*`**).
 - Explaining **repo-root** `.env.local` + `.env.staging` + `.env.production` vs optional per-package `.env.local`.
@@ -21,7 +21,9 @@ After cloning or generating from the template, follow **README *Quick start***:
 - **`bun run onboard:staging`** — **`gh`**, Cloudflare credentials in **`.env.staging`** *or* the account file, **`setup:staging --yes`**, **`github:sync:staging`**
 - **`bun run onboard:prod`** — production dotfile flow (or account file for shared keys), **`github:sync:prod`**, repo variable **`AUTO_PRODUCTION_PR`**
 
-Create **Cloudflare API tokens** only in the dashboard ([`docs/github-admin.md`](../../docs/github-admin.md#cloudflare-credentials-manual)); this repo does not mint tokens via scripts or OAuth.
+Create **Cloudflare API tokens** only in the dashboard ([`docs/github-admin.md`](../../docs/github-admin.md#cloudflare-credentials-manual)); this repo does not mint tokens via OAuth.
+
+**Better Auth keys** (`BETTER_AUTH_SECRET`, `AUTH_ADMIN_SECRET`, optional OAuth and bootstrap email) — setup browser + deploy checklist: [cf-auth-setup](../cf-auth-setup/SKILL.md). No dotfile key for the public auth URL (derived at deploy from domains or workers.dev).
 
 ## Ground rules
 
@@ -112,6 +114,7 @@ apps/web/
 
 ## Related docs
 
+- [`cf-auth-setup`](../cf-auth-setup/SKILL.md) — Better Auth secrets, OAuth, public URL ladder (no dotfile auth URL).
 - [`multiworker-workflow`](../multiworker-workflow/SKILL.md) — typegen cadence, deploy, checklist.
 - [`multiworker-gotchas`](../multiworker-gotchas/SKILL.md) — stack-specific gotchas.
 - [`project-init`](../project-init/SKILL.md) — renaming resources after forking the template.

@@ -6,7 +6,8 @@
 		"app": "chatroom"
 	},
 	"exports": {
-		"./alchemy": "./alchemy.run.ts"
+		"./alchemy": "./alchemy.run.ts",
+		"./workers/rpc": "./workers/rpc.ts"
 	},
 	"scripts": {
 		"db:generate": "drizzle-kit generate",
@@ -26,6 +27,7 @@
 	"dependencies": {
 		"@firtoz/socka": "catalog:",
 		"@firtoz/websocket-do": "^13.0.2",
+		"@internal/auth-client": "workspace:*",
 		"@internal/chat-contract": "workspace:*",
 		"drizzle-orm": "catalog:",
 		"hono": "catalog:"

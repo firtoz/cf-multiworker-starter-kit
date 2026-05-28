@@ -1,13 +1,15 @@
 import type { InferSockaPushHandlers } from "@firtoz/socka";
 import { useSockaSession } from "@firtoz/socka/react";
+import { type AuthUser, accountDisplayName, hasAccountDisplayName } from "@internal/auth-client";
 import { type ChatMessageRow, chatContract } from "@internal/chat-contract";
 import type { FocusEvent, KeyboardEvent as ReactKeyboardEvent } from "react";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { useSearchParams } from "react-router";
+import { href, Link, useFetcher, useSearchParams } from "react-router";
+import { chatAuthorNameClassName } from "~/components/chat/chat-display-name-styles";
 import { BackToHomeLink } from "~/components/shared/BackToHomeLink";
 import { buildChatWsUrl, sanitizeChatRoomId } from "~/lib/chat-ws-url";
 
-type PresenceLine = { userId: string; displayName: string };
+type PresenceLine = { userId: string; displayName: string; isGuest: boolean };
 
 /** Treat as pinned when within a few CSS px of the true bottom (avoids subpixel / rounding drift). */
 const BOTTOM_STICKY_PX = 4;
@@ -19,7 +21,7 @@ function roomFromQueryParams(sp: { get: (key: "room") => string | null }): strin
 
 function withYouLabel(
 	selfUserId: string,
-	users: { userId: string; displayName: string }[],
+	users: { userId: string; displayName: string; isGuest: boolean }[],
 ): PresenceLine[] {
 	return users.map((u) => ({
 		...u,
@@ -27,19 +29,37 @@ function withYouLabel(
 	}));
 }
 
-export function ChatClient() {
+function formatSessionExpiry(iso: string): string {
+	const d = new Date(iso);
+	if (Number.isNaN(d.getTime())) {
+		return iso;
+	}
+	return d.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
+}
+
+type ChatClientProps = {
+	user: AuthUser;
+	sessionExpiresAt: string;
+	guestRetentionDays: number;
+	saveNameError?: string;
+};
+
+export function ChatClient({
+	user,
+	sessionExpiresAt,
+	guestRetentionDays,
+	saveNameError,
+}: ChatClientProps) {
+	const isAnonymousGuest = user.isAnonymous === true;
+	const usesAccountName = !isAnonymousGuest && hasAccountDisplayName(user);
+	const saveNameFetcher = useFetcher<{ success?: boolean; error?: string }>();
 	const [searchParams, setSearchParams] = useSearchParams();
 	const [roomInput, setRoomInput] = useState(() => roomFromQueryParams(searchParams));
 	/** WebSocket and URL reflect this, not the Room field while you type. */
 	const [committedRoom, setCommittedRoom] = useState(() => roomFromQueryParams(searchParams));
-	const initialName =
-		typeof crypto !== "undefined" && "randomUUID" in crypto
-			? `guest-${crypto.randomUUID().slice(0, 8)}`
-			: "guest";
-	/** Shown in the name field; does not change the WebSocket until Join or you apply a rename. */
-	const [nameDraft, setNameDraft] = useState(initialName);
-	/** Baked into `wss://` query only on Join (room switch) and initial first connection. */
-	const [wsName, setWsName] = useState(initialName);
+	const profileName = accountDisplayName(user) ?? "Guest";
+	/** Shown in the name field; anonymous guests and members without a name may edit. */
+	const [nameDraft, setNameDraft] = useState(profileName);
 	const [messages, setMessages] = useState<ChatMessageRow[]>([]);
 	const [presence, setPresence] = useState<PresenceLine[]>([]);
 	/** `useLayoutEffect` needs self in deps; ref alone can lag behind first `messages` paint. */
@@ -53,10 +73,10 @@ export function ChatClient() {
 
 	const proposedRoom = sanitizeChatRoomId(roomInput);
 	const joinIsRedundant = proposedRoom === committedRoom;
-	const wsUrl = useMemo(() => buildChatWsUrl(committedRoom, wsName), [committedRoom, wsName]);
+	const wsUrl = useMemo(() => buildChatWsUrl(committedRoom), [committedRoom]);
 
 	const applyPresence = useCallback(
-		(nextId: string, users: { userId: string; displayName: string }[]) => {
+		(nextId: string, users: { userId: string; displayName: string; isGuest: boolean }[]) => {
 			selfUserIdRef.current = nextId;
 			setSelfUserId(nextId);
 			setPresence(withYouLabel(nextId, users));
@@ -69,7 +89,9 @@ export function ChatClient() {
 			roomMessage: (m: ChatMessageRow) => {
 				setMessages((prev) => [...prev, m]);
 			},
-			presenceUpdated: (p: { users: { userId: string; displayName: string }[] }) => {
+			presenceUpdated: (p: {
+				users: { userId: string; displayName: string; isGuest: boolean }[];
+			}) => {
 				const self = selfUserIdRef.current;
 				if (self === null) {
 					setPresence(p.users);
@@ -141,25 +163,29 @@ export function ChatClient() {
 			if (next === committedRoom) {
 				return;
 			}
-			const label = nameDraft.trim() || "anon";
+			const label = nameDraft.trim() || profileName;
 			setNameDraft(label);
-			setWsName(label);
 			setCommittedRoom(next);
 			setRoomInput(next);
-			setSearchParams(next === "lobby" ? {} : { room: next });
+			const params: Record<string, string> = {};
+			if (next !== "lobby") {
+				params["room"] = next;
+			}
+			setSearchParams(params);
 		},
-		[nameDraft, committedRoom, setSearchParams],
+		[nameDraft, committedRoom, profileName, setSearchParams],
 	);
 
 	const applyDisplayName = useCallback(async () => {
 		const t = nameDraft.trim();
-		if (!t || !ready) {
+		if (!t || !ready || usesAccountName) {
 			return;
 		}
+		saveNameFetcher.submit({ intent: "saveDisplayName", displayName: t }, { method: "post" });
 		await send.setDisplayName({ displayName: t });
 		nameFieldSnap.current = t;
 		setNameDraft(t);
-	}, [nameDraft, ready, send]);
+	}, [nameDraft, ready, saveNameFetcher, send, usesAccountName]);
 
 	/** Revert only when focus is not moving to another control. */
 	const onNameBlur = useCallback((e: FocusEvent<HTMLInputElement>) => {
@@ -218,20 +244,51 @@ export function ChatClient() {
 				<h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Chat</h1>
 				<p className="text-sm text-gray-600 dark:text-gray-400">
 					Group chat with one conversation per room. The default is{" "}
-					<code className="font-mono">lobby</code>. To move to a different room, change the Room
-					field and use <span className="font-medium text-gray-800 dark:text-gray-200">Join</span>{" "}
-					(or Enter in that field). Set how you want to appear under Display name, then use{" "}
-					<span className="font-medium text-gray-800 dark:text-gray-200">Save name</span> (or Enter
-					there). Press Escape in a field to undo your edits, or move focus to the page background
-					to the same effect. Tabbing to another field keeps your draft.
+					<code className="font-mono">lobby</code>.{" "}
+					{usesAccountName ? (
+						<>
+							Your name comes from your account. Guest names appear faded; signed-in members are
+							shown in full weight.
+						</>
+					) : (
+						<>
+							Guest names appear faded;{" "}
+							<Link className="text-blue-600 dark:text-blue-400 underline" to={href("/login")}>
+								sign in
+							</Link>{" "}
+							for a permanent account and name.
+						</>
+					)}
 				</p>
+				{isAnonymousGuest ? (
+					<p className="text-sm text-sky-900 dark:text-sky-100 bg-sky-50 dark:bg-sky-950/40 border border-sky-200 dark:border-sky-800 rounded-lg px-3 py-2">
+						Your guest name and history on this device last{" "}
+						<strong>{guestRetentionDays} days</strong> from your last visit. Come back before{" "}
+						<strong>{formatSessionExpiry(sessionExpiresAt)}</strong> to keep them, or sign in to
+						keep them permanently.
+					</p>
+				) : null}
+				{!isAnonymousGuest && !usesAccountName ? (
+					<p className="text-sm text-amber-800 dark:text-amber-200 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-lg px-3 py-2">
+						Set a display name below or on{" "}
+						<Link className="underline font-medium" to={href("/account")}>
+							your account
+						</Link>
+						.
+					</p>
+				) : null}
+				{saveNameError ? (
+					<p className="text-sm text-red-700 dark:text-red-300">{saveNameError}</p>
+				) : null}
 				<div className="flex flex-col sm:flex-row gap-2 sm:items-end">
 					<div className="flex-1 flex flex-col gap-1 text-sm min-w-0">
 						<span className="text-gray-700 dark:text-gray-300">Display name</span>
 						<div className="flex gap-2">
 							<input
-								className="flex-1 min-w-0 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-900"
+								className="flex-1 min-w-0 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-900 disabled:opacity-70"
 								value={nameDraft}
+								readOnly={usesAccountName}
+								disabled={usesAccountName}
 								onChange={(e) => setNameDraft(e.target.value)}
 								onFocus={(e) => {
 									nameFieldSnap.current = e.currentTarget.value;
@@ -242,7 +299,7 @@ export function ChatClient() {
 							<button
 								id="chat-save-name"
 								type="button"
-								disabled={!ready}
+								disabled={!ready || usesAccountName}
 								className="shrink-0 border border-gray-300 dark:border-gray-600 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-800 dark:text-gray-100 font-medium px-3 py-2 rounded-lg disabled:opacity-50"
 								onClick={() => {
 									void applyDisplayName();
@@ -294,9 +351,7 @@ export function ChatClient() {
 				>
 					{messages.map((m) => (
 						<li key={m.id} className="text-sm wrap-break-word">
-							<span className="font-semibold text-gray-800 dark:text-gray-200">
-								{m.displayName}
-							</span>
+							<span className={chatAuthorNameClassName(m.isGuest)}>{m.displayName}</span>
 							<span className="text-gray-500 text-xs ml-2">
 								{new Date(m.ts).toLocaleTimeString()}
 							</span>
@@ -309,7 +364,13 @@ export function ChatClient() {
 			<footer className="shrink-0 space-y-3 border-t border-gray-200 dark:border-gray-700 pt-3">
 				{presence.length > 0 && (
 					<p className="text-xs text-gray-500">
-						Online: {presence.map((u) => u.displayName).join(", ")}
+						Online:{" "}
+						{presence.map((u, i) => (
+							<span key={u.userId}>
+								{i > 0 ? ", " : null}
+								<span className={chatAuthorNameClassName(u.isGuest)}>{u.displayName}</span>
+							</span>
+						))}
 					</p>
 				)}
 				<form

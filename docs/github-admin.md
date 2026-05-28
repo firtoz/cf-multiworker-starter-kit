@@ -46,6 +46,8 @@ bun run onboard:prod
 
 **`onboard:prod`** runs **`github:sync:prod`**, which defaults **`AUTO_PRODUCTION_PR=true`** on GitHub Environment **staging** when the key is omitted from dotfiles (set **`false`** in **`.env.staging`** or **`.env.production`** to disable auto **main → production** PRs). You still **merge** that PR to ship production (and remote **`production`** must exist). `bun run github:sync:staging` also enables the repository Actions workflow permission that lets **`GITHUB_TOKEN`** create the production PR; if GitHub rejects that setting, enable it at the **organization or enterprise** level, then rerun staging sync.
 
+**Auth secrets** — **`github:sync:*`** also pushes Better Auth keys from your stage dotfile when present (**`BETTER_AUTH_SECRET`**, **`AUTH_ADMIN_SECRET`**, optional **`AUTH_BOOTSTRAP_ADMIN_EMAILS`**, OAuth credentials). Deploy jobs scoped to **`environment: staging`** / **`production`** receive those **secrets** automatically. **No auth URL variable** is synced — Alchemy derives the public auth URL at deploy time ([cf-auth-setup](../agents/skills/cf-auth-setup/SKILL.md)). OAuth provider setup: [oauth-setup.md](oauth-setup.md).
+
 **Default repo policy** (see [`config/github.policy.ts`](../config/github.policy.ts)): **`main`** — PRs for writers, admins may bypass; **`production`** — PR from **`main`**, no admin bypass by default; approving review count defaults to **0** for solo maintainers.
 
 ### Upgrading deploy-control variable names
@@ -77,7 +79,7 @@ The sync does not delete old GitHub variables. You can remove stale **`MULTIWORK
 The React Router app is the **frontend** Worker in [`apps/web/alchemy.run.ts`](../apps/web/alchemy.run.ts). Default deploys use **`workers.dev`** only.
 
 1. Run **`bun run setup:prod`** or **`bun run setup:staging`** and use the **optional** menu entries at the bottom — or set the same keys in **`.env.production`** / **`.env.staging`** (see [`.env.example`](../.env.example)).
-2. Typical: **`WEB_DOMAINS=example.com,www.example.com`**. Use **`WEB_ROUTES`** only if you need explicit patterns (e.g. `example.com/*`).
+2. Typical: **`WEB_DOMAINS=example.com,www.example.com`**. Use **`WEB_ROUTES`** only if you need explicit patterns (e.g. `example.com/*`). When **`AUTH_DOMAINS`** is unset, the first **`WEB_DOMAINS`** hostname also becomes the public auth URL (web-proxy pattern at `/api/auth/*` — see [cf-auth-setup](../agents/skills/cf-auth-setup/SKILL.md)).
 3. Optional: **`WEB_ZONE_ID`** (one zone for every entry), **`WEB_DOMAIN_OVERRIDE_EXISTING_ORIGIN=true`** when moving a hostname already bound elsewhere.
 4. After editing dotfiles, run **`bun run github:sync:staging`** / **`github:sync:prod`** (or **`bun run github:sync`** if both exist) so GitHub Environment **variables** include **`WEB_*`** (plaintext vars — not secrets). The stock workflows also pass these values into deploy steps; if you add another env var, update the workflow **`env:`** blocks too.
 

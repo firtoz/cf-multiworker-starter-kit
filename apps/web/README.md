@@ -8,15 +8,24 @@ React Router 7 application deployed on Cloudflare Workers.
 
 ## Dependencies
 
-**Durable Objects / services:** `chatroom-do` (WebSockets / Socka; `/chat` and `/api/ws/*` in `workers/app.ts`), `ping-do` (typed Hono DO example), and `other-worker` (service binding example).
+**Durable Objects / services:** `auth-worker` (Better Auth; `/api/auth/*` proxied in `workers/app.ts`), `chatroom-do` (WebSockets / Socka; `/chat` and `/api/ws/*`), `ping-do` (typed Hono DO example), and `other-worker` (service binding example).
 
-**Packages:** `@internal/db` (D1 + Drizzle for `/visitors`), `@internal/chat-contract` (shared Socka types).
+**Packages:** `@internal/db` (app D1 for `/visitors`), `@internal/auth-db` + `@internal/auth-client` (sessions, `ensureChatSession`, admin helpers), `@internal/chat-contract` (Socka types + WS attestation headers).
 
 **How bindings work:** **`apps/web/alchemy.run.ts`** declares app bindings and imports worker/DO resources from dependency packages' `./alchemy` exports. Types: **`types/env.d.ts`** (`typeof web["Env"]`). After route edits, **`bun run typegen`** from the repo root.
 
+### Auth and chat identity
+
+- Browser hits **`/api/auth/*`** on the web worker; it forwards to the **`AUTH`** service binding (`auth-worker`).
+- Public auth URL is computed at deploy/dev time (no dotfile key) — see [cf-auth-setup](../../agents/skills/cf-auth-setup/SKILL.md).
+- **`/chat`** uses `ensureChatSession` from `@internal/auth-client` so guests get a Better Auth anonymous session (random display name, 7-day sliding expiry). Only this route forwards auth `Set-Cookie` to the browser.
+- WebSocket upgrades use `getSession` on the web worker and pass attested headers to `chatroom-do` (see `@internal/chat-contract`).
+- OAuth (Google/GitHub): [`docs/oauth-setup.md`](../../docs/oauth-setup.md).
+- Fork setup: [`agents/skills/cf-auth-setup/SKILL.md`](../../agents/skills/cf-auth-setup/SKILL.md).
+
 ## Key files
 
-- `app/routes/` - Route components (home, visitors, chat, …)
+- `app/routes/` - Route components (home, visitors, chat, login, account, admin, …)
 - `app/root.tsx` - Root layout with dark mode support
 - `app/entry.server.tsx` - SSR entry + 103 Early Hints for CSS
 - `workers/app.ts` - Cloudflare Worker (SSR + WebSocket forward to `ChatroomDo`)

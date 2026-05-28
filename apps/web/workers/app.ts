@@ -1,5 +1,12 @@
 import { WorkerEntrypoint } from "cloudflare:workers";
-import { CHATROOM_INTERNAL_SECRET_HEADER } from "@internal/chat-contract";
+import { AUTH_API_PREFIX, accountDisplayName, getSession } from "@internal/auth-client";
+import {
+	CHATROOM_AUTH_DISPLAY_NAME_HEADER,
+	CHATROOM_AUTH_IS_GUEST_HEADER,
+	CHATROOM_AUTH_USER_ID_HEADER,
+	CHATROOM_INTERNAL_SECRET_HEADER,
+	resolveChatAttestedIdentity,
+} from "@internal/chat-contract";
 import { createRequestHandler } from "react-router";
 import type { CloudflareEnv } from "../types/env.d.ts";
 
@@ -33,7 +40,7 @@ function sanitizeChatRoomId(raw: string): string {
 }
 
 /**
- * Web Application Worker Entrypoint: Socka WebSocket → Chatroom DO `/websocket`, else React Router.
+ * Web Application Worker Entrypoint: `/api/auth/*` → auth worker, Socka WS → chatroom, else React Router.
  */
 export default class WebAppWorker extends WorkerEntrypoint<CloudflareEnv> {
 	async fetch(request: Request): Promise<Response> {
@@ -59,16 +66,39 @@ export default class WebAppWorker extends WorkerEntrypoint<CloudflareEnv> {
 				note: "Demo probe: response bodies omitted; use SSR routes or tooling for fuller debugging.",
 			});
 		}
+		if (url.pathname.startsWith(AUTH_API_PREFIX)) {
+			return this.env.AUTH.fetch(request);
+		}
 		if (url.pathname.startsWith(CHAT_WS_PREFIX)) {
 			const rest = url.pathname.slice(CHAT_WS_PREFIX.length);
 			const room = sanitizeChatRoomId(decodeURIComponent(rest));
-			const stub = this.env.ChatroomDo.getByName(room);
 			const forward = new URL(request.url);
 			forward.pathname = "/websocket";
+			forward.search = `?${new URLSearchParams({ room }).toString()}`;
+
+			const session = await getSession(this.env.AUTH, request);
+			const identity = resolveChatAttestedIdentity(
+				session
+					? {
+							userId: session.user.id,
+							profileDisplayName: accountDisplayName(session.user),
+							isAnonymous: session.user.isAnonymous === true,
+						}
+					: null,
+				url.searchParams.get("name"),
+			);
+
 			const headers = new Headers(request.headers);
+			headers.delete(CHATROOM_AUTH_USER_ID_HEADER);
+			headers.delete(CHATROOM_AUTH_DISPLAY_NAME_HEADER);
+			headers.delete(CHATROOM_AUTH_IS_GUEST_HEADER);
+			headers.set(CHATROOM_AUTH_USER_ID_HEADER, identity.userId);
+			headers.set(CHATROOM_AUTH_DISPLAY_NAME_HEADER, identity.displayName);
+			headers.set(CHATROOM_AUTH_IS_GUEST_HEADER, identity.isGuest ? "true" : "false");
 			headers.set(CHATROOM_INTERNAL_SECRET_HEADER, this.env.CHATROOM_INTERNAL_SECRET);
+
 			const forwardRequest = new Request(forward.toString(), { headers, method: request.method });
-			return stub.fetch(forwardRequest);
+			return this.env.CHATROOM.fetch(forwardRequest);
 		}
 		return requestHandler(request, {
 			cloudflare: { env: this.env, ctx: this.ctx },

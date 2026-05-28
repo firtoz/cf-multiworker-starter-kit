@@ -1,10 +1,14 @@
-/** Build `wss://…/api/ws/<room>?name=…` for Socka (web worker forwards to Chatroom DO `/websocket`). */
-export function buildChatWsUrl(room: string, displayName: string): string {
+/** Build `wss://…/api/ws/<room>` for Socka (web → chatroom worker → DO). */
+export function buildChatWsUrl(room: string, options?: { guestName?: string }): string {
 	const u = new URL(window.location.href);
 	u.protocol = u.protocol === "https:" ? "wss:" : "ws:";
 	const r = sanitizeChatRoomId(room);
 	u.pathname = `/api/ws/${encodeURIComponent(r)}`;
-	u.search = `?name=${encodeURIComponent(displayName)}`;
+	u.search = "";
+	const guestName = options?.guestName?.trim();
+	if (guestName) {
+		u.searchParams.set("name", guestName);
+	}
 	return u.toString();
 }
 

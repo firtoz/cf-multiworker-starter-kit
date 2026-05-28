@@ -41,9 +41,9 @@ export default function Home({ loaderData }: Route.ComponentProps) {
 					</Link>{" "}
 					(SQL at the edge) and{" "}
 					<Link className="text-blue-600 dark:text-blue-400 underline" to={href("/chat")}>
-						multi-room chat
+						authenticated multi-room chat
 					</Link>{" "}
-					(Socka + Durable Object SQLite + 15m activity TTL), and a{" "}
+					(sign in, Socka + chatroom worker session gate + DO SQLite), and a{" "}
 					<Link className="text-blue-600 dark:text-blue-400 underline" to={href("/ping-do")}>
 						second cross-script DO
 					</Link>{" "}

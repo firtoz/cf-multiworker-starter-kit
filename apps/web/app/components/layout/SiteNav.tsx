@@ -1,0 +1,30 @@
+import { type AuthUser, accountDisplayName, isAdminUser } from "@internal/auth-client";
+import { href, Link } from "react-router";
+
+type SiteNavProps = {
+	user: AuthUser | null;
+};
+
+export function SiteNav({ user }: SiteNavProps) {
+	return (
+		<nav className="container mx-auto px-4 sm:px-6 py-3 flex flex-wrap items-center gap-4 text-sm border-b border-gray-200 dark:border-gray-800">
+			<Link to={href("/")} className="font-semibold">
+				Home
+			</Link>
+			{user ? (
+				<>
+					{user.isAnonymous === true ? null : <Link to={href("/account")}>Account</Link>}
+					<Link to={href("/chat")}>Chat</Link>
+					{isAdminUser(user) ? <Link to={href("/admin/origins")}>Admin</Link> : null}
+					<span className="text-gray-500 ml-auto">
+						{user.isAnonymous === true ? (accountDisplayName(user) ?? "Guest") : user.email}
+					</span>
+				</>
+			) : (
+				<Link to={href("/login")} className="ml-auto">
+					Sign in
+				</Link>
+			)}
+		</nav>
+	);
+}

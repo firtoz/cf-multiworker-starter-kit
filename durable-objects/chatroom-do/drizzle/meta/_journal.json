@@ -8,6 +8,20 @@
       "when": 1777224338101,
       "tag": "0000_sleepy_deathstrike",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1779826381214,
+      "tag": "0001_moaning_trish_tilby",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1779826397879,
+      "tag": "0002_melted_nova",
+      "breakpoints": true
     }
   ]
 }

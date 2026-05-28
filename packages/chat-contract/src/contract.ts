@@ -1,13 +1,21 @@
 import { defineSocka } from "@firtoz/socka/core";
+import { PRODUCT_PREFIX } from "alchemy-utils/worker-peer-scripts";
 import * as z from "zod";
+import { CHAT_DISPLAY_NAME_MAX_CHARS, CHAT_MESSAGE_TEXT_MAX_CHARS } from "./limits";
 
-export const CHATROOM_INTERNAL_SECRET_HEADER = "x-starter-chatroom-secret";
+export * from "./attested-identity";
+export { CHAT_DISPLAY_NAME_MAX_CHARS, CHAT_MESSAGE_TEXT_MAX_CHARS } from "./limits";
 
-/** Max display name chars (Socka `createData` from `?name=` and `setDisplayName`). */
-export const CHAT_DISPLAY_NAME_MAX_CHARS = 64;
+export const CHATROOM_INTERNAL_SECRET_HEADER = `x-${PRODUCT_PREFIX}-chatroom-secret`;
 
-/** Max message body chars for demo chat persistence. */
-export const CHAT_MESSAGE_TEXT_MAX_CHARS = 2000;
+/** Set by web worker after AUTH session verification (not client-controlled). */
+export const CHATROOM_AUTH_USER_ID_HEADER = `x-${PRODUCT_PREFIX}-chat-user-id`;
+
+/** Display name attested by web worker from session profile or guest `?name=`. */
+export const CHATROOM_AUTH_DISPLAY_NAME_HEADER = `x-${PRODUCT_PREFIX}-chat-display-name`;
+
+/** `"true"` or `"false"` — set by web worker (not client-controlled). */
+export const CHATROOM_AUTH_IS_GUEST_HEADER = `x-${PRODUCT_PREFIX}-chat-is-guest`;
 
 const chatDisplayNameZ = z.string().min(1).max(CHAT_DISPLAY_NAME_MAX_CHARS);
 
@@ -16,6 +24,7 @@ export const messageRow = z.object({
 	ts: z.number(),
 	userId: z.string(),
 	displayName: chatDisplayNameZ,
+	isGuest: z.boolean(),
 	text: z.string().min(1).max(CHAT_MESSAGE_TEXT_MAX_CHARS),
 });
 
@@ -24,6 +33,7 @@ export type ChatMessageRow = z.infer<typeof messageRow>;
 const onlineUser = z.object({
 	userId: z.string(),
 	displayName: chatDisplayNameZ,
+	isGuest: z.boolean(),
 });
 
 export const chatContract = defineSocka({
@@ -58,13 +68,22 @@ export const chatContract = defineSocka({
 	pushes: {
 		/** Full sorted room list (all connections). Clients mark "you" with selfUserId from listPresence. */
 		presenceUpdated: z.object({ users: z.array(onlineUser) }),
-		userJoined: z.object({ userId: z.string(), displayName: chatDisplayNameZ }),
-		userLeft: z.object({ userId: z.string(), displayName: chatDisplayNameZ }),
+		userJoined: z.object({
+			userId: z.string(),
+			displayName: chatDisplayNameZ,
+			isGuest: z.boolean(),
+		}),
+		userLeft: z.object({
+			userId: z.string(),
+			displayName: chatDisplayNameZ,
+			isGuest: z.boolean(),
+		}),
 		roomMessage: messageRow,
 		historyCleared: z.object({
 			ts: z.number(),
 			clearedByUserId: z.string(),
 			clearedByDisplayName: chatDisplayNameZ,
+			clearedByIsGuest: z.boolean(),
 		}),
 	},
 });
