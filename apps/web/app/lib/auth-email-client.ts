@@ -1,3 +1,5 @@
+import { setLastLoginMethod, setPendingLoginMethod } from "~/lib/last-login-method";
+
 /** POST JSON to Better Auth on the web origin (`/api/auth/*` is proxied to the auth worker). */
 
 type AuthEmailSignInBody = {
@@ -91,6 +93,7 @@ export async function signInWithEmail(
 	};
 	const result = await postAuthJson("/api/auth/sign-in/email", body);
 	if (result.ok) {
+		setLastLoginMethod("email");
 		window.location.assign(callbackURL);
 	}
 	return result;
@@ -106,6 +109,7 @@ export async function signInWithSocial(
 	};
 	const result = await postAuthJson("/api/auth/sign-in/social", body);
 	if (result.ok) {
+		setPendingLoginMethod(provider);
 		return { ok: true };
 	}
 	return result;
@@ -137,6 +141,7 @@ export async function signUpWithEmail(
 	};
 	const result = await postAuthJson("/api/auth/sign-up/email", body);
 	if (result.ok) {
+		setLastLoginMethod("email");
 		window.location.assign(callbackURL);
 	}
 	return result;

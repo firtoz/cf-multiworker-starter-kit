@@ -27,7 +27,10 @@ export const profileNameRequiredSchema = createUpdateSchema(user, {
 	.pick({ name: true })
 	.required({ name: true });
 
-export const profileUserSchema = createSelectSchema(user).pick({
+export const profileUserSchema = createSelectSchema(user, {
+	/** Null/omitted for normal accounts; only guest sessions set true. */
+	isAnonymous: z.boolean().nullable().optional(),
+}).pick({
 	id: true,
 	email: true,
 	name: true,

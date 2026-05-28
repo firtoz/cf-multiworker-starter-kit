@@ -20,6 +20,7 @@ import {
 	PostHogAnalyticsProvider,
 	type PostHogLoaderAnalytics,
 } from "~/components/client/PostHogAnalytics";
+import { LastLoginMethodSync } from "~/components/auth/LastLoginMethodSync";
 import { SiteNav } from "~/components/layout/SiteNav";
 import { getPostHogClientConfig, getPostHogRuntimeTags } from "~/lib/analytics-config.server";
 
@@ -150,6 +151,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
 export default function App({ loaderData }: Route.ComponentProps) {
 	const shell = (user: AuthUser | null, outlet: React.ReactNode) => (
 		<>
+			{user ? <LastLoginMethodSync /> : null}
 			<SiteNav user={user} />
 			{outlet}
 		</>

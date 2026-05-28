@@ -61,8 +61,6 @@ export function AccountSignInMethods({ summary, callbackURL }: AccountSignInMeth
 								)}
 								{method.email ? (
 									<p className="text-gray-600 dark:text-gray-400 mt-0.5">{method.email}</p>
-								) : method.linked && method.provider !== "email" ? (
-									<p className="text-gray-500 mt-0.5 text-xs">Email will appear after next visit</p>
 								) : null}
 							</div>
 							{canLink && (method.provider === "google" || method.provider === "github") ? (

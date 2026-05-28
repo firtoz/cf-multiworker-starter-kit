@@ -27,11 +27,18 @@ type AppVariables = {
 	trustedOrigins: string[];
 };
 
-function oauthEmailForAccount(acc: { providerId: string; idToken: string | null }): string | null {
-	if (acc.providerId !== "google" && acc.providerId !== "github") {
-		return null;
+type EmailRow = { email: string; source: string };
+
+function oauthProviderEmail(
+	providerId: "google" | "github",
+	account: { idToken: string | null } | undefined,
+	emailRows: EmailRow[],
+): string | null {
+	const fromToken = account ? emailFromOAuthIdToken(account.idToken) : null;
+	if (fromToken) {
+		return fromToken;
 	}
-	return emailFromOAuthIdToken(acc.idToken);
+	return emailRows.find((r) => r.source === providerId)?.email ?? null;
 }
 
 export function registerAccountRoutes(
@@ -69,6 +76,8 @@ export function registerAccountRoutes(
 			.from(userEmail)
 			.where(eq(userEmail.userId, session.user.id));
 
+		const emailRowsForLookup = emailRows.map((r) => ({ email: r.email, source: r.source }));
+
 		const env = c.env;
 		const summary = accountSummarySchema.parse({
 			user: mapUserWithRole({
@@ -89,13 +98,17 @@ export function registerAccountRoutes(
 					provider: "google" as const,
 					linked: googleLinked,
 					accountId: googleAccount?.accountId,
-					email: googleAccount ? oauthEmailForAccount(googleAccount) : null,
+					email: googleLinked
+						? oauthProviderEmail("google", googleAccount, emailRowsForLookup)
+						: null,
 				},
 				{
 					provider: "github" as const,
 					linked: githubLinked,
 					accountId: githubAccount?.accountId,
-					email: githubAccount ? oauthEmailForAccount(githubAccount) : null,
+					email: githubLinked
+						? oauthProviderEmail("github", githubAccount, emailRowsForLookup)
+						: null,
 				},
 			],
 			emails: emailRows.map((row) => ({

@@ -109,6 +109,26 @@ export async function syncUserEmailsForUser(db: AuthDb, userId: string) {
 			}
 		}
 	}
+
+	// Better Auth often omits id_token on the account row; first OAuth sign-in still sets user.email.
+	const oauthAccounts = accounts.filter(
+		(a) => a.providerId === "google" || a.providerId === "github",
+	);
+	if (!hasCredential && oauthAccounts.length > 0) {
+		for (const acc of oauthAccounts) {
+			if (acc.providerId !== "google" && acc.providerId !== "github") {
+				continue;
+			}
+			const existing = await db
+				.select({ id: userEmail.id })
+				.from(userEmail)
+				.where(and(eq(userEmail.userId, userId), eq(userEmail.source, acc.providerId)))
+				.limit(1);
+			if (existing.length === 0) {
+				await upsertUserEmail(db, userId, row.email, acc.providerId, row.emailVerified);
+			}
+		}
+	}
 }
 
 export async function setNotificationPreferredEmail(

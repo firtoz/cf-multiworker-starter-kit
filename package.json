@@ -71,7 +71,7 @@
 		"check:drizzle-generated": "bun run --cwd packages/scripts check:drizzle-generated",
 		"outdated": "bun outdated --recursive",
 		"update:interactive": "bun update --latest --ir",
-		"clean": "turbo clean && rm -rf .turbo .alchemy .mf .wrangler && find . -type d \\( -name .turbo -o -name .alchemy -o -name .mf -o -name .wrangler -o -name dist -o -name build \\) -prune -exec rm -rf {} + && find . -name '*.tsbuildinfo' -type f -delete",
+		"clean": "turbo clean && rm -rf .turbo .alchemy .mf .wrangler && for dir in apps packages workers durable-objects stacks; do [ -d \"$dir\" ] || continue; find \"$dir\" -type d \\( -name .turbo -o -name .alchemy -o -name .mf -o -name .wrangler -o -name dist -o -name build -o -name .react-router \\) -prune -exec rm -rf {} +; find \"$dir\" -name '*.tsbuildinfo' -type f -delete; done",
 		"db:generate": "turbo run db:generate --filter=@internal/db"
 	},
 	"trustedDependencies": [

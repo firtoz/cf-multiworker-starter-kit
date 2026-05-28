@@ -27,9 +27,9 @@ export function AccountEmailsSection({ summary }: AccountEmailsSectionProps) {
 		<section className="mt-6 flex flex-col gap-3 border-t border-gray-200 dark:border-gray-700 pt-6">
 			<h2 className="text-lg font-semibold">Email addresses</h2>
 			<p className="text-sm text-gray-600 dark:text-gray-400">
-				These are contact emails linked to your account. Pick one for future notifications (when we
-				enable email). Sign-in with email/password uses the address marked &quot;Sign-in
-				email&quot;.
+				Addresses we know from how you sign in (GitHub, Google, or email/password). Connect another
+				provider above to add a different email. You can choose which one we&apos;d use for
+				notifications later; email/password sign-in uses the one marked &quot;Sign-in email&quot;.
 			</p>
 			{summary.emails.length === 0 ? (
 				<p className="text-sm text-gray-500">No emails recorded yet.</p>
@@ -98,29 +98,6 @@ export function AccountEmailsSection({ summary }: AccountEmailsSectionProps) {
 					))}
 				</ul>
 			)}
-			<fetcher.Form method="post" className="flex flex-col gap-2 mt-2">
-				<input type="hidden" name="intent" value="addContactEmail" />
-				<label className="text-sm font-medium" htmlFor="contactEmail">
-					Add another email
-				</label>
-				<div className="flex gap-2">
-					<input
-						id="contactEmail"
-						name="email"
-						type="email"
-						required
-						className="flex-1 border rounded px-3 py-2 text-sm dark:bg-gray-900"
-						placeholder="other@example.com"
-					/>
-					<button
-						type="submit"
-						disabled={busy}
-						className="rounded bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 px-3 py-2 text-sm disabled:opacity-50"
-					>
-						Add
-					</button>
-				</div>
-			</fetcher.Form>
 			{saved ? <p className="text-sm text-green-700 dark:text-green-400">Updated.</p> : null}
 			{actionError ? <p className="text-sm text-red-600">{actionError}</p> : null}
 		</section>
