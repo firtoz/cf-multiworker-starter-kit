@@ -1,3 +1,4 @@
+import { AUTH_OAUTH_EMAIL_ALREADY_IN_USE_CODE } from "@internal/auth-db/constants";
 import type { createAuthMiddleware } from "better-auth/api";
 import { symmetricDecrypt } from "better-auth/crypto";
 import { setTokenUtil } from "better-auth/oauth2";
@@ -115,9 +116,24 @@ export async function completeOAuthAccountLink(
 		tokens: NonNullable<Awaited<ReturnType<SocialProvider["validateAuthorizationCode"]>>>;
 		userInfo: Record<string, unknown>;
 		errorRedirectUrl: string;
+		afterOAuthLink?: (input: {
+			userId: string;
+			providerId: string;
+			email: string;
+			emailVerified: boolean;
+		}) => Promise<void>;
+		isEmailOwnedByOtherAccount?: (userId: string, email: string) => Promise<boolean>;
 	},
 ): Promise<void> {
-	const { link, provider, tokens, userInfo, errorRedirectUrl } = options;
+	const {
+		link,
+		provider,
+		tokens,
+		userInfo,
+		errorRedirectUrl,
+		afterOAuthLink,
+		isEmailOwnedByOtherAccount,
+	} = options;
 	if (typeof userInfo["email"] !== "string") {
 		redirectWithOAuthError(ctx, errorRedirectUrl, "email_not_found");
 	}
@@ -153,7 +169,22 @@ export async function completeOAuthAccountLink(
 			}).filter((entry) => entry[1] !== undefined),
 		);
 		await ctx.context.internalAdapter.updateAccount(existingAccount.id, updateData);
+		if (afterOAuthLink && typeof userInfo["email"] === "string") {
+			await afterOAuthLink({
+				userId: link.userId,
+				providerId: provider.id,
+				email: userInfo["email"],
+				emailVerified: userInfo["emailVerified"] === true,
+			});
+		}
 		return;
+	}
+	const providerEmail = (userInfo["email"] as string).toLowerCase();
+	if (
+		isEmailOwnedByOtherAccount &&
+		(await isEmailOwnedByOtherAccount(link.userId, providerEmail))
+	) {
+		redirectWithOAuthError(ctx, errorRedirectUrl, AUTH_OAUTH_EMAIL_ALREADY_IN_USE_CODE);
 	}
 	const created = await ctx.context.internalAdapter.createAccount({
 		userId: link.userId,
@@ -168,6 +199,14 @@ export async function completeOAuthAccountLink(
 	});
 	if (!created) {
 		redirectWithOAuthError(ctx, errorRedirectUrl, "unable_to_link_account");
+	}
+	if (afterOAuthLink && typeof userInfo["email"] === "string") {
+		await afterOAuthLink({
+			userId: link.userId,
+			providerId: provider.id,
+			email: userInfo["email"],
+			emailVerified: userInfo["emailVerified"] === true,
+		});
 	}
 }
 

@@ -13,7 +13,12 @@ import { href, Link, useFetcher, useSearchParams } from "react-router";
 import { ChatGuestRetentionNotice } from "~/components/chat/ChatGuestRetentionNotice";
 import { ChatRoomToolbar } from "~/components/chat/ChatRoomToolbar";
 import { chatAuthorNameClassName } from "~/components/chat/chat-display-name-styles";
-import { buildChatWsUrl, isChatRoomIdInputValid, normalizeChatRoomIdInput, sanitizeChatRoomId } from "~/lib/chat-ws-url";
+import {
+	buildChatWsUrl,
+	isChatRoomIdInputValid,
+	normalizeChatRoomIdInput,
+	sanitizeChatRoomId,
+} from "~/lib/chat-ws-url";
 
 type PresenceLine = { userId: string; displayName: string; isGuest: boolean };
 

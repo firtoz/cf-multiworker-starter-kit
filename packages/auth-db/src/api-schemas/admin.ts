@@ -1,6 +1,6 @@
 import { createSelectSchema } from "drizzle-zod";
 import * as z from "zod";
-import { user } from "../schema";
+import { AUTH_ROLES, user } from "../schema";
 import { profileNameRequiredSchema } from "./profile";
 
 /** D1 / legacy rows may omit timestamps or store invalid values — normalize before Zod. */
@@ -21,7 +21,6 @@ export const adminUserRowSchema = createSelectSchema(user)
 		id: true,
 		email: true,
 		name: true,
-		role: true,
 		createdAt: true,
 	})
 	.extend({
@@ -31,6 +30,7 @@ export const adminUserRowSchema = createSelectSchema(user)
 		lastSeenAt: z.date().nullable(),
 		/** Latest active session `expiresAt` (`null` when no non-expired session). */
 		sessionExpiresAt: z.date().nullable(),
+		role: z.enum(AUTH_ROLES),
 	});
 
 export type AdminUserRow = z.infer<typeof adminUserRowSchema>;
@@ -80,8 +80,10 @@ export const adminOkResponseSchema = z.object({
 
 export type AdminOkResponse = z.infer<typeof adminOkResponseSchema>;
 
+export const authRoleSchema = z.enum(AUTH_ROLES);
+
 export const adminSetRoleSchema = z.object({
-	role: z.enum(["user", "admin"]),
+	role: z.enum(AUTH_ROLES),
 });
 
 export type AdminSetRoleInput = z.infer<typeof adminSetRoleSchema>;

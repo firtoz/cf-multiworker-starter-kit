@@ -58,12 +58,7 @@ export function ChatRoomToolbar({
 	onRoomKeyDown,
 	onJoin,
 }: ChatRoomToolbarProps) {
-	const goTitle = goButtonTitle(
-		canSwitchRoom,
-		joinIsRedundant,
-		roomInputInvalid,
-		committedRoom,
-	);
+	const goTitle = goButtonTitle(canSwitchRoom, joinIsRedundant, roomInputInvalid, committedRoom);
 
 	return (
 		<div className="flex min-w-0 items-center gap-2 text-sm">

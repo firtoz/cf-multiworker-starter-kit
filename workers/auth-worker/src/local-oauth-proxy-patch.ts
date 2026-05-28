@@ -4,6 +4,8 @@
  * - `/link-social` + loopback link completion (upstream #9390)
  * - OAuth errors use the same `?error=` redirect as stock Better Auth (`errorCallbackURL`)
  */
+
+import { AUTH_OAUTH_EMAIL_ALREADY_IN_USE_CODE } from "@internal/auth-db/constants";
 import type { BetterAuthPlugin } from "better-auth";
 import { createAuthMiddleware } from "better-auth/api";
 import { symmetricDecrypt } from "better-auth/crypto";
@@ -14,11 +16,20 @@ type OAuthLinkState = { userId: string; email: string };
 type AuthMiddlewareCtx =
 	Parameters<Parameters<typeof createAuthMiddleware>[0]> extends [infer C] ? C : never;
 
+export type OAuthLinkCompleted = {
+	userId: string;
+	providerId: string;
+	email: string;
+	emailVerified: boolean;
+};
+
 export type LocalGoogleOAuthProxyOptions = {
 	/** Loopback origin registered in Google Cloud, e.g. `http://127.0.0.1:5173`. */
 	productionURL: string;
 	/** Portless browser origin (`AUTH_BASE_URL`), e.g. `https://starter-web.localhost`. */
 	browserBaseUrl: string;
+	afterOAuthLink?: (input: OAuthLinkCompleted) => Promise<void>;
+	isEmailOwnedByOtherAccount?: (userId: string, email: string) => Promise<boolean>;
 };
 
 function isOAuthProxySocialStartPath(path: string | undefined): boolean {
@@ -261,6 +272,12 @@ export function configureLocalGoogleOAuthProxy(
 				);
 				await ctx.context.internalAdapter.updateAccount(existingAccount.id, updateData);
 			} else {
+				if (
+					options.isEmailOwnedByOtherAccount &&
+					(await options.isEmailOwnedByOtherAccount(link.userId, userInfo.email.toLowerCase()))
+				) {
+					redirectWithOAuthError(ctx, errorRedirectUrl, AUTH_OAUTH_EMAIL_ALREADY_IN_USE_CODE);
+				}
 				const created = await ctx.context.internalAdapter.createAccount({
 					userId: link.userId,
 					providerId: provider.id,
@@ -275,6 +292,14 @@ export function configureLocalGoogleOAuthProxy(
 				if (!created) {
 					redirectWithOAuthError(ctx, errorRedirectUrl, "unable_to_link_account");
 				}
+			}
+			if (options.afterOAuthLink && typeof userInfo.email === "string") {
+				await options.afterOAuthLink({
+					userId: link.userId,
+					providerId: provider.id,
+					email: userInfo.email,
+					emailVerified: userInfo.emailVerified === true,
+				});
 			}
 			throw ctx.redirect(returnUrl);
 		}),

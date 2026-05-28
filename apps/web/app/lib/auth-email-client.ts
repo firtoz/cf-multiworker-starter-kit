@@ -30,6 +30,7 @@ type AuthSocialProvider = "google" | "github";
 type AuthSocialSignInBody = {
 	provider: AuthSocialProvider;
 	callbackURL?: string;
+	errorCallbackURL?: string;
 };
 
 function parseAuthErrorMessage(body: unknown): string {
@@ -99,10 +100,12 @@ export async function signInWithEmail(
 export async function signInWithSocial(
 	provider: AuthSocialProvider,
 	callbackURL: string,
+	errorCallbackURL?: string,
 ): Promise<MaybeError> {
 	const body: AuthSocialSignInBody = {
 		provider,
 		callbackURL,
+		...(errorCallbackURL ? { errorCallbackURL } : {}),
 	};
 	const result = await postAuthJson("/api/auth/sign-in/social", body);
 	if (result.success) {

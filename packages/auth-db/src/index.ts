@@ -1,6 +1,7 @@
 import { type DrizzleD1Database, drizzle } from "drizzle-orm/d1";
 import * as schema from "./schema";
 
+export * from "./guest-user";
 export * from "./schema";
 export * from "./user-emails";
 

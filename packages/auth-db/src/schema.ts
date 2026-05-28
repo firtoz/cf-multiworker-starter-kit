@@ -1,5 +1,8 @@
 import { sql } from "drizzle-orm";
-import { index, integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { index, integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
+
+export const AUTH_ROLES = ["user", "admin"] as const;
+export type AuthRole = (typeof AUTH_ROLES)[number];
 
 /** Better Auth user — `role` is template-specific (`user` | `admin`). */
 export const user = sqliteTable("user", {
@@ -8,7 +11,7 @@ export const user = sqliteTable("user", {
 	email: text("email").notNull().unique(),
 	emailVerified: integer("email_verified", { mode: "boolean" }).notNull().default(false),
 	image: text("image"),
-	role: text("role").notNull().default("user"),
+	role: text("role").$type<AuthRole>().notNull().default("user"),
 	/** Better Auth anonymous plugin — ephemeral guest accounts. */
 	isAnonymous: integer("is_anonymous", { mode: "boolean" }),
 	createdAt: integer("created_at", { mode: "timestamp_ms" })
@@ -74,7 +77,7 @@ export const userEmail = sqliteTable(
 		userId: text("user_id")
 			.notNull()
 			.references(() => user.id, { onDelete: "cascade" }),
-		email: text("email").notNull().unique(),
+		email: text("email").notNull(),
 		/** credential sign-in, OAuth provider, manual entry, or synced profile email */
 		source: text("source").notNull(),
 		verified: integer("verified", { mode: "boolean" }).notNull().default(false),
@@ -88,7 +91,10 @@ export const userEmail = sqliteTable(
 			.notNull()
 			.default(sql`(cast(unixepoch('subsecond') * 1000 as integer))`),
 	},
-	(table) => [index("user_email_user_id_idx").on(table.userId)],
+	(table) => [
+		index("user_email_user_id_idx").on(table.userId),
+		uniqueIndex("user_email_user_id_source_unique").on(table.userId, table.source),
+	],
 );
 
 export const verification = sqliteTable(

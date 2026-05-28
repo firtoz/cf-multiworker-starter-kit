@@ -1,8 +1,12 @@
+import { AUTH_OAUTH_EMAIL_ALREADY_IN_USE_CODE } from "@internal/auth-client";
+
 /** Better Auth appends this query param on failed OAuth redirects (see `redirectOnError` in better-auth). */
 export const BETTER_AUTH_OAUTH_ERROR_QUERY = "error";
 
 /** Better Auth OAuth redirect error codes we show on `/account` after Connect provider. */
 export const BETTER_AUTH_LINK_ERROR_CODES = {
+	emailAlreadyInUse: AUTH_OAUTH_EMAIL_ALREADY_IN_USE_CODE,
+	accountNotLinked: "account_not_linked",
 	accountAlreadyLinked: "account_already_linked_to_different_user",
 	emailMismatch: "email_doesn't_match",
 	unableToLink: "unable_to_link_account",
@@ -15,7 +19,12 @@ export const BETTER_AUTH_LINK_ERROR_CODES = {
 	userCreationFailed: "user_creation_failed",
 } as const;
 
+const EMAIL_ALREADY_IN_USE_MESSAGE =
+	"This email is already used by another account. Sign in with your existing method, then connect Google or GitHub from Account.";
+
 const LINK_ERROR_MESSAGES: Record<string, string> = {
+	[BETTER_AUTH_LINK_ERROR_CODES.emailAlreadyInUse]: EMAIL_ALREADY_IN_USE_MESSAGE,
+	[BETTER_AUTH_LINK_ERROR_CODES.accountNotLinked]: EMAIL_ALREADY_IN_USE_MESSAGE,
 	[BETTER_AUTH_LINK_ERROR_CODES.accountAlreadyLinked]:
 		"That sign-in provider is already connected to another account. Sign in with it directly, or remove it from the other account first.",
 	[BETTER_AUTH_LINK_ERROR_CODES.emailMismatch]:
@@ -35,6 +44,7 @@ const LINK_ERROR_MESSAGES: Record<string, string> = {
 		"OAuth link took too long — start Connect again from this page.",
 	[BETTER_AUTH_LINK_ERROR_CODES.userCreationFailed]:
 		"Could not finish sign-in after OAuth. Try again or use email instead.",
+	unable_to_create_user: "Could not create your account. Try again or use email sign-in instead.",
 };
 
 /** Map Better Auth `?error=` codes to copy for the account page. */

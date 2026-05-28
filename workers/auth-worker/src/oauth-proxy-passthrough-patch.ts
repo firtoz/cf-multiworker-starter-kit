@@ -28,6 +28,13 @@ export type PassthroughOAuthProxyOptions = {
 	browserBaseUrl: string;
 	/** Match Better Auth `oAuthProxy` default. */
 	maxAge?: number;
+	afterOAuthLink?: (input: {
+		userId: string;
+		providerId: string;
+		email: string;
+		emailVerified: boolean;
+	}) => Promise<void>;
+	isEmailOwnedByOtherAccount?: (userId: string, email: string) => Promise<boolean>;
 };
 
 function isPassthroughOAuthProxyStart(ctx: { path?: string }): boolean {
@@ -64,7 +71,7 @@ export function configurePassthroughOAuthProxy(
 		return;
 	}
 
-	const { productionURL, browserBaseUrl } = options;
+	const { productionURL, browserBaseUrl, afterOAuthLink, isEmailOwnedByOtherAccount } = options;
 	const maxAge = options.maxAge ?? 60;
 	const productionOrigin = new URL(productionURL).origin;
 	const isClientPassthrough =
@@ -84,6 +91,8 @@ export function configurePassthroughOAuthProxy(
 				const handled = await tryCompleteProxyLinkFromQuery(ctx, {
 					browserBaseUrl,
 					maxAge,
+					afterOAuthLink,
+					isEmailOwnedByOtherAccount,
 				});
 				if (handled) {
 					return;
@@ -204,7 +213,12 @@ export function configurePassthroughOAuthProxy(
 
 async function tryCompleteProxyLinkFromQuery(
 	ctx: AuthMiddlewareCtx,
-	options: { browserBaseUrl: string; maxAge: number },
+	options: {
+		browserBaseUrl: string;
+		maxAge: number;
+		afterOAuthLink?: PassthroughOAuthProxyOptions["afterOAuthLink"];
+		isEmailOwnedByOtherAccount?: PassthroughOAuthProxyOptions["isEmailOwnedByOtherAccount"];
+	},
 ): Promise<boolean> {
 	const encryptedProfile = (ctx.query as { profile?: string }).profile;
 	if (typeof encryptedProfile !== "string" || encryptedProfile.length === 0) {
@@ -231,7 +245,12 @@ async function tryCompleteProxyLinkFromQuery(
 async function handleProxyLinkCallback(
 	ctx: AuthMiddlewareCtx,
 	payload: Record<string, unknown>,
-	options: { browserBaseUrl: string; maxAge: number },
+	options: {
+		browserBaseUrl: string;
+		maxAge: number;
+		afterOAuthLink?: PassthroughOAuthProxyOptions["afterOAuthLink"];
+		isEmailOwnedByOtherAccount?: PassthroughOAuthProxyOptions["isEmailOwnedByOtherAccount"];
+	},
 ): Promise<void> {
 	const defaultErrorURL =
 		(typeof payload["errorURL"] === "string" && payload["errorURL"]) ||
@@ -270,8 +289,7 @@ async function handleProxyLinkCallback(
 	const userInfo = userInfoRaw as Record<string, unknown>;
 	const tokens = {
 		accessToken: typeof account["accessToken"] === "string" ? account["accessToken"] : undefined,
-		refreshToken:
-			typeof account["refreshToken"] === "string" ? account["refreshToken"] : undefined,
+		refreshToken: typeof account["refreshToken"] === "string" ? account["refreshToken"] : undefined,
 		idToken: typeof account["idToken"] === "string" ? account["idToken"] : undefined,
 		accessTokenExpiresAt:
 			typeof account["accessTokenExpiresAtSerialized"] === "string"
@@ -295,6 +313,8 @@ async function handleProxyLinkCallback(
 			tokens,
 			userInfo,
 			errorRedirectUrl,
+			afterOAuthLink: options.afterOAuthLink,
+			isEmailOwnedByOtherAccount: options.isEmailOwnedByOtherAccount,
 		});
 	} catch (error) {
 		if (error && typeof error === "object" && "status" in error) {

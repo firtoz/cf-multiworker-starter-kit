@@ -1,7 +1,9 @@
 import {
 	type AuthDb,
+	emailDomain,
 	emailFromOAuthIdToken,
 	getAuthDb,
+	isSyntheticGuestEmail,
 	syncUserEmailsForUser,
 } from "@internal/auth-db";
 import { account, user as userTable } from "@internal/auth-db/schema";
@@ -32,7 +34,8 @@ export async function graduateAnonymousUser(
 	}
 
 	const email = normalizeEmail(input.email);
-	if (!email.includes("@") || email.endsWith(".guest")) {
+	const guestDomain = emailDomain(row.email);
+	if (!email.includes("@") || (guestDomain !== null && isSyntheticGuestEmail(email, guestDomain))) {
 		return { ok: false, error: "A valid email is required to create your account" };
 	}
 

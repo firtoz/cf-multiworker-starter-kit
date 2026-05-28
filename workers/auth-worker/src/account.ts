@@ -34,12 +34,22 @@ function oauthProviderEmail(
 	providerId: "google" | "github",
 	account: { idToken: string | null } | undefined,
 	emailRows: EmailRow[],
+	linked: boolean,
+	profileEmail: string,
+	profileIsAnonymous: boolean,
 ): string | null {
 	const fromToken = account ? emailFromOAuthIdToken(account.idToken) : null;
 	if (fromToken) {
 		return fromToken;
 	}
-	return emailRows.find((r) => r.source === providerId)?.email ?? null;
+	const fromSource = emailRows.find((r) => r.source === providerId)?.email ?? null;
+	if (fromSource) {
+		return fromSource;
+	}
+	if (linked && !profileIsAnonymous && profileEmail.includes("@")) {
+		return profileEmail;
+	}
+	return null;
 }
 
 export function registerAccountRoutes(
@@ -51,13 +61,15 @@ export function registerAccountRoutes(
 			return c.json({ error: "Unauthorized" }, 401);
 		}
 
+		const sessionUser = session.user;
+
 		const db = getAuthDb(c.env.DB);
-		await syncUserEmailsForUser(db, session.user.id);
+		await syncUserEmailsForUser(db, sessionUser.id);
 
 		const accounts = await db
 			.select()
 			.from(accountTable)
-			.where(eq(accountTable.userId, session.user.id));
+			.where(eq(accountTable.userId, sessionUser.id));
 
 		const hasPassword = accounts.some(
 			(a) => a.providerId === "credential" && a.password != null && a.password.length > 0,
@@ -70,12 +82,10 @@ export function registerAccountRoutes(
 		const googleAccount = accounts.find((a) => a.providerId === "google");
 		const githubAccount = accounts.find((a) => a.providerId === "github");
 
-		const signInEmail = session.user.email.toLowerCase();
+		const signInEmail = sessionUser.email.toLowerCase();
+		const profileIsAnonymous = sessionUser.isAnonymous === true;
 
-		const emailRows = await db
-			.select()
-			.from(userEmail)
-			.where(eq(userEmail.userId, session.user.id));
+		const emailRows = await db.select().from(userEmail).where(eq(userEmail.userId, sessionUser.id));
 
 		const emailRowsForLookup = emailRows.map((r) => ({ email: r.email, source: r.source }));
 
@@ -95,7 +105,14 @@ export function registerAccountRoutes(
 							linked: googleLinked,
 							accountId: googleAccount?.accountId,
 							email: googleLinked
-								? oauthProviderEmail("google", googleAccount, emailRowsForLookup)
+								? oauthProviderEmail(
+										"google",
+										googleAccount,
+										emailRowsForLookup,
+										googleLinked,
+										signInEmail,
+										profileIsAnonymous,
+									)
 								: null,
 						},
 					]
@@ -107,7 +124,14 @@ export function registerAccountRoutes(
 							linked: githubLinked,
 							accountId: githubAccount?.accountId,
 							email: githubLinked
-								? oauthProviderEmail("github", githubAccount, emailRowsForLookup)
+								? oauthProviderEmail(
+										"github",
+										githubAccount,
+										emailRowsForLookup,
+										githubLinked,
+										signInEmail,
+										profileIsAnonymous,
+									)
 								: null,
 						},
 					]
@@ -134,14 +158,7 @@ export function registerAccountRoutes(
 			}));
 
 		const summary = accountSummarySchema.parse({
-			user: mapUserWithRole({
-				id: session.user.id,
-				email: session.user.email,
-				name: session.user.name,
-				image: session.user.image,
-				role: (session.user as { role?: unknown }).role,
-				isAnonymous: (session.user as { isAnonymous?: boolean | null }).isAnonymous,
-			}),
+			user: mapUserWithRole(sessionUser),
 			signInMethods,
 			emails,
 			hasPassword,

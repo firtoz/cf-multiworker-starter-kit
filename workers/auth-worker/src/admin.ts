@@ -61,7 +61,7 @@ export async function assertAdminAccess(
 		return null;
 	}
 	const session = await c.var.auth.api.getSession({ headers: c.req.raw.headers });
-	const role = session?.user ? parseAuthRole((session.user as { role?: unknown }).role) : "user";
+	const role = session?.user ? parseAuthRole(session.user.role) : "user";
 	if (!session?.user || role !== "admin") {
 		return c.json({ error: "Forbidden" }, 403);
 	}

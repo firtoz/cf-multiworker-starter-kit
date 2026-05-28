@@ -1,4 +1,8 @@
-export type AuthRole = "user" | "admin";
+import type { AuthRole } from "@internal/auth-db/schema";
+import { AUTH_ROLES } from "@internal/auth-db/schema";
+
+export type { AuthRole };
+export { AUTH_ROLES };
 
 export type AuthUser = {
 	id: string;
@@ -27,5 +31,5 @@ export function isAdminUser(
 }
 
 export function parseAuthRole(raw: unknown): AuthRole {
-	return raw === "admin" ? "admin" : "user";
+	return AUTH_ROLES.includes(raw as AuthRole) ? (raw as AuthRole) : "user";
 }

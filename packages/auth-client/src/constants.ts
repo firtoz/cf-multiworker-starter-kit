@@ -1,6 +1,10 @@
 import { PRODUCT_PREFIX } from "alchemy-utils/worker-peer-scripts";
 
-export { PROFILE_NAME_MAX_CHARS } from "@internal/auth-db/constants";
+export {
+	AUTH_OAUTH_EMAIL_ALREADY_IN_USE_CODE,
+	AUTH_OAUTH_EMAIL_ALREADY_IN_USE_MESSAGE,
+	PROFILE_NAME_MAX_CHARS,
+} from "@internal/auth-db/constants";
 
 /** Machine-to-machine admin API (origins CRUD without browser session). */
 export const AUTH_ADMIN_SECRET_HEADER = `x-${PRODUCT_PREFIX}-auth-admin-secret`;

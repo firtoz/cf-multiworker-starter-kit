@@ -6,6 +6,7 @@ import { href, redirect } from "react-router";
 import { LoginPanel } from "~/components/auth/LoginPanel";
 import { ClientOnly } from "~/components/client/ClientOnly";
 import { BackToHomeLink } from "~/components/shared/BackToHomeLink";
+import { accountLinkErrorFromRequestUrl } from "~/lib/auth-link-error";
 import { googleOAuthPortlessWarningForWebEnv } from "~/lib/google-oauth-portless-warning";
 import type { Route } from "./+types/login";
 
@@ -15,10 +16,13 @@ export function meta(_args: Route.MetaArgs) {
 	return [{ title: "Sign in" }, { name: "description", content: "Sign in to the app" }];
 }
 
-export async function loader({
-	request,
-}: Route.LoaderArgs): Promise<
-	MaybeError<{ redirectTo: string; providers: AuthProviders; googlePortlessWarning?: string }>
+export async function loader({ request }: Route.LoaderArgs): Promise<
+	MaybeError<{
+		redirectTo: string;
+		providers: AuthProviders;
+		googlePortlessWarning?: string;
+		oauthErrorMessage?: string;
+	}>
 > {
 	const session = await getSession(env.AUTH, request);
 	const url = new URL(request.url);
@@ -35,10 +39,12 @@ export async function loader({
 		providers.google && !providers.googleLoopbackOAuthProxy && !providers.oauthProxy
 			? googleOAuthPortlessWarningForWebEnv(env, true)
 			: undefined;
+	const oauthErrorMessage = accountLinkErrorFromRequestUrl(request.url);
 	return success({
 		redirectTo,
 		providers,
 		...(googlePortlessWarning ? { googlePortlessWarning } : {}),
+		...(oauthErrorMessage ? { oauthErrorMessage } : {}),
 	});
 }
 
@@ -60,6 +66,9 @@ export default function LoginRoute({ loaderData }: Route.ComponentProps) {
 					providers={loaderData.result.providers}
 					{...(loaderData.result.googlePortlessWarning
 						? { googlePortlessWarning: loaderData.result.googlePortlessWarning }
+						: {})}
+					{...(loaderData.result.oauthErrorMessage
+						? { oauthErrorMessage: loaderData.result.oauthErrorMessage }
 						: {})}
 				/>
 			</ClientOnly>

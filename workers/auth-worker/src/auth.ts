@@ -1,10 +1,23 @@
 import { parseAuthRole } from "@internal/auth-client";
-import { getAuthDb } from "@internal/auth-db";
+import {
+	emailFromOAuthIdToken,
+	findOtherUserIdForEmail,
+	getAuthDb,
+	syncUserEmailsForUser,
+	upsertUserEmail,
+} from "@internal/auth-db";
+import { authRoleSchema } from "@internal/auth-db/api-schemas";
+import {
+	AUTH_OAUTH_EMAIL_ALREADY_IN_USE_CODE,
+	AUTH_OAUTH_EMAIL_ALREADY_IN_USE_MESSAGE,
+} from "@internal/auth-db/constants";
+import type { AuthRole } from "@internal/auth-db/schema";
 import * as authSchema from "@internal/auth-db/schema";
 import { isLoopbackOAuthProxyProductionUrl } from "alchemy-utils/auth-oauth-proxy-url";
 import { PRODUCT_PREFIX } from "alchemy-utils/worker-peer-scripts";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
+import { APIError } from "better-auth/api";
 import { anonymous, oAuthProxy } from "better-auth/plugins";
 import { generateAnonymousGuestName } from "./guest-display-name";
 import { graduateAnonymousUserFromOAuthAccount } from "./guest-graduate";
@@ -36,9 +49,42 @@ function bootstrapAdminEmails(raw: string): Set<string> {
 	);
 }
 
+async function rejectEmailOwnedByOtherAccount(
+	db: ReturnType<typeof getAuthDb>,
+	email: string,
+	excludeUserId?: string | null,
+): Promise<void> {
+	if (await findOtherUserIdForEmail(db, email, excludeUserId)) {
+		throw APIError.from("BAD_REQUEST", {
+			message: AUTH_OAUTH_EMAIL_ALREADY_IN_USE_MESSAGE,
+			code: AUTH_OAUTH_EMAIL_ALREADY_IN_USE_CODE,
+		});
+	}
+}
+
 export function createAuth(env: AuthWorkerEnv, trustedOrigins: string[]) {
 	const db = getAuthDb(env.DB);
 	const bootstrap = bootstrapAdminEmails(env.AUTH_BOOTSTRAP_ADMIN_EMAILS);
+
+	const afterOAuthLink = async (input: {
+		userId: string;
+		providerId: string;
+		email: string;
+		emailVerified: boolean;
+	}) => {
+		if (input.providerId === "google" || input.providerId === "github") {
+			await upsertUserEmail(db, input.userId, input.email, input.providerId, input.emailVerified);
+		}
+		await syncUserEmailsForUser(db, input.userId);
+	};
+
+	const isEmailOwnedByOtherAccount = async (userId: string, email: string) =>
+		(await findOtherUserIdForEmail(db, email, userId)) !== null;
+
+	const oauthProxyLinkOptions = {
+		afterOAuthLink,
+		isEmailOwnedByOtherAccount,
+	};
 
 	const google =
 		env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET
@@ -92,11 +138,13 @@ export function createAuth(env: AuthWorkerEnv, trustedOrigins: string[]) {
 								configureLocalGoogleOAuthProxy(plugin, {
 									productionURL,
 									browserBaseUrl: env.AUTH_BASE_URL,
+									...oauthProxyLinkOptions,
 								});
 							} else {
 								configurePassthroughOAuthProxy(plugin, {
 									productionURL,
 									browserBaseUrl: env.AUTH_BASE_URL,
+									...oauthProxyLinkOptions,
 								});
 							}
 							return plugin;
@@ -109,8 +157,11 @@ export function createAuth(env: AuthWorkerEnv, trustedOrigins: string[]) {
 				role: {
 					type: "string",
 					required: true,
-					defaultValue: "user",
+					defaultValue: "user" satisfies AuthRole,
 					input: false,
+					validator: {
+						output: authRoleSchema,
+					},
 				},
 			},
 		},
@@ -119,6 +170,10 @@ export function createAuth(env: AuthWorkerEnv, trustedOrigins: string[]) {
 				create: {
 					before: async (user) => {
 						const email = user.email?.trim().toLowerCase();
+						const isGuest = "isAnonymous" in user && user.isAnonymous === true;
+						if (email && !isGuest) {
+							await rejectEmailOwnedByOtherAccount(db, email);
+						}
 						if (email && bootstrap.has(email)) {
 							return {
 								data: {
@@ -133,6 +188,16 @@ export function createAuth(env: AuthWorkerEnv, trustedOrigins: string[]) {
 			},
 			account: {
 				create: {
+					before: async (createdAccount) => {
+						if (createdAccount.providerId === "credential" || !createdAccount.userId) {
+							return { data: createdAccount };
+						}
+						const oauthEmail = emailFromOAuthIdToken(createdAccount.idToken);
+						if (oauthEmail) {
+							await rejectEmailOwnedByOtherAccount(db, oauthEmail, createdAccount.userId);
+						}
+						return { data: createdAccount };
+					},
 					after: async (createdAccount) => {
 						if (createdAccount.providerId === "credential") {
 							return;
@@ -155,6 +220,15 @@ export function createAuth(env: AuthWorkerEnv, trustedOrigins: string[]) {
 								error,
 							});
 						}
+						try {
+							await syncUserEmailsForUser(db, userId);
+						} catch (error) {
+							console.error("Failed to sync provider emails after OAuth link", {
+								userId,
+								providerId: createdAccount.providerId,
+								error,
+							});
+						}
 					},
 				},
 			},
@@ -162,6 +236,9 @@ export function createAuth(env: AuthWorkerEnv, trustedOrigins: string[]) {
 		account: {
 			accountLinking: {
 				enabled: true,
+				// Cold `/sign-in/social` must not merge into an existing account by email alone.
+				// Linking is explicit via `/link-social` (Account or guest upgrade while signed in).
+				disableImplicitLinking: true,
 				allowDifferentEmails: true,
 				trustedProviders: [
 					...(google ? (["google"] as const) : []),
@@ -172,15 +249,22 @@ export function createAuth(env: AuthWorkerEnv, trustedOrigins: string[]) {
 	});
 }
 
-/** Map Better Auth session user to API shape including role. */
-export function mapUserWithRole(user: {
+export type Auth = ReturnType<typeof createAuth>;
+export type AuthSession = NonNullable<Awaited<ReturnType<Auth["api"]["getSession"]>>>;
+/** Better Auth infers `role` as `string`; align with Drizzle `AuthRole`. */
+export type AuthSessionUser = Omit<AuthSession["user"], "role"> & { role: AuthRole };
+
+/** Session user or D1 row — session `role` is `string` until parsed. */
+export type UserWithRoleInput = {
 	id: string;
 	email: string;
 	name?: string | null;
 	image?: string | null;
-	role?: unknown;
+	role: AuthRole | string;
 	isAnonymous?: boolean | null;
-}) {
+};
+
+export function mapUserWithRole(user: UserWithRoleInput) {
 	return {
 		id: user.id,
 		email: user.email,

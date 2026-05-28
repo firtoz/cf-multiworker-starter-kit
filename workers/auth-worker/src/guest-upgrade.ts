@@ -57,14 +57,7 @@ export function registerGuestUpgradeRoutes(
 		}
 
 		return c.json({
-			user: mapUserWithRole({
-				id: refreshed.user.id,
-				email: refreshed.user.email,
-				name: refreshed.user.name,
-				image: refreshed.user.image,
-				role: (refreshed.user as { role?: unknown }).role,
-				isAnonymous: (refreshed.user as { isAnonymous?: boolean | null }).isAnonymous,
-			}),
+			user: mapUserWithRole(refreshed.user),
 		});
 	});
 

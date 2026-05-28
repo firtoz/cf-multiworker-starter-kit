@@ -5,6 +5,7 @@ import { GoogleOAuthPortlessWarning } from "~/components/auth/GoogleOAuthPortles
 import { OAuthStagingProxyNotice } from "~/components/auth/OAuthStagingProxyNotice";
 import { authCallbackUrl } from "~/lib/auth-callback-url";
 import { signInWithSocial } from "~/lib/auth-email-client";
+import { BETTER_AUTH_OAUTH_ERROR_QUERY } from "~/lib/auth-link-error";
 import {
 	getLastLoginMethod,
 	LAST_LOGIN_LABELS,
@@ -15,6 +16,7 @@ type LoginPanelProps = {
 	redirectTo: string;
 	providers: AuthProviders;
 	googlePortlessWarning?: string;
+	oauthErrorMessage?: string;
 };
 
 function isMethodAvailable(method: LastLoginMethod, providers: AuthProviders): boolean {
@@ -27,15 +29,36 @@ function isMethodAvailable(method: LastLoginMethod, providers: AuthProviders): b
 	return providers.github;
 }
 
-export function LoginPanel({ redirectTo, providers, googlePortlessWarning }: LoginPanelProps) {
+export function LoginPanel({
+	redirectTo,
+	providers,
+	googlePortlessWarning,
+	oauthErrorMessage,
+}: LoginPanelProps) {
 	const callback = authCallbackUrl(redirectTo);
-	const [error, setError] = useState<string | null>(null);
+	const loginErrorCallback = authCallbackUrl(`/login?redirectTo=${encodeURIComponent(redirectTo)}`);
+	const [error, setError] = useState<string | null>(oauthErrorMessage ?? null);
 	const [busyProvider, setBusyProvider] = useState<"google" | "github" | null>(null);
 	const [lastUsed, setLastUsed] = useState<LastLoginMethod | null>(null);
 
 	useEffect(() => {
 		setLastUsed(getLastLoginMethod());
 	}, []);
+
+	useEffect(() => {
+		if (!oauthErrorMessage || typeof window === "undefined") {
+			return;
+		}
+		const params = new URLSearchParams(window.location.search);
+		if (!params.has(BETTER_AUTH_OAUTH_ERROR_QUERY)) {
+			return;
+		}
+		params.delete(BETTER_AUTH_OAUTH_ERROR_QUERY);
+		params.delete("error_description");
+		const q = params.toString();
+		const path = window.location.pathname;
+		window.history.replaceState(null, "", q ? `${path}?${q}` : path);
+	}, [oauthErrorMessage]);
 
 	const lastUsedAvailable =
 		lastUsed != null && isMethodAvailable(lastUsed, providers) ? lastUsed : null;
@@ -45,7 +68,7 @@ export function LoginPanel({ redirectTo, providers, googlePortlessWarning }: Log
 			setError(null);
 			setBusyProvider(provider);
 			try {
-				const result = await signInWithSocial(provider, callback);
+				const result = await signInWithSocial(provider, callback, loginErrorCallback);
 				if (!result.success) {
 					setError(result.error);
 				}
@@ -53,7 +76,7 @@ export function LoginPanel({ redirectTo, providers, googlePortlessWarning }: Log
 				setBusyProvider(null);
 			}
 		},
-		[callback],
+		[loginErrorCallback, callback],
 	);
 
 	const showGoogle = providers.google && lastUsedAvailable !== "google";
