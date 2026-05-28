@@ -12,15 +12,8 @@
     {
       "idx": 1,
       "version": "6",
-      "when": 1779826381214,
-      "tag": "0001_moaning_trish_tilby",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "6",
-      "when": 1779826397879,
-      "tag": "0002_melted_nova",
+      "when": 1779919864102,
+      "tag": "0001_outgoing_professor_monster",
       "breakpoints": true
     }
   ]

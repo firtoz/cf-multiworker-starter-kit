@@ -36,8 +36,9 @@ export function cookieHeaderAfterSetCookie(
 }
 
 export function collectSetCookieHeaders(response: Response): string[] {
-	if (typeof response.headers.getSetCookie === "function") {
-		return response.headers.getSetCookie();
+	const headers = response.headers as Headers & { getSetCookie?: () => string[] };
+	if (typeof headers.getSetCookie === "function") {
+		return headers.getSetCookie();
 	}
 	const single = response.headers.get("set-cookie");
 	return single ? [single] : [];

@@ -6,7 +6,7 @@ export type ChatAttestedIdentity = {
 	isGuest: boolean;
 };
 
-/** Signed-in user facts from AUTH — mapped by the web worker before WS forward. */
+/** Signed-in user facts from AUTH — mapped after `getSession` on the web worker (chat WS entry). */
 export type ChatSignedInIdentity = {
 	userId: string;
 	profileDisplayName: string | null;
@@ -20,30 +20,13 @@ function clampDisplayName(raw: string): string {
 		: raw.slice(0, CHAT_DISPLAY_NAME_MAX_CHARS);
 }
 
-function clampGuestDisplayName(raw: string | null): string {
-	const base = raw?.trim() || "Guest";
-	return clampDisplayName(base);
-}
-
-/** Resolve chat presence on the web worker before forwarding `/api/ws/*`. */
-export function resolveChatAttestedIdentity(
-	signedIn: ChatSignedInIdentity | null,
-	guestNameQuery: string | null,
-): ChatAttestedIdentity {
-	if (signedIn) {
-		const profileName = signedIn.profileDisplayName?.trim();
-		const displayName = profileName
-			? clampDisplayName(profileName)
-			: clampGuestDisplayName(guestNameQuery);
-		return {
-			userId: signedIn.userId,
-			displayName,
-			isGuest: signedIn.isAnonymous,
-		};
-	}
+/** Resolve chat presence after the chatroom worker reads the session from the AUTH binding. */
+export function resolveChatAttestedIdentity(signedIn: ChatSignedInIdentity): ChatAttestedIdentity {
+	const profileName = signedIn.profileDisplayName?.trim();
+	const displayName = profileName ? clampDisplayName(profileName) : clampDisplayName("Guest");
 	return {
-		userId: crypto.randomUUID(),
-		displayName: clampGuestDisplayName(guestNameQuery),
-		isGuest: true,
+		userId: signedIn.userId,
+		displayName,
+		isGuest: signedIn.isAnonymous,
 	};
 }

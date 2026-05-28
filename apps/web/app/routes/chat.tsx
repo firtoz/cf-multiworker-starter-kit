@@ -28,6 +28,8 @@ export type ChatLoaderData = {
 	user: AuthUser;
 	sessionExpiresAt: string;
 	guestRetentionDays: number;
+	/** True when the loader just issued `Set-Cookie` — client must wait before opening the chat WebSocket. */
+	pendingAuthCookies: boolean;
 };
 
 export async function loader({ request }: Route.LoaderArgs) {
@@ -38,13 +40,15 @@ export async function loader({ request }: Route.LoaderArgs) {
 	}
 
 	const { session, setCookieHeaders } = ensured;
+	const pendingAuthCookies = setCookieHeaders.length > 0;
 	const payload = success({
 		user: session.user,
 		sessionExpiresAt: session.session.expiresAt,
 		guestRetentionDays: GUEST_SESSION_RETENTION_DAYS,
+		pendingAuthCookies,
 	} satisfies ChatLoaderData);
 
-	if (setCookieHeaders.length === 0) {
+	if (!pendingAuthCookies) {
 		return payload;
 	}
 
@@ -109,6 +113,7 @@ export default function ChatRoute({ loaderData, actionData }: Route.ComponentPro
 				user={loaderData.result.user}
 				sessionExpiresAt={loaderData.result.sessionExpiresAt}
 				guestRetentionDays={loaderData.result.guestRetentionDays}
+				pendingAuthCookies={loaderData.result.pendingAuthCookies}
 				{...(saveNameError === undefined ? {} : { saveNameError })}
 			/>
 		</ClientOnly>

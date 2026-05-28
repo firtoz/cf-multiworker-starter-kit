@@ -30,8 +30,8 @@ function sortPresence(users: { userId: string; displayName: string; isGuest: boo
 type ChatroomDb = DrizzleSqliteDODatabase<typeof schema>;
 type ChatroomSession = SockaDoSession<typeof chatContract, SessionData, Env>;
 
-/** Initial display name from `wss://…/api/ws/room?name=` — capped to contract max. */
-function clampChatDisplayNameFromQuery(raw: string | null): string {
+/** Clamp display name input to contract max. */
+function clampChatDisplayName(raw: string | null): string {
 	const base = raw?.trim() || "anon";
 	return base.length <= CHAT_DISPLAY_NAME_MAX_CHARS
 		? base
@@ -92,14 +92,14 @@ export class ChatroomDo extends SockaWebSocketDO<ChatroomSession, Env> {
 	override fetch(request: Request): Response | Promise<Response> {
 		const url = new URL(request.url);
 		if (url.pathname === "/websocket") {
-			if (
-				request.headers.get(CHATROOM_INTERNAL_SECRET_HEADER) !==
-				this.env["CHATROOM_INTERNAL_SECRET"]
-			) {
-				return new Response("Unauthorized chatroom websocket", { status: 401 });
-			}
+			const secretOk =
+				request.headers.get(CHATROOM_INTERNAL_SECRET_HEADER) ===
+				this.env["CHATROOM_INTERNAL_SECRET"];
 			const userId = request.headers.get(CHATROOM_AUTH_USER_ID_HEADER)?.trim();
 			const displayName = request.headers.get(CHATROOM_AUTH_DISPLAY_NAME_HEADER)?.trim();
+			if (!secretOk) {
+				return new Response("Unauthorized chatroom websocket", { status: 401 });
+			}
 			if (!userId || !displayName) {
 				return new Response("Missing attested chat identity", { status: 401 });
 			}
@@ -151,7 +151,7 @@ export class ChatroomDo extends SockaWebSocketDO<ChatroomSession, Env> {
 				setDisplayName: async (input, session) => {
 					this.touchActivityTtl();
 					const { displayName } = input as { displayName: string };
-					const t = clampChatDisplayNameFromQuery(displayName);
+					const t = clampChatDisplayName(displayName);
 					session.data.displayName = t;
 					const users = sortPresence(session.listPeers().map((d) => presenceFromSession(d)));
 					await session.broadcastPush("presenceUpdated", { users }, false);

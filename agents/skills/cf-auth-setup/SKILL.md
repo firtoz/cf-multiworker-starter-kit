@@ -7,7 +7,7 @@ Use when configuring authentication for a fork of this starter kit: env secrets,
 | Package | Role |
 |---------|------|
 | `packages/auth-db` | D1 schema + migrations (Better Auth tables + `role`) |
-| `durable-objects/auth-worker` | Better Auth HTTP API, KV trusted origins, admin API |
+| `workers/auth-worker` | Better Auth HTTP API, KV trusted origins, admin API |
 | `packages/auth-client` | `getSession`, `requireAdmin`, shared constants |
 | `apps/web` | Login UI, account, admin UI, session in root loader |
 
@@ -53,10 +53,11 @@ OAuth redirect URIs must match the resolved URL: `https://<host>/api/auth/callba
 ## Anonymous chat guests
 
 - Better Auth **`anonymous()`** plugin on `auth-worker` (`user.isAnonymous`, synthetic email `*@<PRODUCT_PREFIX>.guest`).
-- Display names: **`unique-names-generator`** (adjective + animal, e.g. `Coastal-Falcon`) via `durable-objects/auth-worker/src/guest-display-name.ts` — not a shared `"Guest"` label.
+- Display names: **`unique-names-generator`** (adjective + animal, e.g. `Coastal-Falcon`) via `workers/auth-worker/src/guest-display-name.ts` — not a shared `"Guest"` label.
 - **`/chat` loader** calls `ensureChatSession` → `POST /api/auth/sign-in/anonymous` when logged out; sets session cookie on the document response.
 - Session **`expiresIn` 7 days** with **`updateAge` 1 day** — each visit extends expiry; no visit for a week and the guest identity is gone.
-- Web worker attests WS identity from `getSession` (stable `user.id`); chat UI shows retention copy from `session.expiresAt`.
+- **Chatroom worker** calls `resolveChatIdentityFromAuth(env.AUTH, request)` on WebSocket connect (display name from AUTH profile, not client headers).
+- Chat UI shows retention copy from `session.expiresAt`.
 - Signing in with email/OAuth while anonymous runs **`onLinkAccount`** (chat history in DO SQLite is not migrated automatically).
 
 ## Service binding calls (`AUTH.fetch`)
@@ -98,7 +99,7 @@ Trusted origins seed from the resolved auth URL, `WEB_DOMAINS`, `AUTH_SEED_ORIGI
 ## Architecture notes
 
 - Web reaches auth via **`env.AUTH`** (auth worker binding), not `context.cloudflare.env`.
-- Chat WebSocket: **web → chatroom worker → Chatroom DO** (identity attested on the **web** worker from `getSession`, forwarded via headers).
+- Chat WebSocket: **web → chatroom worker → Chatroom DO**. The **chatroom worker** resolves identity via **`env.AUTH`** (`getSession` + profile display name); the web worker only forwards cookies and the internal secret.
 - **Human admin** = `user.role === "admin"` (browser `/admin/*`: trusted origins, user list with editable display names). **Machine admin** = `AUTH_ADMIN_SECRET` header (never in client bundles).
 
 ## Commands

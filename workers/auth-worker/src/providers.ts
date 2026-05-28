@@ -9,7 +9,7 @@ type AppVariables = {
 
 export function registerAuthProvidersRoute(
 	app: Hono<{ Bindings: CloudflareEnv; Variables: AppVariables }>,
-): void {
+) {
 	app.get("/api/auth/providers", (c) => {
 		const env = c.env;
 		return c.json({
@@ -18,4 +18,5 @@ export function registerAuthProvidersRoute(
 			email: true,
 		});
 	});
+	return app;
 }

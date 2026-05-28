@@ -208,7 +208,7 @@ While the consent screen is **Testing**, only test users can sign in. Before ope
 ## Architecture (short)
 
 - Browser hits **`/api/auth/*`** on the **web** worker → forwarded to **`env.AUTH`** (`auth-worker` service binding).
-- Better Auth `socialProviders` in [`durable-objects/auth-worker/src/auth.ts`](../durable-objects/auth-worker/src/auth.ts) enable Google/GitHub when env is set.
+- Better Auth `socialProviders` in [`workers/auth-worker/src/auth.ts`](../workers/auth-worker/src/auth.ts) enable Google/GitHub when env is set.
 - Login links are built in [`apps/web/app/components/auth/LoginPanel.tsx`](../apps/web/app/components/auth/LoginPanel.tsx).
 
 For anonymous chat guests, signing in with OAuth **links** the anonymous account; chat history in Durable Object SQLite is **not** migrated automatically.

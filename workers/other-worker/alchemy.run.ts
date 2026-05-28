@@ -10,7 +10,7 @@ import {
 } from "alchemy-utils/worker-peer-scripts";
 // Keep this as a relative type import: ping-do already depends on other-worker,
 // so a workspace import here would create a Turbo package graph cycle.
-import type { PingWorkerRpc } from "../ping-do/workers/rpc";
+import type { PingWorkerRpc } from "../../durable-objects/ping-do/workers/rpc";
 
 export type { OtherWorkerRpc } from "./workers/rpc";
 

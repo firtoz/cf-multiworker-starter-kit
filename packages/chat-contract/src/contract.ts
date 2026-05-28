@@ -1,6 +1,7 @@
 import { defineSocka } from "@firtoz/socka/core";
 import { PRODUCT_PREFIX } from "alchemy-utils/worker-peer-scripts";
 import * as z from "zod";
+import type { ChatAttestedIdentity } from "./attested-identity";
 import { CHAT_DISPLAY_NAME_MAX_CHARS, CHAT_MESSAGE_TEXT_MAX_CHARS } from "./limits";
 
 export * from "./attested-identity";
@@ -8,14 +9,59 @@ export { CHAT_DISPLAY_NAME_MAX_CHARS, CHAT_MESSAGE_TEXT_MAX_CHARS } from "./limi
 
 export const CHATROOM_INTERNAL_SECRET_HEADER = `x-${PRODUCT_PREFIX}-chatroom-secret`;
 
-/** Set by web worker after AUTH session verification (not client-controlled). */
+/** Set by the web worker after `env.AUTH` session lookup (not client-controlled). */
 export const CHATROOM_AUTH_USER_ID_HEADER = `x-${PRODUCT_PREFIX}-chat-user-id`;
 
-/** Display name attested by web worker from session profile or guest `?name=`. */
+/** Display name from AUTH profile — set by the web worker after session lookup. */
 export const CHATROOM_AUTH_DISPLAY_NAME_HEADER = `x-${PRODUCT_PREFIX}-chat-display-name`;
 
-/** `"true"` or `"false"` — set by web worker (not client-controlled). */
+/** `"true"` or `"false"` — set by the web worker after session lookup (not client-controlled). */
 export const CHATROOM_AUTH_IS_GUEST_HEADER = `x-${PRODUCT_PREFIX}-chat-is-guest`;
+
+/** Strip client-supplied identity headers before service-binding forward. */
+export function stripClientChatIdentityHeaders(headers: Headers): void {
+	headers.delete(CHATROOM_AUTH_USER_ID_HEADER);
+	headers.delete(CHATROOM_AUTH_DISPLAY_NAME_HEADER);
+	headers.delete(CHATROOM_AUTH_IS_GUEST_HEADER);
+}
+
+/** Apply resolved identity when forwarding to chatroom / DO (after AUTH `getSession` on the web worker). */
+export function applyChatIdentityHeaders(headers: Headers, identity: ChatAttestedIdentity): void {
+	headers.set(CHATROOM_AUTH_USER_ID_HEADER, identity.userId);
+	headers.set(CHATROOM_AUTH_DISPLAY_NAME_HEADER, identity.displayName);
+	headers.set(CHATROOM_AUTH_IS_GUEST_HEADER, identity.isGuest ? "true" : "false");
+}
+
+/** Identity attested by the web worker (requires valid internal secret on the same request). */
+export function readChatIdentityHeaders(headers: Headers): ChatAttestedIdentity | null {
+	const userId = headers.get(CHATROOM_AUTH_USER_ID_HEADER)?.trim();
+	const displayName = headers.get(CHATROOM_AUTH_DISPLAY_NAME_HEADER)?.trim();
+	if (!userId || !displayName) {
+		return null;
+	}
+	const isGuest = headers.get(CHATROOM_AUTH_IS_GUEST_HEADER)?.trim().toLowerCase() === "true";
+	return { userId, displayName, isGuest };
+}
+
+/**
+ * Workers-only `RequestInit` field for forwarding a browser WebSocket upgrade via `fetch()`.
+ * Not part of standard DOM typings (`RequestInit` has no `duplex`).
+ */
+export type WebSocketForwardRequestInit = RequestInit & { duplex: "half" };
+
+/** Forward a WebSocket upgrade to another worker/DO URL with replaced headers. */
+export function buildWebSocketForwardRequest(
+	url: string | URL,
+	source: Request,
+	headers: Headers,
+): Request {
+	const init: WebSocketForwardRequestInit = {
+		headers,
+		method: source.method,
+		duplex: "half",
+	};
+	return new Request(url, init);
+}
 
 const chatDisplayNameZ = z.string().min(1).max(CHAT_DISPLAY_NAME_MAX_CHARS);
 

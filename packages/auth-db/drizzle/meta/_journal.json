@@ -15,6 +15,20 @@
       "when": 1779828326673,
       "tag": "0001_military_stature",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1779957260630,
+      "tag": "0002_naive_ricochet",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1779957307240,
+      "tag": "0003_tearful_strong_guy",
+      "breakpoints": true
     }
   ]
 }

@@ -135,11 +135,12 @@ Each command runs the **full** Turbo graph (shared Alchemy state, D1 + migration
 ```text
 ├── apps/
 │   └── web/                    # React Router app + Worker entry
-├── durable-objects/
+├── workers/
 │   ├── auth-worker/            # Better Auth API, admin routes, trusted origins KV
+│   └── other-worker/           # Service binding demo (ping ↔ other)
+├── durable-objects/
 │   ├── chatroom-do/
-│   ├── ping-do/
-│   └── other-worker/
+│   └── ping-do/
 ├── packages/
 │   ├── alchemy-utils/          # PRODUCT_PREFIX, app ids, alchemy-cli
 │   ├── auth-client/            # getSession, ensureChatSession, binding headers for AUTH.fetch

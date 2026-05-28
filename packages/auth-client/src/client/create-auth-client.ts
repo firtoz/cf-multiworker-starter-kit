@@ -6,6 +6,7 @@ import { buildAuthBindingHeaders } from "../binding-headers";
 import { type EnsureChatSessionResult, ensureChatSession } from "../chat-session";
 import { type AuthSession, type AuthUser, parseAuthRole } from "../roles";
 import { getSession, requireAdmin } from "../session";
+import { createAccountApi } from "./account-api";
 import { type AuthBindingFetch, createAdminApi } from "./admin-api";
 import { parseBindingJson } from "./parse-binding-json";
 
@@ -58,6 +59,7 @@ export function createAuthClient(auth: Fetcher, request: Request) {
 			ensureChat: (): Promise<EnsureChatSessionResult | null> => ensureChatSession(auth, request),
 		},
 		admin: createAdminApi(bindingFetch),
+		account: createAccountApi(bindingFetch),
 		profile: createProfileApi(bindingFetch),
 		/** Low-level service-binding fetch (path only, e.g. `/admin/users`). */
 		fetch: bindingFetch,

@@ -28,6 +28,14 @@ export function createAdminApi(fetch: AuthBindingFetch) {
 				"Could not add origin",
 			);
 		},
+		removeOrigin(origin: string): Promise<MaybeError<AdminOriginsResponse>> {
+			return parseBindingJson(
+				fetch(`/admin/origins/${encodeURIComponent(origin)}`, {
+					method: "DELETE",
+				}),
+				"Could not remove origin",
+			);
+		},
 		setUserRole(userId: string, role: "user" | "admin"): Promise<MaybeError<AdminOkResponse>> {
 			return parseBindingJson(
 				fetch(`/admin/users/${encodeURIComponent(userId)}/role`, {
@@ -46,6 +54,14 @@ export function createAdminApi(fetch: AuthBindingFetch) {
 					body: JSON.stringify({ name }),
 				}),
 				"Could not save name",
+			);
+		},
+		deleteUser(userId: string): Promise<MaybeError<AdminOkResponse>> {
+			return parseBindingJson(
+				fetch(`/admin/users/${encodeURIComponent(userId)}`, {
+					method: "DELETE",
+				}),
+				"Delete failed",
 			);
 		},
 	};

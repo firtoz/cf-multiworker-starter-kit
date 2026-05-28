@@ -1,5 +1,6 @@
 import { type AuthUser, accountDisplayName, isAdminUser } from "@internal/auth-client";
 import { href, Link } from "react-router";
+import { LogoutForm } from "~/components/auth/LogoutForm";
 
 type SiteNavProps = {
 	user: AuthUser | null;
@@ -16,8 +17,9 @@ export function SiteNav({ user }: SiteNavProps) {
 					{user.isAnonymous === true ? null : <Link to={href("/account")}>Account</Link>}
 					<Link to={href("/chat")}>Chat</Link>
 					{isAdminUser(user) ? <Link to={href("/admin/origins")}>Admin</Link> : null}
-					<span className="text-gray-500 ml-auto">
+					<span className="text-gray-500 ml-auto flex flex-wrap items-center gap-3">
 						{user.isAnonymous === true ? (accountDisplayName(user) ?? "Guest") : user.email}
+						<LogoutForm />
 					</span>
 				</>
 			) : (

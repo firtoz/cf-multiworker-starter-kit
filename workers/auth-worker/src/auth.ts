@@ -109,7 +109,11 @@ export function createAuth(env: AuthWorkerEnv, trustedOrigins: string[]) {
 		account: {
 			accountLinking: {
 				enabled: true,
-				trustedProviders: [],
+				allowDifferentEmails: true,
+				trustedProviders: [
+					...(google ? (["google"] as const) : []),
+					...(github ? (["github"] as const) : []),
+				],
 			},
 		},
 	});

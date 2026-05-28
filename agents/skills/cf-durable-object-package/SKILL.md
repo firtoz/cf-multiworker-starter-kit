@@ -37,7 +37,7 @@ description: Add or change a Durable Object worker package under durable-objects
 
 4. **`env.d.ts`** — `export type CloudflareEnv = (typeof <yourExportedWorker>)["Env"]`. `declare global { type Env = CloudflareEnv }` and `declare module "cloudflare:workers"` `Env` merge (match [ping-do/env.d.ts](../../../durable-objects/ping-do/env.d.ts)).
 
-5. **Hono** — In `workers/app.ts`: `import type { CloudflareEnv } from "../env"`, `const app = new Hono<{ Bindings: CloudflareEnv }>()` (same as [other-worker/workers/app.ts](../../../durable-objects/other-worker/workers/app.ts)).
+5. **Hono** — In `workers/app.ts`: `import type { CloudflareEnv } from "../env"`, `const app = new Hono<{ Bindings: CloudflareEnv }>()` (same as [other-worker/workers/app.ts](../../../workers/other-worker/workers/app.ts)).
 
 6. **Scripts**
 

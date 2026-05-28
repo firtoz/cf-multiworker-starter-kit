@@ -1,4 +1,4 @@
-/** Max display name chars (Socka `createData` from `?name=` and `setDisplayName`). */
+/** Max display name chars (Socka `setDisplayName` and persisted messages). */
 export const CHAT_DISPLAY_NAME_MAX_CHARS = 64;
 
 /** Max message body chars for demo chat persistence. */

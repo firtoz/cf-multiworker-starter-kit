@@ -54,4 +54,5 @@ export function registerProfileRoutes(
 
 		return c.json(response);
 	});
+	return app;
 }

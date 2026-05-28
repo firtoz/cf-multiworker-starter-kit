@@ -8,7 +8,7 @@ React Router 7 application deployed on Cloudflare Workers.
 
 ## Dependencies
 
-**Durable Objects / services:** `auth-worker` (Better Auth; `/api/auth/*` proxied in `workers/app.ts`), `chatroom-do` (WebSockets / Socka; `/chat` and `/api/ws/*`), `ping-do` (typed Hono DO example), and `other-worker` (service binding example).
+**Durable Objects / services:** `auth-worker` and `other-worker` (plain Workers under `workers/`), `chatroom-do` (WebSockets / Socka; `/chat` and `/api/ws/*`), `ping-do` (typed Hono DO example).
 
 **Packages:** `@internal/db` (app D1 for `/visitors`), `@internal/auth-db` + `@internal/auth-client` (sessions, `ensureChatSession`, admin helpers), `@internal/chat-contract` (Socka types + WS attestation headers).
 
@@ -19,7 +19,7 @@ React Router 7 application deployed on Cloudflare Workers.
 - Browser hits **`/api/auth/*`** on the web worker; it forwards to the **`AUTH`** service binding (`auth-worker`).
 - Public auth URL is computed at deploy/dev time (no dotfile key) — see [cf-auth-setup](../../agents/skills/cf-auth-setup/SKILL.md).
 - **`/chat`** uses `ensureChatSession` from `@internal/auth-client` so guests get a Better Auth anonymous session (random display name, 7-day sliding expiry). Only this route forwards auth `Set-Cookie` to the browser.
-- WebSocket upgrades use `getSession` on the web worker and pass attested headers to `chatroom-do` (see `@internal/chat-contract`).
+- WebSocket upgrades: web worker calls `env.AUTH.getSession`, then proxies the upgrade to chatroom-do with attested headers (see `@internal/chat-contract`). One `CHATROOM.fetch` per connection, not a separate resolve hop.
 - OAuth (Google/GitHub): [`docs/oauth-setup.md`](../../docs/oauth-setup.md).
 - Fork setup: [`agents/skills/cf-auth-setup/SKILL.md`](../../agents/skills/cf-auth-setup/SKILL.md).
 

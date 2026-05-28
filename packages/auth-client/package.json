@@ -17,6 +17,7 @@
 	"dependencies": {
 		"@firtoz/maybe-error": "^1.6.1",
 		"@internal/auth-db": "workspace:*",
+		"@internal/chat-contract": "workspace:*",
 		"alchemy-utils": "workspace:*"
 	},
 	"devDependencies": {

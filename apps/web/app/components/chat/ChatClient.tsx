@@ -1,6 +1,11 @@
 import type { InferSockaPushHandlers } from "@firtoz/socka";
 import { useSockaSession } from "@firtoz/socka/react";
-import { type AuthUser, accountDisplayName, hasAccountDisplayName } from "@internal/auth-client";
+import {
+	AUTH_GET_SESSION_PATH,
+	type AuthUser,
+	accountDisplayName,
+	hasAccountDisplayName,
+} from "@internal/auth-client";
 import { type ChatMessageRow, chatContract } from "@internal/chat-contract";
 import type { FocusEvent, KeyboardEvent as ReactKeyboardEvent } from "react";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
@@ -41,18 +46,69 @@ type ChatClientProps = {
 	user: AuthUser;
 	sessionExpiresAt: string;
 	guestRetentionDays: number;
+	pendingAuthCookies: boolean;
 	saveNameError?: string;
 };
 
-export function ChatClient({
+/** Wait until HttpOnly auth cookies from the loader are visible to the browser before opening Socka. */
+export function ChatClient(props: ChatClientProps) {
+	const [wsConnectReady, setWsConnectReady] = useState(!props.pendingAuthCookies);
+
+	useEffect(() => {
+		if (!props.pendingAuthCookies) {
+			return;
+		}
+		let cancelled = false;
+		const waitForBrowserSession = async () => {
+			for (let attempt = 0; attempt < 40 && !cancelled; attempt++) {
+				try {
+					const res = await fetch(AUTH_GET_SESSION_PATH, { credentials: "include" });
+					if (res.ok) {
+						const body = (await res.json()) as { user?: unknown; session?: unknown };
+						if (body.user && body.session) {
+							setWsConnectReady(true);
+							return;
+						}
+					}
+				} catch {
+					// retry
+				}
+				await new Promise((resolve) => setTimeout(resolve, 100));
+			}
+		};
+		void waitForBrowserSession();
+		return () => {
+			cancelled = true;
+		};
+	}, [props.pendingAuthCookies]);
+
+	if (!wsConnectReady) {
+		return (
+			<div className="max-w-2xl mx-auto w-full h-dvh max-h-dvh min-h-0 flex flex-col gap-4 overflow-hidden px-4 py-4">
+				<BackToHomeLink />
+				<h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Chat</h1>
+				<p className="text-sm text-gray-600 dark:text-gray-400">Starting session…</p>
+			</div>
+		);
+	}
+
+	return <ChatClientWithSocket {...props} />;
+}
+
+function ChatClientWithSocket({
 	user,
 	sessionExpiresAt,
 	guestRetentionDays,
 	saveNameError,
-}: ChatClientProps) {
+}: Omit<ChatClientProps, "pendingAuthCookies">) {
 	const isAnonymousGuest = user.isAnonymous === true;
 	const usesAccountName = !isAnonymousGuest && hasAccountDisplayName(user);
-	const saveNameFetcher = useFetcher<{ success?: boolean; error?: string }>();
+	const saveNameFetcher = useFetcher<
+		| { success: true; result: { displayName: string } }
+		| { success: false; error: string }
+		| undefined
+	>();
+	const pendingSockaDisplayName = useRef<string | null>(null);
 	const [searchParams, setSearchParams] = useSearchParams();
 	const [roomInput, setRoomInput] = useState(() => roomFromQueryParams(searchParams));
 	/** WebSocket and URL reflect this, not the Room field while you type. */
@@ -176,16 +232,35 @@ export function ChatClient({
 		[nameDraft, committedRoom, profileName, setSearchParams],
 	);
 
-	const applyDisplayName = useCallback(async () => {
+	const applyDisplayName = useCallback(() => {
 		const t = nameDraft.trim();
 		if (!t || !ready || usesAccountName) {
 			return;
 		}
+		pendingSockaDisplayName.current = t;
 		saveNameFetcher.submit({ intent: "saveDisplayName", displayName: t }, { method: "post" });
-		await send.setDisplayName({ displayName: t });
-		nameFieldSnap.current = t;
-		setNameDraft(t);
-	}, [nameDraft, ready, saveNameFetcher, send, usesAccountName]);
+	}, [nameDraft, ready, saveNameFetcher, usesAccountName]);
+
+	useEffect(() => {
+		if (saveNameFetcher.state !== "idle") {
+			return;
+		}
+		const pending = pendingSockaDisplayName.current;
+		const data = saveNameFetcher.data;
+		if (!pending || !data) {
+			return;
+		}
+		if (!data.success) {
+			pendingSockaDisplayName.current = null;
+			return;
+		}
+		pendingSockaDisplayName.current = null;
+		const saved = data.result.displayName;
+		void send.setDisplayName({ displayName: saved }).then(() => {
+			nameFieldSnap.current = saved;
+			setNameDraft(saved);
+		});
+	}, [saveNameFetcher.state, saveNameFetcher.data, send]);
 
 	/** Revert only when focus is not moving to another control. */
 	const onNameBlur = useCallback((e: FocusEvent<HTMLInputElement>) => {

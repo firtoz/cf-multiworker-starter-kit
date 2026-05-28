@@ -47,7 +47,7 @@ Ask the user (or infer from context):
 | `apps/web` | **`starter-frontend`** (**`ALCHEMY_APP_IDS.frontend`**) | `@internal/web` |
 | `durable-objects/chatroom-do` | **`starter-chatroom`** | `chatroom-do` |
 | `durable-objects/ping-do` | **`starter-ping`** | `ping-do` |
-| `durable-objects/other-worker` | **`starter-other`** | `other-worker` |
+| `workers/other-worker` | **`starter-other`** | `other-worker` |
 | `packages/db` | **`starter-database`** | `@internal/db` |
 | `packages/state-hub` | **`${PRODUCT_PREFIX}-state-hub`** (**`ALCHEMY_APP_IDS.stateHub`**) | `state-hub` |
 

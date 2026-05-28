@@ -2,7 +2,7 @@ import { DEFAULT_REACT_ROUTER_WEB_RESOURCE_ID, PRODUCT_PREFIX } from "./worker-p
 
 export const LOCAL_PORTLESS_ENV_KEY = "LOCAL_PORTLESS" as const;
 
-/** Auth worker `dev.port` in `durable-objects/auth-worker/alchemy.run.ts`. */
+/** Auth worker `dev.port` in `workers/auth-worker/alchemy.run.ts`. */
 export const LOCAL_AUTH_DEV_PORT = 8784;
 
 export function isLocalPortlessExplicitlyDisabled(env: NodeJS.ProcessEnv = process.env): boolean {

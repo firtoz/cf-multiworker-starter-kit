@@ -12,6 +12,8 @@ export const AUTH_GET_SESSION_PATH = "/api/auth/get-session";
 
 export const AUTH_SIGN_IN_ANONYMOUS_PATH = "/api/auth/sign-in/anonymous";
 
+export const AUTH_SIGN_OUT_PATH = "/api/auth/sign-out";
+
 export const AUTH_PROVIDERS_PATH = "/api/auth/providers";
 
 /** Anonymous guest sessions expire after this many days without a visit (Better Auth sliding `session`). */

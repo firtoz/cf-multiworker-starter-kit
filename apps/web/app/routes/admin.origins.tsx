@@ -3,7 +3,7 @@ import { fail, type MaybeError, success } from "@firtoz/maybe-error";
 import type { RoutePath } from "@firtoz/router-toolkit";
 import { createAuthClient } from "@internal/auth-client";
 import { useState } from "react";
-import { useFetcher } from "react-router";
+import { Form, useFetcher } from "react-router";
 import type { Route } from "./+types/admin.origins";
 
 export const route: RoutePath<"/admin/origins"> = "/admin/origins";
@@ -30,13 +30,27 @@ export async function action({
 	request,
 }: Route.ActionArgs): Promise<MaybeError<{ origins: string[] }>> {
 	const form = await request.formData();
-	const origin = String(form.get("origin") ?? "").trim();
-	if (!origin) {
-		return fail("Origin URL required");
-	}
+	const intent = String(form.get("intent") ?? "addOrigin");
 	const auth = createAuthClient(env.AUTH, request);
 	if (!(await auth.session.requireAdmin())) {
 		return fail("Forbidden");
+	}
+
+	if (intent === "removeOrigin") {
+		const origin = String(form.get("origin") ?? "").trim();
+		if (!origin) {
+			return fail("Origin required");
+		}
+		const result = await auth.admin.removeOrigin(origin);
+		if (!result.success) {
+			return fail(result.error);
+		}
+		return success({ origins: result.result.origins });
+	}
+
+	const origin = String(form.get("origin") ?? "").trim();
+	if (!origin) {
+		return fail("Origin URL required");
 	}
 	const result = await auth.admin.addOrigin(origin);
 	if (!result.success) {
@@ -47,7 +61,7 @@ export async function action({
 
 export default function AdminOriginsRoute({ loaderData }: Route.ComponentProps) {
 	const fetcher = useFetcher<typeof action>();
-	const [busy, setBusy] = useState(false);
+	const [addBusy, setAddBusy] = useState(false);
 	const origins =
 		fetcher.data?.success === true
 			? fetcher.data.result.origins
@@ -64,39 +78,46 @@ export default function AdminOriginsRoute({ loaderData }: Route.ComponentProps) 
 			<h2 className="text-lg font-semibold">Trusted origins</h2>
 			<div className="text-sm text-gray-700 dark:text-gray-300 space-y-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 px-4 py-3">
 				<p>
-					Better Auth only accepts browser requests <strong>with cookies</strong> (sign-in,
-					anonymous chat sessions, OAuth callbacks) when the page&apos;s origin is on this list.
-					Your web app and the auth worker are different origins, so CORS needs an explicit
-					allowlist.
+					Better Auth checks the browser <strong>Origin</strong> on cookie-backed requests (sign-in,
+					OAuth, anonymous chat). With the default <strong>web-proxy</strong> setup, users and auth
+					share the same site origin — e.g.{" "}
+					<code className="font-mono text-xs">https://starter-web.localhost</code> in local dev,
+					which proxies <code className="font-mono text-xs">/api/auth/*</code> to the auth worker.
 				</p>
 				<p>
-					In local dev you usually browse the <strong>web</strong> URL (for example{" "}
-					<code className="font-mono text-xs">https://starter-web.localhost</code>), which proxies{" "}
-					<code className="font-mono text-xs">/api/auth/*</code> to the auth service. Add that
-					origin here—not only <code className="font-mono text-xs">http://127.0.0.1:8784</code>,
-					which is the auth worker&apos;s direct dev port and not where users normally open the app.
+					Add your public web origin here if it is missing. Use the full origin (scheme + host +
+					non-default port only). Do not add the auth worker&apos;s direct dev bind (
+					<code className="font-mono text-xs">http://127.0.0.1:8784</code>) unless you browse there.
 				</p>
 				<p>
-					Use the full origin only: scheme, host, and port if non-default (no path). Examples:{" "}
-					<code className="font-mono text-xs">https://example.com</code>,{" "}
-					<code className="font-mono text-xs">http://127.0.0.1:5173</code>. The list is stored in
-					auth KV; the first deploy also seeds from the resolved public auth URL,{" "}
-					<code className="font-mono text-xs">WEB_DOMAINS</code>,{" "}
-					<code className="font-mono text-xs">AUTH_DOMAINS</code>, and related env vars.
+					First deploy seeds from <code className="font-mono text-xs">WEB_DOMAINS</code>, optional{" "}
+					<code className="font-mono text-xs">AUTH_DOMAINS</code>, and related env. Stored in auth
+					KV.
 				</p>
 			</div>
-			<ul className="text-sm list-disc pl-5">
+			<ul className="text-sm flex flex-col gap-2">
 				{origins.length === 0 ? (
-					<li className="list-none text-gray-500">No origins configured</li>
+					<li className="text-gray-500">No origins configured</li>
 				) : (
 					origins.map((o) => (
-						<li key={o}>
-							<code>{o}</code>
+						<li
+							key={o}
+							className="flex flex-wrap items-center gap-2 rounded border border-gray-200 dark:border-gray-700 px-3 py-2"
+						>
+							<code className="flex-1 min-w-0 break-all">{o}</code>
+							<Form method="post">
+								<input type="hidden" name="intent" value="removeOrigin" />
+								<input type="hidden" name="origin" value={o} />
+								<button type="submit" className="text-sm text-red-600 dark:text-red-400 underline">
+									Remove
+								</button>
+							</Form>
 						</li>
 					))
 				)}
 			</ul>
-			<fetcher.Form className="flex flex-col gap-2" method="post" onSubmit={() => setBusy(true)}>
+			<fetcher.Form className="flex flex-col gap-2" method="post" onSubmit={() => setAddBusy(true)}>
+				<input type="hidden" name="intent" value="addOrigin" />
 				<label className="text-sm font-medium" htmlFor="origin">
 					Add origin (full URL, e.g. https://example.com)
 				</label>
@@ -111,9 +132,9 @@ export default function AdminOriginsRoute({ loaderData }: Route.ComponentProps) 
 				<button
 					className="self-start rounded bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 px-4 py-2 text-sm disabled:opacity-50"
 					type="submit"
-					disabled={busy}
+					disabled={addBusy}
 				>
-					{busy ? "Adding…" : "Add origin"}
+					{addBusy ? "Adding…" : "Add origin"}
 				</button>
 			</fetcher.Form>
 			{fetcher.data?.success === false ? (

@@ -22,6 +22,13 @@ type AuthEmailSuccess = {
 	user?: unknown;
 };
 
+type AuthSocialProvider = "google" | "github";
+
+type AuthSocialSignInBody = {
+	provider: AuthSocialProvider;
+	callbackURL?: string;
+};
+
 function parseAuthErrorMessage(body: unknown): string {
 	if (body == null || typeof body !== "object") {
 		return "Sign-in failed";
@@ -86,6 +93,32 @@ export async function signInWithEmail(
 	if (result.ok) {
 		window.location.assign(callbackURL);
 	}
+	return result;
+}
+
+export async function signInWithSocial(
+	provider: AuthSocialProvider,
+	callbackURL: string,
+): Promise<{ ok: true } | { ok: false; message: string }> {
+	const body: AuthSocialSignInBody = {
+		provider,
+		callbackURL,
+	};
+	const result = await postAuthJson("/api/auth/sign-in/social", body);
+	if (result.ok) {
+		return { ok: true };
+	}
+	return result;
+}
+
+export async function linkSocialProvider(
+	provider: AuthSocialProvider,
+	callbackURL: string,
+): Promise<{ ok: true } | { ok: false; message: string }> {
+	const result = await postAuthJson("/api/auth/link-social", {
+		provider,
+		callbackURL,
+	});
 	return result;
 }
 

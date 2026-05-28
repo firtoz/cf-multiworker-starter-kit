@@ -66,6 +66,31 @@ export const account = sqliteTable(
 	(table) => [index("account_user_id_idx").on(table.userId)],
 );
 
+/** Contact / provider emails for a user (not the login id — `user.id` is). */
+export const userEmail = sqliteTable(
+	"user_email",
+	{
+		id: text("id").primaryKey(),
+		userId: text("user_id")
+			.notNull()
+			.references(() => user.id, { onDelete: "cascade" }),
+		email: text("email").notNull().unique(),
+		/** credential sign-in, OAuth provider, manual entry, or synced profile email */
+		source: text("source").notNull(),
+		verified: integer("verified", { mode: "boolean" }).notNull().default(false),
+		isNotificationPreferred: integer("is_notification_preferred", { mode: "boolean" })
+			.notNull()
+			.default(false),
+		createdAt: integer("created_at", { mode: "timestamp_ms" })
+			.notNull()
+			.default(sql`(cast(unixepoch('subsecond') * 1000 as integer))`),
+		updatedAt: integer("updated_at", { mode: "timestamp_ms" })
+			.notNull()
+			.default(sql`(cast(unixepoch('subsecond') * 1000 as integer))`),
+	},
+	(table) => [index("user_email_user_id_idx").on(table.userId)],
+);
+
 export const verification = sqliteTable(
 	"verification",
 	{

@@ -41,10 +41,13 @@ function mapSession(body: GetSessionResponse | null): AuthSession | null {
 
 export async function getSession(auth: Fetcher, request: Request): Promise<AuthSession | null> {
 	const headers = buildAuthBindingHeaders(request);
+	const sessionUrl = `${AUTH_INTERNAL_ORIGIN}${AUTH_GET_SESSION_PATH}`;
 
-	const res = await auth.fetch(
-		new Request(`${AUTH_INTERNAL_ORIGIN}${AUTH_GET_SESSION_PATH}`, { headers }),
-	);
+	let res = await auth.fetch(new Request(sessionUrl, { headers }));
+	for (let attempt = 0; res.status === 503 && attempt < 2; attempt++) {
+		res = await auth.fetch(new Request(sessionUrl, { headers }));
+	}
+
 	if (!res.ok) {
 		return null;
 	}

@@ -44,6 +44,7 @@
 		"better-auth": "catalog:",
 		"chatroom-do": "workspace:*",
 		"clsx": "^2.1.1",
+		"hono": "catalog:",
 		"isbot": "^5.1.39",
 		"ping-do": "workspace:*",
 		"posthog-js": "^1.372.10",

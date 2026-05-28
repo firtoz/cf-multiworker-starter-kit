@@ -8,7 +8,7 @@ import {
 	DEFAULT_WORKER_RESOURCE_ID,
 	omitDefaultPhysicalWorkerScriptName,
 } from "alchemy-utils/worker-peer-scripts";
-import type { AuthWorkerRpc } from "../auth-worker/workers/rpc";
+import type { AuthWorkerRpc } from "../../workers/auth-worker/workers/rpc";
 
 const stage = resolveStageFromEnv();
 const app = await alchemy(ALCHEMY_APP_IDS.chatroom, {

@@ -1,11 +1,13 @@
 import { AUTH_ADMIN_SECRET_HEADER, parseAuthRole } from "@internal/auth-client";
-import { getAuthDb, user as userTable } from "@internal/auth-db";
+import { getAuthDb, session as sessionTable, user as userTable } from "@internal/auth-db";
 import {
+	type AdminUserSessionActivity,
 	adminAddOriginSchema,
 	adminSetOriginsSchema,
 	adminSetRoleSchema,
 	adminSetUserNameSchema,
-	adminUserRowSchema,
+	parseTimestampOrNull,
+	toAdminUserRowWire,
 } from "@internal/auth-db/api-schemas";
 import { eq } from "drizzle-orm";
 import type { Context } from "hono";
@@ -25,6 +27,31 @@ type AppVariables = {
 	auth: AuthInstance;
 	trustedOrigins: string[];
 };
+
+function aggregateSessionActivity(
+	sessions: { userId: string; updatedAt: unknown; expiresAt: unknown }[],
+	nowMs: number,
+): Map<string, AdminUserSessionActivity> {
+	const map = new Map<string, AdminUserSessionActivity>();
+	for (const s of sessions) {
+		const updatedAt = parseTimestampOrNull(s.updatedAt);
+		const expiresAt = parseTimestampOrNull(s.expiresAt);
+		let entry = map.get(s.userId);
+		if (!entry) {
+			entry = { lastSeenAt: null, sessionExpiresAt: null };
+			map.set(s.userId, entry);
+		}
+		if (updatedAt && (!entry.lastSeenAt || updatedAt > entry.lastSeenAt)) {
+			entry.lastSeenAt = updatedAt;
+		}
+		if (expiresAt && expiresAt.getTime() > nowMs) {
+			if (!entry.sessionExpiresAt || expiresAt > entry.sessionExpiresAt) {
+				entry.sessionExpiresAt = expiresAt;
+			}
+		}
+	}
+	return map;
+}
 
 export async function assertAdminAccess(
 	c: Context<{ Bindings: CloudflareEnv; Variables: AppVariables }>,
@@ -97,17 +124,20 @@ export function registerAdminRoutes(
 			return denied;
 		}
 		const db = getAuthDb(c.env.DB);
-		const rows = await db.select().from(userTable);
+		const nowMs = Date.now();
+		const [rows, sessions] = await Promise.all([
+			db.select().from(userTable),
+			db
+				.select({
+					userId: sessionTable.userId,
+					updatedAt: sessionTable.updatedAt,
+					expiresAt: sessionTable.expiresAt,
+				})
+				.from(sessionTable),
+		]);
+		const activityByUser = aggregateSessionActivity(sessions, nowMs);
 		return c.json({
-			users: rows.map((r) =>
-				adminUserRowSchema.parse({
-					id: r.id,
-					email: r.email,
-					name: r.name,
-					role: r.role,
-					createdAt: r.createdAt,
-				}),
-			),
+			users: rows.map((r) => toAdminUserRowWire(r, activityByUser.get(r.id))),
 		});
 	});
 
@@ -136,6 +166,35 @@ export function registerAdminRoutes(
 		return c.json({ ok: true as const });
 	});
 
+	app.delete("/admin/users/:id", async (c) => {
+		const denied = await assertAdminAccess(c);
+		if (denied) {
+			return denied;
+		}
+		const userId = c.req.param("id");
+		const db = getAuthDb(c.env.DB);
+
+		const session = await c.var.auth.api.getSession({ headers: c.req.raw.headers });
+		if (session?.user?.id === userId) {
+			return c.json({ error: "Cannot delete your own account" }, 400);
+		}
+
+		const [target] = await db.select().from(userTable).where(eq(userTable.id, userId)).limit(1);
+		if (!target) {
+			return c.json({ error: "User not found" }, 404);
+		}
+
+		if (target.role === "admin") {
+			const admins = await db.select().from(userTable).where(eq(userTable.role, "admin"));
+			if (admins.length <= 1) {
+				return c.json({ error: "Cannot delete the last admin" }, 400);
+			}
+		}
+
+		await db.delete(userTable).where(eq(userTable.id, userId));
+		return c.json({ ok: true as const });
+	});
+
 	app.post("/admin/users/:id/name", async (c) => {
 		const denied = await assertAdminAccess(c);
 		if (denied) {
@@ -154,14 +213,29 @@ export function registerAdminRoutes(
 			return c.json({ error: "User not found" }, 404);
 		}
 		await db.update(userTable).set({ name: parsed.data.name }).where(eq(userTable.id, userId));
+		const [sessions, updatedRow] = await Promise.all([
+			db
+				.select({
+					userId: sessionTable.userId,
+					updatedAt: sessionTable.updatedAt,
+					expiresAt: sessionTable.expiresAt,
+				})
+				.from(sessionTable)
+				.where(eq(sessionTable.userId, userId)),
+			db
+				.select()
+				.from(userTable)
+				.where(eq(userTable.id, userId))
+				.limit(1)
+				.then((r) => r[0]),
+		]);
+		if (!updatedRow) {
+			return c.json({ error: "User not found" }, 404);
+		}
+		const activity = aggregateSessionActivity(sessions, Date.now()).get(userId);
 		return c.json({
-			user: adminUserRowSchema.parse({
-				id: row.id,
-				email: row.email,
-				name: parsed.data.name,
-				role: row.role,
-				createdAt: row.createdAt,
-			}),
+			user: toAdminUserRowWire({ ...updatedRow, name: parsed.data.name }, activity),
 		});
 	});
+	return app;
 }
