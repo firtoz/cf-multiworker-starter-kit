@@ -247,11 +247,7 @@ export function configureLocalGoogleOAuthProxy(
 			);
 			if (existingAccount) {
 				if (existingAccount.userId.toString() !== link.userId.toString()) {
-					redirectWithOAuthError(
-						ctx,
-						errorRedirectUrl,
-						"account_already_linked_to_different_user",
-					);
+					redirectWithOAuthError(ctx, errorRedirectUrl, "account_already_linked_to_different_user");
 				}
 				const updateData = Object.fromEntries(
 					Object.entries({

@@ -2,7 +2,7 @@
 
 This starter kit ships with **Better Auth** on the `auth-worker`. Email/password always works; **Google** and **GitHub** are optional — set credentials in env and the **Continue with Google / GitHub** buttons appear on `/login`.
 
-**Related:** [Auth worker checklist](../agents/skills/cf-auth-setup/SKILL.md) · [`.env.example`](../.env.example) (auth section) · [GitHub Environments sync](github-admin.md)
+**Related:** [Auth worker checklist](../agents/skills/cf-auth-setup/SKILL.md) · [`.env.example`](../.env.example) (auth section) · [GitHub Environments sync](github-admin.md) · [Multi-environment (local / staging / prod)](#multi-environment-setup-local-staging-production)
 
 ## Local dev: Portless + Google (loopback OAuth proxy)
 
@@ -29,8 +29,10 @@ With **both** Portless (default) and **`GOOGLE_*`** set, the auth worker enables
 | --- | --- |
 | `GOOGLE_CLIENT_ID` | Google Cloud Console → OAuth client |
 | `GOOGLE_CLIENT_SECRET` | Same OAuth client |
-| `GITHUB_CLIENT_ID` | GitHub → OAuth App |
-| `GITHUB_CLIENT_SECRET` | Same OAuth App |
+| `GH_CLIENT_ID` | GitHub → OAuth App |
+| `GH_CLIENT_SECRET` | Same OAuth App |
+
+Use the **`GH_`** prefix (not **`GITHUB_`**) so `bun run github:sync:*` can push these to GitHub Environment secrets — [Actions rejects secret names starting with `GITHUB_`](https://docs.github.com/en/rest/actions/secrets#create-or-update-an-environment-secret).
 
 Both ID **and** secret must be non-empty for a provider to enable. The auth worker exposes availability at `GET /api/auth/providers`; the login page reads that via `@internal/auth-client`.
 
@@ -99,40 +101,55 @@ If you renamed the product, update **`PRODUCT_PREFIX`** in [`packages/alchemy-ut
 
 ## GitHub — step by step
 
+Use a [GitHub OAuth App](https://github.com/settings/developers) (Developer settings → **OAuth Apps**). Better Auth expects `GH_CLIENT_ID` and `GH_CLIENT_SECRET` ([Better Auth GitHub](https://www.better-auth.com/docs/authentication/github)).
+
 ### 1. Create an OAuth App
 
 1. Open [GitHub → Settings → Developer settings → OAuth Apps](https://github.com/settings/developers).
 2. **Register a new OAuth application** (or edit an existing one).
 3. Fill in:
-   - **Application name** — e.g. `My App (local)` / `My App (production)`
-   - **Homepage URL** — your site origin, e.g. `https://starter-web.localhost` or `https://app.example.com`
+   - **Application name** — e.g. `My App (local)` / `My App (staging)` / `My App (production)`
+   - **Homepage URL** — that stage’s web origin, e.g. `https://starter-web.localhost` or `https://starter-frontend-web-prod.lunix-ai.workers.dev`
    - **Authorization callback URL** — `https://<web-origin>/api/auth/callback/github` (see [Step 0](#step-0--know-your-web-origin-oauth-callbacks))
 
 4. Click **Register application** (or **Update application**).
+
+**One callback URL per OAuth App** — for local + staging + production, create **three** OAuth Apps (see [§4 Multiple environments](#4-multiple-environments)).
 
 ### 2. Copy credentials
 
 On the OAuth App page:
 
-- **Client ID** → `GITHUB_CLIENT_ID`
-- **Generate a new client secret** → `GITHUB_CLIENT_SECRET` (copy once; GitHub shows it only briefly)
+- **Client ID** → `GH_CLIENT_ID`
+- **Generate a new client secret** → `GH_CLIENT_SECRET` (copy once; GitHub shows it only briefly)
 
 ### 3. Add to env
 
 In **`.env.local`**:
 
 ```bash
-GITHUB_CLIENT_ID=Ov23li...
-GITHUB_CLIENT_SECRET=...
+GH_CLIENT_ID=Ov23li...
+GH_CLIENT_SECRET=...
 ```
 
 Re-run `bun run setup:local` if you use the setup browser, then `bun run dev`.
 
 ### 4. Multiple environments
 
-Use **separate OAuth Apps** per environment (local / staging / production), **or** add every callback URL to one app. Each callback must match that environment’s auth base URL.
+**Unlike Google**, a classic [GitHub OAuth App](https://github.com/settings/developers) has **only one** **Authorization callback URL** in the form. You cannot list local, staging, and production hosts on the same app.
 
-For staging/production, put the same keys in **`.env.staging`** / **`.env.production`**, then sync to GitHub Environments:
+**Recommended:** create **one OAuth App per environment** (e.g. `My App (local)`, `My App (staging)`, `My App (production)`), each with that stage’s callback URL, and put the matching **`GH_CLIENT_ID`** / **`GH_CLIENT_SECRET`** in the right dotfile:
+
+| Stage | Callback URL (example) | Env file |
+| --- | --- | --- |
+| Local + Portless | `https://<prefix>-web.localhost/api/auth/callback/github` | `.env.local` |
+| Local + `LOCAL_PORTLESS=off` | `http://127.0.0.1:5173/api/auth/callback/github` | `.env.local` |
+| Staging | `https://<staging-web-host>/api/auth/callback/github` | `.env.staging` |
+| Production | `https://<prod-web-host>/api/auth/callback/github` | `.env.production` |
+
+GitHub’s [redirect URL rules](https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/authorizing-oauth-apps#redirect-urls) allow extra paths **under** the registered callback on the **same host and port** — that does **not** help across `*.localhost`, `workers.dev`, and your prod domain. You need **separate OAuth Apps** (or test GitHub on one host only).
+
+For staging/production, sync secrets after editing dotfiles:
 
 ```bash
 bun run setup:staging && bun run github:sync:staging
@@ -164,9 +181,11 @@ If you already ran **Getting started**, you can skip most of this and only confi
 3. **Branding** (replaces much of the old “OAuth consent screen” wizard):
    - App name, support email, developer contact — required for sign-in.
    - User type **External** (public) or **Internal** (Google Workspace only).
-4. **Audience**:
-   - While publishing status is **Testing**, only accounts listed as **Test users** can sign in. Add the Google account(s) you’ll use locally.
+4. **Audience** ([Google Auth Platform → Audience](https://console.cloud.google.com/auth/audience)):
+   - **Testing** — only **Test users** you list can sign in. Use this while building locally and on staging before you are ready for the public.
+   - **In production** (published) — any Google user can sign in (subject to Google verification if you request sensitive scopes). Move here when staging smoke tests pass and you are ready for real users.
    - Scopes: basic sign-in uses `openid`, `email`, `profile` (Better Auth requests these; defaults are usually fine).
+   - **Local + staging tip:** keep **Testing** until you have verified deploys; add your own Google account (and teammates’) under **Test users**.
 5. You do **not** need extra APIs enabled for “Sign in with Google” on a web app — skip API Library unless Google prompts you for something specific.
 
 ### 2. Google + local dev — what actually works
@@ -291,16 +310,17 @@ Re-run `bun run setup:local` if needed, then `bun run dev`.
 
 ### 5. Multiple environments
 
-Same as GitHub: separate OAuth clients per environment, or one client with every origin + redirect URI listed.
-
-Sync staging/production secrets with `github:sync:staging` / `github:sync:prod` after updating dotfiles.
+See [Multi-environment setup](#multi-environment-setup-local-staging-production) for a full playbook (one Google client vs several, dotfiles, GitHub sync, and callback URLs per stage).
 
 ### 6. Publish (production)
 
-While the app is in **Testing**, only **Test users** (Audience) can sign in. Before opening to everyone:
+While **Audience** is **Testing**, only **Test users** can sign in — even if redirect URIs and env are correct on staging.
+
+Before opening to everyone:
 
 1. Complete Google’s verification if you use sensitive scopes beyond basic profile/email.
-2. **Audience** (or legacy **OAuth consent screen**) → **Publish app**.
+2. **Audience** → set publishing status to **In production** (or **Publish app** on older layouts).
+3. Confirm **Authorized redirect URIs** on your Web client include every live host (staging + production), not only loopback.
 
 ### 7. Verify
 
@@ -310,15 +330,135 @@ While the app is in **Testing**, only **Test users** (Audience) can sign in. Bef
 
 ---
 
+## Multi-environment setup (local, staging, production)
+
+Use this when you want OAuth on **laptop + staging + production** (or PR previews). No app code changes — only env, provider consoles, and deploy URLs.
+
+### How stages map to files and deploys
+
+| Stage | `STAGE` / command | Env dotfile | GitHub Environment secrets |
+| --- | --- | --- | --- |
+| Local | `bun run dev` (`local`) | `.env.local` | (optional; usually not synced) |
+| Staging | `bun run deploy:staging` | `.env.staging` | `staging` via `bun run github:sync:staging` |
+| PR preview | CI deploy (`pr-<n>`) | `.env.staging` (same file) | `staging` |
+| Production | `bun run deploy:prod` | `.env.production` | `production` via `bun run github:sync:prod` |
+
+**Auth public URL** for each deploy is computed at deploy time (not a dotfile key). See [Step 0](#step-0--know-your-web-origin-oauth-callbacks).
+
+### Google — one client, many redirect URIs
+
+Google **Web application** clients allow **multiple** **Authorized redirect URIs**. Register every stage on **one** Google client, then use the **same** `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` in `.env.local`, `.env.staging`, and `.env.production` (sync with `github:sync:*`).
+
+| Environment | Browse / auth base URL (typical) | Google redirect URI |
+| --- | --- | --- |
+| Local + Portless | `https://<prefix>-web.localhost` | `http://127.0.0.1:5173/api/auth/callback/google` |
+| Staging (workers.dev) | `https://<web-worker>-staging.<account>.workers.dev` | `https://<that-host>/api/auth/callback/google` |
+| Production | `https://app.example.com` or workers.dev | `https://<that-host>/api/auth/callback/google` |
+
+**Example (this repo’s naming):** after `bun run deploy:staging`, the web URL might look like `https://starter-frontend-web-staging.lunix-ai.workers.dev`. Add to Google:
+
+```text
+http://127.0.0.1:5173/api/auth/callback/google
+https://starter-frontend-web-staging.lunix-ai.workers.dev/api/auth/callback/google
+https://<prod-host>/api/auth/callback/google
+```
+
+**Authorized JavaScript origins** (optional): origins only, no path — e.g. `https://starter-frontend-web-staging.lunix-ai.workers.dev`.
+
+### GitHub — one OAuth App per host
+
+Each [OAuth App](https://github.com/settings/developers) allows **one** **Authorization callback URL**. Use a separate app per stage:
+
+| Environment | OAuth App name (example) | Authorization callback URL |
+| --- | --- | --- |
+| Local + Portless | `My App (local)` | `https://<prefix>-web.localhost/api/auth/callback/github` |
+| Staging | `My App (staging)` | `https://<staging-web-host>/api/auth/callback/github` |
+| Production | `My App (production)` | `https://<prod-web-host>/api/auth/callback/github` |
+
+Put **that app’s** `GH_CLIENT_ID` / `GH_CLIENT_SECRET` in the matching dotfile (`.env.local`, `.env.staging`, `.env.production`). Replace `<prefix>` with **`PRODUCT_PREFIX`** from [`packages/alchemy-utils/src/worker-peer-scripts.ts`](../packages/alchemy-utils/src/worker-peer-scripts.ts).
+
+**Template repo examples:** `https://starter-web.localhost/...`, `https://starter-frontend-web-staging.lunix-ai.workers.dev/...`, `https://starter-frontend-web-prod.lunix-ai.workers.dev/...`.
+
+### Strategy B — Separate Google clients too
+
+Optional: separate Google clients per stage (isolated secrets or test Audience apps). Same dotfile / `github:sync` pattern as GitHub — **different** `GOOGLE_*` per `.env.*` file.
+
+### Env keys per stage (minimum)
+
+Every stage dotfile that should show OAuth buttons needs **both** ID and secret for each provider:
+
+```bash
+BETTER_AUTH_SECRET=...
+AUTH_ADMIN_SECRET=...
+AUTH_BOOTSTRAP_ADMIN_EMAILS=you@example.com
+
+GOOGLE_CLIENT_ID=....apps.googleusercontent.com
+GOOGLE_CLIENT_SECRET=GOCSPX-...
+
+GH_CLIENT_ID=...
+GH_CLIENT_SECRET=...
+```
+
+Create or edit dotfiles:
+
+```bash
+bun run setup:local      # → .env.local
+bun run setup:staging    # → .env.staging
+bun run setup:prod       # → .env.production
+```
+
+Sync to GitHub (so deploy workflows receive secrets):
+
+```bash
+bun run github:sync:staging
+bun run github:sync:prod
+```
+
+See [GitHub Environments](github-admin.md) for `DEPLOY_ENABLED` and protection rules.
+
+### Discover the deployed web URL (first time)
+
+Alchemy does **not** write the auth URL into GitHub. After the first successful deploy:
+
+1. Read the deploy log / Cloudflare dashboard for the **web** worker URL (`apps/web`), or open the workers.dev link Alchemy prints.
+2. Register OAuth callbacks using that **exact** origin (see tables above).
+3. Smoke-test `https://<that-host>/login` — Google/GitHub buttons appear only if secrets are in that stage’s dotfile **and** synced to the matching GitHub Environment.
+
+Optional: set **`WEB_DOMAINS=app.example.com`** in `.env.production` (and staging if needed) **before** deploy so the URL is stable and known up front. See [cf-workers-env-local](../agents/skills/cf-workers-env-local/SKILL.md).
+
+### Google Audience vs redirect URIs
+
+| Console area | What it controls |
+| --- | --- |
+| **Audience → Testing / In production** | **Who** may sign in (test users only vs everyone) |
+| **Clients → Authorized redirect URIs** | **Which hosts** may complete OAuth (localhost, staging workers.dev, prod domain) |
+
+You can mark **Audience** as **In production** while still adding staging + loopback URIs on one Web client — publishing affects user access, not which redirect URLs are valid.
+
+**Recommended path:**
+
+1. **Testing** + test users — local dev and staging deploys.
+2. Register all redirect URIs (loopback + staging + prod) on one Web client.
+3. Smoke-test staging on the live workers.dev URL.
+4. Switch **Audience** to **In production** when ready for public Google users.
+
+### PR previews
+
+Same-repo PR deploys use **`STAGE=pr-<n>`** and typically the same secrets as **staging** (`.env.staging`). OAuth callbacks must include each preview URL **or** use a stable staging host only. Easiest: test OAuth on the fixed **staging** workers.dev URL; use PR previews for app changes without re-registering Google URIs every PR.
+
+---
+
 ## Staging & production checklist
 
-1. Core auth secrets in the stage dotfile (`BETTER_AUTH_SECRET`, `AUTH_ADMIN_SECRET`, bootstrap emails).
-2. OAuth credentials for that stage’s auth base URL.
-3. Provider console callback URLs match **that** stage’s host (not localhost).
-4. `bun run github:sync:staging` or `github:sync:prod` so CI deploy jobs receive secrets.
-5. Deploy, then smoke-test `/login` on the live URL.
+1. Core auth secrets in the stage dotfile (`BETTER_AUTH_SECRET`, `AUTH_ADMIN_SECRET`, `AUTH_BOOTSTRAP_ADMIN_EMAILS`).
+2. **`GOOGLE_*` and `GITHUB_*`** in that stage’s dotfile (both ID and secret for each provider you want).
+3. Provider console: redirect/callback URLs for **that stage’s live web host** (not `127.0.0.1` on staging/prod — loopback is local-only).
+4. Google **Audience**: **Test users** while validating staging; **In production** when opening to all Google users.
+5. `bun run github:sync:staging` or `github:sync:prod` so CI deploy jobs receive secrets.
+6. `bun run deploy:staging` or `bun run deploy:prod`, then smoke-test `/login` and `/account` on the live URL.
+7. **Connect provider** on `/account` — link errors should return to `/account?error=...` with a readable message (not `/api/auth/error`).
 
-**No auth URL is synced to GitHub** — Alchemy derives it from domains or workers.dev at deploy time. Register OAuth callbacks **after** you know the deployed web URL (or set `WEB_DOMAINS` before first deploy).
+**No auth URL is synced to GitHub** — Alchemy derives it from `WEB_DOMAINS`, `AUTH_DOMAINS`, or workers.dev at deploy time. See [Multi-environment setup](#multi-environment-setup-local-staging-production) if the URL was unknown before the first deploy.
 
 ---
 

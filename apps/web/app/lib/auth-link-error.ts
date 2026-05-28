@@ -23,8 +23,7 @@ const LINK_ERROR_MESSAGES: Record<string, string> = {
 		"Sign-in with that provider expired or was interrupted. Try connecting again.",
 	[BETTER_AUTH_LINK_ERROR_CODES.noCode]:
 		"Sign-in with that provider was cancelled or incomplete. Try again.",
-	[BETTER_AUTH_LINK_ERROR_CODES.providerNotFound]:
-		"That provider is not configured on this app.",
+	[BETTER_AUTH_LINK_ERROR_CODES.providerNotFound]: "That provider is not configured on this app.",
 	[BETTER_AUTH_LINK_ERROR_CODES.emailNotFound]:
 		"That provider did not return an email address. Try another account.",
 };

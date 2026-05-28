@@ -17,8 +17,8 @@ export type AuthWorkerEnv = {
 	AUTH_BOOTSTRAP_ADMIN_EMAILS: string;
 	GOOGLE_CLIENT_ID: string;
 	GOOGLE_CLIENT_SECRET: string;
-	GITHUB_CLIENT_ID: string;
-	GITHUB_CLIENT_SECRET: string;
+	GH_CLIENT_ID: string;
+	GH_CLIENT_SECRET: string;
 	AUTH_SEED_ORIGINS: string;
 	/** When set (local Portless + Google), Better Auth `oAuthProxy` uses this as the OAuth redirect host. */
 	AUTH_OAUTH_PROXY_PRODUCTION_URL?: string;
@@ -46,10 +46,10 @@ export function createAuth(env: AuthWorkerEnv, trustedOrigins: string[]) {
 			: undefined;
 
 	const github =
-		env.GITHUB_CLIENT_ID && env.GITHUB_CLIENT_SECRET
+		env.GH_CLIENT_ID && env.GH_CLIENT_SECRET
 			? {
-					clientId: env.GITHUB_CLIENT_ID,
-					clientSecret: env.GITHUB_CLIENT_SECRET,
+					clientId: env.GH_CLIENT_ID,
+					clientSecret: env.GH_CLIENT_SECRET,
 				}
 			: undefined;
 

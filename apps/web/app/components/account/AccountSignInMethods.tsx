@@ -1,9 +1,9 @@
 import type { AccountSummary } from "@internal/auth-client";
 import { useCallback, useEffect, useState } from "react";
-import { BETTER_AUTH_OAUTH_ERROR_QUERY } from "~/lib/auth-link-error";
 import { GoogleOAuthPortlessWarning } from "~/components/auth/GoogleOAuthPortlessWarning";
 import { authCallbackUrl } from "~/lib/auth-callback-url";
 import { linkSocialProvider } from "~/lib/auth-email-client";
+import { BETTER_AUTH_OAUTH_ERROR_QUERY } from "~/lib/auth-link-error";
 
 const PROVIDER_LABELS = {
 	email: "Email & password",

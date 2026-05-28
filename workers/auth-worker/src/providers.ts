@@ -14,7 +14,7 @@ export function registerAuthProvidersRoute(
 		const env = c.env;
 		return c.json({
 			google: Boolean(env.GOOGLE_CLIENT_ID?.trim() && env.GOOGLE_CLIENT_SECRET?.trim()),
-			github: Boolean(env.GITHUB_CLIENT_ID?.trim() && env.GITHUB_CLIENT_SECRET?.trim()),
+			github: Boolean(env.GH_CLIENT_ID?.trim() && env.GH_CLIENT_SECRET?.trim()),
 			email: true,
 			googleLoopbackOAuthProxy: Boolean(env.AUTH_OAUTH_PROXY_PRODUCTION_URL?.trim()),
 		});

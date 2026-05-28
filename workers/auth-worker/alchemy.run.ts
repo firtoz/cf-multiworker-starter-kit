@@ -90,8 +90,8 @@ export const authWorker = await Worker(DEFAULT_WORKER_RESOURCE_ID, {
 		AUTH_SEED_ORIGINS: authSeedOrigins,
 		GOOGLE_CLIENT_ID: readProcessEnvTrimmed("GOOGLE_CLIENT_ID"),
 		GOOGLE_CLIENT_SECRET: readProcessEnvTrimmed("GOOGLE_CLIENT_SECRET"),
-		GITHUB_CLIENT_ID: readProcessEnvTrimmed("GITHUB_CLIENT_ID"),
-		GITHUB_CLIENT_SECRET: readProcessEnvTrimmed("GITHUB_CLIENT_SECRET"),
+		GH_CLIENT_ID: readProcessEnvTrimmed("GH_CLIENT_ID"),
+		GH_CLIENT_SECRET: readProcessEnvTrimmed("GH_CLIENT_SECRET"),
 		AUTH_OAUTH_PROXY_PRODUCTION_URL: authOAuthProxyProductionUrl,
 	},
 });
