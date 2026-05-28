@@ -444,7 +444,32 @@ You can mark **Audience** as **In production** while still adding staging + loop
 
 ### PR previews
 
-Same-repo PR deploys use **`STAGE=pr-<n>`** and typically the same secrets as **staging** (`.env.staging`). OAuth callbacks must include each preview URL **or** use a stable staging host only. Easiest: test OAuth on the fixed **staging** workers.dev URL; use PR previews for app changes without re-registering Google URIs every PR.
+Same-repo PR deploys use **`STAGE=pr-<n>`** and the same GitHub Environment secrets as **staging** (`.env.staging`). Each preview gets its own workers.dev URL (e.g. `https://<prefix>-frontend-web-pr-22.<account>.workers.dev`).
+
+**GitHub OAuth Apps allow only one Authorization callback URL** — there is no API to create or update OAuth Apps per PR. Register **staging only**:
+
+```text
+https://<staging-web-host>/api/auth/callback/github
+```
+
+**This starter kit proxies PR preview OAuth through staging** (Better Auth [`oAuthProxy`](https://www.better-auth.com/docs/plugins/oauth-proxy)):
+
+1. User clicks **Continue with GitHub** on the PR preview URL.
+2. GitHub redirects to the **staging** callback (registered above).
+3. Staging auth exchanges the code and redirects back to the PR preview with an encrypted profile.
+4. The PR preview auth worker creates the session in its own D1 database.
+
+Requirements:
+
+- **Staging must stay deployed** while testing OAuth on PR previews (the callback always hits staging first).
+- **`BETTER_AUTH_SECRET`** must match between staging and PR previews (same GitHub Environment secret — already the case for preview deploys).
+- **`GH_*`** credentials are the staging OAuth App (already synced to the `staging` Environment).
+
+**Google on PR previews** uses the same proxy — you only need the **staging** redirect URI in Google Cloud, not each `pr-<n>` URL.
+
+The login and guest-upgrade pages show a short notice when passthrough OAuth is active. You can still test OAuth directly on the fixed **staging** URL without the proxy hop.
+
+**Not supported:** automatically registering a new GitHub OAuth App per PR (GitHub does not expose that API).
 
 ---
 

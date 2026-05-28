@@ -2,6 +2,7 @@ import type { AuthProviders } from "@internal/auth-client";
 import { useCallback, useEffect, useState } from "react";
 import { EmailAuthForm } from "~/components/auth/EmailAuthForm";
 import { GoogleOAuthPortlessWarning } from "~/components/auth/GoogleOAuthPortlessWarning";
+import { OAuthStagingProxyNotice } from "~/components/auth/OAuthStagingProxyNotice";
 import { authCallbackUrl } from "~/lib/auth-callback-url";
 import { signInWithSocial } from "~/lib/auth-email-client";
 import {
@@ -67,6 +68,8 @@ export function LoginPanel({ redirectTo, providers, googlePortlessWarning }: Log
 			{googlePortlessWarning ? (
 				<GoogleOAuthPortlessWarning message={googlePortlessWarning} />
 			) : null}
+
+			{providers.oauthProxyPassthrough ? <OAuthStagingProxyNotice /> : null}
 
 			{lastUsedAvailable ? (
 				<div className="rounded-xl border-2 border-blue-600/50 dark:border-blue-500/40 bg-blue-50/80 dark:bg-blue-950/30 px-4 py-4 flex flex-col gap-3">

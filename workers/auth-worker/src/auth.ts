@@ -1,6 +1,7 @@
 import { parseAuthRole } from "@internal/auth-client";
 import { getAuthDb } from "@internal/auth-db";
 import * as authSchema from "@internal/auth-db/schema";
+import { isLoopbackOAuthProxyProductionUrl } from "alchemy-utils/auth-oauth-proxy";
 import { PRODUCT_PREFIX } from "alchemy-utils/worker-peer-scripts";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
@@ -21,7 +22,7 @@ export type AuthWorkerEnv = {
 	GH_CLIENT_ID: string;
 	GH_CLIENT_SECRET: string;
 	AUTH_SEED_ORIGINS: string;
-	/** When set (local Portless + Google), Better Auth `oAuthProxy` uses this as the OAuth redirect host. */
+	/** When set, Better Auth `oAuthProxy` uses this as the OAuth redirect host (loopback or staging). */
 	AUTH_OAUTH_PROXY_PRODUCTION_URL?: string;
 };
 
@@ -86,10 +87,12 @@ export function createAuth(env: AuthWorkerEnv, trustedOrigins: string[]) {
 								productionURL,
 								currentURL: env.AUTH_BASE_URL,
 							});
-							configureLocalGoogleOAuthProxy(plugin, {
-								productionURL,
-								browserBaseUrl: env.AUTH_BASE_URL,
-							});
+							if (isLoopbackOAuthProxyProductionUrl(productionURL)) {
+								configureLocalGoogleOAuthProxy(plugin, {
+									productionURL,
+									browserBaseUrl: env.AUTH_BASE_URL,
+								});
+							}
 							return plugin;
 						})(),
 					]

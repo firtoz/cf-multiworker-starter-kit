@@ -19,6 +19,7 @@ import { eq } from "drizzle-orm";
 import type { CloudflareEnv } from "../env";
 import type { createAuth } from "./auth";
 import { mapUserWithRole } from "./auth";
+import { authProviderFlags } from "./auth-provider-flags";
 
 type AuthInstance = ReturnType<typeof createAuth>;
 
@@ -79,12 +80,7 @@ export function registerAccountRoutes(
 		const emailRowsForLookup = emailRows.map((r) => ({ email: r.email, source: r.source }));
 
 		const env = c.env;
-		const providers = {
-			google: Boolean(env.GOOGLE_CLIENT_ID?.trim() && env.GOOGLE_CLIENT_SECRET?.trim()),
-			github: Boolean(env.GH_CLIENT_ID?.trim() && env.GH_CLIENT_SECRET?.trim()),
-			email: true,
-			googleLoopbackOAuthProxy: Boolean(env.AUTH_OAUTH_PROXY_PRODUCTION_URL?.trim()),
-		};
+		const providers = authProviderFlags(env);
 
 		const signInMethods = [
 			{

@@ -5,15 +5,15 @@ import { requireAlchemyPassword, requireEnv } from "alchemy-utils";
 import { alchemyCiCloudStateStoreOptions } from "alchemy-utils/alchemy-cloud-state-store";
 import { authDomainsFromProcessEnv, resolveAuthBaseUrl } from "alchemy-utils/auth-deploy-hostnames";
 import {
+	isLoopbackOAuthProxyProductionUrl,
+	resolveAuthOAuthProxyProductionUrl,
+} from "alchemy-utils/auth-oauth-proxy";
+import {
 	CI_AUTH_DEPLOY_URL_RELPATH,
 	writeCiDeployUrlIfGithubActions,
 } from "alchemy-utils/ci-deploy-web-url";
-import { resolveStageFromEnv } from "alchemy-utils/deployment-stage";
+import { isPrStage, resolveStageFromEnv } from "alchemy-utils/deployment-stage";
 import { readProcessEnvTrimmed } from "alchemy-utils/env-requirements";
-import {
-	localGoogleOAuthLoopbackOrigin,
-	shouldEnableLocalGoogleOAuthProxy,
-} from "alchemy-utils/local-google-oauth-dev";
 import {
 	defaultLocalAuthBaseUrl,
 	isPortlessLocalDevEnabled,
@@ -55,9 +55,7 @@ const localViteOrigin =
 			})()
 		: undefined;
 
-const authOAuthProxyProductionUrl = shouldEnableLocalGoogleOAuthProxy(process.env, stage)
-	? localGoogleOAuthLoopbackOrigin(process.env)
-	: "";
+const authOAuthProxyProductionUrl = await resolveAuthOAuthProxyProductionUrl({ stage });
 
 const authSeedOrigins = [
 	...commaSeparatedEnvSegments(process.env["AUTH_SEED_ORIGINS"]),
@@ -102,6 +100,20 @@ if (stage === "local" && isPortlessLocalDevEnabled(stage) && authOAuthProxyProdu
 		oauthProxy: "Google OAuth uses loopback redirect URI (GitHub keeps Portless callback)",
 		oauthProxyProductionURL: authOAuthProxyProductionUrl,
 		registerInGoogleConsole: `${authOAuthProxyProductionUrl}/api/auth/callback/google`,
+	});
+}
+
+if (
+	isPrStage(stage) &&
+	authOAuthProxyProductionUrl &&
+	!isLoopbackOAuthProxyProductionUrl(authOAuthProxyProductionUrl)
+) {
+	console.log({
+		worker: "auth-worker",
+		oauthProxy: "PR preview OAuth routes through staging callback URL",
+		oauthProxyProductionURL: authOAuthProxyProductionUrl,
+		registerGitHubCallback: `${authOAuthProxyProductionUrl}/api/auth/callback/github`,
+		registerGoogleCallback: `${authOAuthProxyProductionUrl}/api/auth/callback/google`,
 	});
 }
 

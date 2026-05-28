@@ -32,7 +32,7 @@ export async function loader({
 	}
 	const providers = await getAuthProviders(env.AUTH);
 	const googlePortlessWarning =
-		providers.google && !providers.googleLoopbackOAuthProxy
+		providers.google && !providers.googleLoopbackOAuthProxy && !providers.oauthProxy
 			? googleOAuthPortlessWarningForWebEnv(env, true)
 			: undefined;
 	return success({

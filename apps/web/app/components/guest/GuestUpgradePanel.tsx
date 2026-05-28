@@ -2,6 +2,7 @@ import type { AuthProviders, AuthUser } from "@internal/auth-client";
 import { accountDisplayName, GUEST_SESSION_RETENTION_DAYS } from "@internal/auth-client";
 import { type FormEvent, useCallback, useEffect, useState } from "react";
 import { GoogleOAuthPortlessWarning } from "~/components/auth/GoogleOAuthPortlessWarning";
+import { OAuthStagingProxyNotice } from "~/components/auth/OAuthStagingProxyNotice";
 import { authCallbackUrl } from "~/lib/auth-callback-url";
 import { linkSocialProvider } from "~/lib/auth-email-client";
 import { BETTER_AUTH_OAUTH_ERROR_QUERY } from "~/lib/auth-link-error";
@@ -133,6 +134,8 @@ export function GuestUpgradePanel({
 			{googlePortlessWarning ? (
 				<GoogleOAuthPortlessWarning message={googlePortlessWarning} />
 			) : null}
+
+			{providers.oauthProxyPassthrough ? <OAuthStagingProxyNotice /> : null}
 
 			{linkErrorMessage ? (
 				<p

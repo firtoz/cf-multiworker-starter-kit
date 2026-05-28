@@ -59,6 +59,10 @@ export type AuthProviders = {
 	google: boolean;
 	github: boolean;
 	email: boolean;
+	/** Better Auth `oAuthProxy` is active (loopback or staging passthrough). */
+	oauthProxy?: boolean;
+	/** OAuth completes on another host (e.g. PR preview → staging callback). */
+	oauthProxyPassthrough?: boolean;
 	/** Local Portless: OAuth redirect uses loopback via Better Auth `oAuthProxy`. */
 	googleLoopbackOAuthProxy?: boolean;
 };

@@ -60,7 +60,8 @@ export async function loader({ request }: Route.LoaderArgs): Promise<
 
 	const googlePortlessWarning =
 		summaryResult.result.providers.google &&
-		!summaryResult.result.providers.googleLoopbackOAuthProxy
+		!summaryResult.result.providers.googleLoopbackOAuthProxy &&
+		!summaryResult.result.providers.oauthProxy
 			? googleOAuthPortlessWarningForWebEnv(env, true)
 			: undefined;
 	const linkErrorMessage = accountLinkErrorFromRequestUrl(request.url);
