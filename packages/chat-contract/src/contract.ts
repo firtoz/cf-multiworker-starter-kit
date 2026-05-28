@@ -1,11 +1,12 @@
 import { defineSocka } from "@firtoz/socka/core";
+import { PROFILE_NAME_MAX_CHARS } from "@internal/auth-db/constants";
 import { PRODUCT_PREFIX } from "alchemy-utils/worker-peer-scripts";
 import * as z from "zod";
 import type { ChatAttestedIdentity } from "./attested-identity";
-import { CHAT_DISPLAY_NAME_MAX_CHARS, CHAT_MESSAGE_TEXT_MAX_CHARS } from "./limits";
+import { CHAT_MESSAGE_TEXT_MAX_CHARS } from "./limits";
 
 export * from "./attested-identity";
-export { CHAT_DISPLAY_NAME_MAX_CHARS, CHAT_MESSAGE_TEXT_MAX_CHARS } from "./limits";
+export { CHAT_MESSAGE_TEXT_MAX_CHARS } from "./limits";
 
 export const CHATROOM_INTERNAL_SECRET_HEADER = `x-${PRODUCT_PREFIX}-chatroom-secret`;
 
@@ -63,7 +64,7 @@ export function buildWebSocketForwardRequest(
 	return new Request(url, init);
 }
 
-const chatDisplayNameZ = z.string().min(1).max(CHAT_DISPLAY_NAME_MAX_CHARS);
+const chatDisplayNameZ = z.string().min(1).max(PROFILE_NAME_MAX_CHARS);
 
 export const messageRow = z.object({
 	id: z.string(),

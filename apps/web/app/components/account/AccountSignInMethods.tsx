@@ -49,8 +49,8 @@ export function AccountSignInMethods({
 			setBusy(provider);
 			try {
 				const result = await linkSocialProvider(provider, authCallbackUrl(accountPath));
-				if (!result.ok) {
-					setError(result.message);
+				if (!result.success) {
+					setError(result.error);
 				}
 			} finally {
 				setBusy(null);

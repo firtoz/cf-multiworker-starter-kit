@@ -1,4 +1,4 @@
-import { CHAT_DISPLAY_NAME_MAX_CHARS } from "@internal/chat-contract";
+import { PROFILE_NAME_MAX_CHARS } from "@internal/auth-client";
 import { useFetcher } from "react-router";
 
 type AccountDisplayNameFormProps = {
@@ -23,7 +23,7 @@ export function AccountDisplayNameForm({ initialName }: AccountDisplayNameFormPr
 			<h2 className="text-lg font-semibold">Display name</h2>
 			<p className="text-sm text-gray-600 dark:text-gray-400">
 				Used in chat and shown to other users. Set this before joining a room (
-				{CHAT_DISPLAY_NAME_MAX_CHARS} characters max).
+				{PROFILE_NAME_MAX_CHARS} characters max).
 			</p>
 			<label className="text-sm font-medium" htmlFor="displayName">
 				Display name
@@ -35,7 +35,7 @@ export function AccountDisplayNameForm({ initialName }: AccountDisplayNameFormPr
 				type="text"
 				required
 				minLength={1}
-				maxLength={CHAT_DISPLAY_NAME_MAX_CHARS}
+				maxLength={PROFILE_NAME_MAX_CHARS}
 				defaultValue={initialName}
 				placeholder="How you appear in chat"
 			/>

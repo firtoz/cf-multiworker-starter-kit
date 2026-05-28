@@ -23,6 +23,10 @@ export async function loader({
 	const session = await getSession(env.AUTH, request);
 	const url = new URL(request.url);
 	const redirectTo = url.searchParams.get("redirectTo")?.trim() || href("/");
+	if (session && session.user.isAnonymous === true) {
+		const upgradeUrl = `${href("/guest/upgrade")}?redirectTo=${encodeURIComponent(redirectTo)}`;
+		throw redirect(upgradeUrl);
+	}
 	if (session && session.user.isAnonymous !== true) {
 		throw redirect(redirectTo);
 	}

@@ -18,6 +18,10 @@
 			"types": "./src/api-schemas/index.ts",
 			"default": "./src/api-schemas/index.ts"
 		},
+		"./constants": {
+			"types": "./src/constants.ts",
+			"default": "./src/constants.ts"
+		},
 		"./alchemy": "./alchemy.run.ts"
 	},
 	"scripts": {
@@ -35,7 +39,6 @@
 		"typecheck": "tsgo --noEmit -p ."
 	},
 	"dependencies": {
-		"@internal/chat-contract": "workspace:*",
 		"better-auth": "catalog:",
 		"drizzle-orm": "catalog:",
 		"drizzle-zod": "^0.8.3",

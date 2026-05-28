@@ -28,6 +28,7 @@
 		"@firtoz/socka": "catalog:",
 		"@firtoz/websocket-do": "^13.0.2",
 		"@internal/auth-client": "workspace:*",
+		"@internal/auth-db": "workspace:*",
 		"@internal/chat-contract": "workspace:*",
 		"drizzle-orm": "catalog:",
 		"hono": "catalog:"

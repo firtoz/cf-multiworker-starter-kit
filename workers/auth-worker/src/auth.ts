@@ -6,6 +6,7 @@ import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { anonymous, oAuthProxy } from "better-auth/plugins";
 import { generateAnonymousGuestName } from "./guest-display-name";
+import { graduateAnonymousUserFromOAuthAccount } from "./guest-graduate";
 import { configureLocalGoogleOAuthProxy } from "./local-oauth-proxy-patch";
 
 const GUEST_SESSION_SECONDS = 60 * 60 * 24 * 7;
@@ -76,9 +77,6 @@ export function createAuth(env: AuthWorkerEnv, trustedOrigins: string[]) {
 			anonymous({
 				emailDomainName: `${PRODUCT_PREFIX}.guest`,
 				generateName: () => generateAnonymousGuestName(),
-				onLinkAccount: async () => {
-					// Chat history lives in per-room DO SQLite; linking keeps the new account only.
-				},
 			}),
 			...(env.AUTH_OAUTH_PROXY_PRODUCTION_URL?.trim()
 				? [
@@ -121,6 +119,33 @@ export function createAuth(env: AuthWorkerEnv, trustedOrigins: string[]) {
 							};
 						}
 						return { data: user };
+					},
+				},
+			},
+			account: {
+				create: {
+					after: async (createdAccount) => {
+						if (createdAccount.providerId === "credential") {
+							return;
+						}
+						const userId = createdAccount.userId;
+						if (!userId) {
+							return;
+						}
+						try {
+							await graduateAnonymousUserFromOAuthAccount(
+								db,
+								userId,
+								createdAccount.providerId,
+								createdAccount.idToken,
+							);
+						} catch (error) {
+							console.error("Failed to graduate guest after OAuth link", {
+								userId,
+								providerId: createdAccount.providerId,
+								error,
+							});
+						}
 					},
 				},
 			},

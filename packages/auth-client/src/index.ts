@@ -7,7 +7,9 @@ export type {
 	AdminSetUserNameResponse,
 	AdminUserRow,
 	AdminUsersResponse,
+	AuthApiErrorBody,
 	AuthProviderId,
+	GuestUpgradeEmailResponse,
 	LinkedAuthMethod,
 	ProfileUpdate,
 	ProfileUpdateResponse,
@@ -29,7 +31,6 @@ export {
 	userEmailRowSchema,
 } from "@internal/auth-db/api-schemas";
 export * from "./binding-headers";
-export * from "./chat-identity";
 export * from "./chat-session";
 export * from "./client";
 export * from "./constants";

@@ -14,7 +14,11 @@ export function SiteNav({ user }: SiteNavProps) {
 			</Link>
 			{user ? (
 				<>
-					{user.isAnonymous === true ? null : <Link to={href("/account")}>Account</Link>}
+					{user.isAnonymous === true ? (
+						<Link to={href("/guest/upgrade")}>Create account</Link>
+					) : (
+						<Link to={href("/account")}>Account</Link>
+					)}
 					<Link to={href("/chat")}>Chat</Link>
 					{isAdminUser(user) ? <Link to={href("/admin/origins")}>Admin</Link> : null}
 					<span className="text-gray-500 ml-auto flex flex-wrap items-center gap-3">

@@ -24,8 +24,8 @@ export function EmailAuthForm({ redirectTo }: EmailAuthFormProps) {
 					mode === "sign-in"
 						? await signInWithEmail(email.trim(), password, callbackURL)
 						: await signUpWithEmail(name.trim(), email.trim(), password, callbackURL);
-				if (!result.ok) {
-					setError(result.message);
+				if (!result.success) {
+					setError(result.error);
 				}
 			} finally {
 				setBusy(false);

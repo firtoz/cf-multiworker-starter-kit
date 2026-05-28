@@ -10,6 +10,7 @@
 	},
 	"dependencies": {
 		"@firtoz/socka": "catalog:",
+		"@internal/auth-db": "workspace:*",
 		"alchemy-utils": "workspace:*",
 		"zod": "catalog:"
 	},

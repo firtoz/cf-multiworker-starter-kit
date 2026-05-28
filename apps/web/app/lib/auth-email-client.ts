@@ -1,3 +1,4 @@
+import { fail, type MaybeError, success } from "@firtoz/maybe-error";
 import { setLastLoginMethod, setPendingLoginMethod } from "~/lib/last-login-method";
 
 /** POST JSON to Better Auth on the web origin (`/api/auth/*` is proxied to the auth worker). */
@@ -53,10 +54,7 @@ function parseAuthErrorMessage(body: unknown): string {
 	return "Sign-in failed";
 }
 
-async function postAuthJson<TBody extends object>(
-	path: string,
-	body: TBody,
-): Promise<{ ok: true } | { ok: false; message: string }> {
+async function postAuthJson<TBody extends object>(path: string, body: TBody): Promise<MaybeError> {
 	const res = await fetch(path, {
 		method: "POST",
 		headers: { "Content-Type": "application/json" },
@@ -70,21 +68,20 @@ async function postAuthJson<TBody extends object>(
 		data = null;
 	}
 	if (!res.ok) {
-		return { ok: false, message: parseAuthErrorMessage(data) };
+		return fail(parseAuthErrorMessage(data));
 	}
-	const success = data as AuthEmailSuccess;
-	if (success.url) {
-		window.location.assign(success.url);
-		return { ok: true };
+	const payload = data as AuthEmailSuccess;
+	if (payload.url) {
+		window.location.assign(payload.url);
 	}
-	return { ok: true };
+	return success();
 }
 
 export async function signInWithEmail(
 	email: string,
 	password: string,
 	callbackURL: string,
-): Promise<{ ok: true } | { ok: false; message: string }> {
+): Promise<MaybeError> {
 	const body: AuthEmailSignInBody = {
 		email,
 		password,
@@ -92,7 +89,7 @@ export async function signInWithEmail(
 		rememberMe: true,
 	};
 	const result = await postAuthJson("/api/auth/sign-in/email", body);
-	if (result.ok) {
+	if (result.success) {
 		setLastLoginMethod("email");
 		window.location.assign(callbackURL);
 	}
@@ -102,15 +99,14 @@ export async function signInWithEmail(
 export async function signInWithSocial(
 	provider: AuthSocialProvider,
 	callbackURL: string,
-): Promise<{ ok: true } | { ok: false; message: string }> {
+): Promise<MaybeError> {
 	const body: AuthSocialSignInBody = {
 		provider,
 		callbackURL,
 	};
 	const result = await postAuthJson("/api/auth/sign-in/social", body);
-	if (result.ok) {
+	if (result.success) {
 		setPendingLoginMethod(provider);
-		return { ok: true };
 	}
 	return result;
 }
@@ -118,13 +114,12 @@ export async function signInWithSocial(
 export async function linkSocialProvider(
 	provider: AuthSocialProvider,
 	callbackURL: string,
-): Promise<{ ok: true } | { ok: false; message: string }> {
-	const result = await postAuthJson("/api/auth/link-social", {
+): Promise<MaybeError> {
+	return postAuthJson("/api/auth/link-social", {
 		provider,
 		callbackURL,
 		errorCallbackURL: callbackURL,
 	});
-	return result;
 }
 
 export async function signUpWithEmail(
@@ -132,7 +127,7 @@ export async function signUpWithEmail(
 	email: string,
 	password: string,
 	callbackURL: string,
-): Promise<{ ok: true } | { ok: false; message: string }> {
+): Promise<MaybeError> {
 	const body: AuthEmailSignUpBody = {
 		name,
 		email,
@@ -141,7 +136,7 @@ export async function signUpWithEmail(
 		rememberMe: true,
 	};
 	const result = await postAuthJson("/api/auth/sign-up/email", body);
-	if (result.ok) {
+	if (result.success) {
 		setLastLoginMethod("email");
 		window.location.assign(callbackURL);
 	}

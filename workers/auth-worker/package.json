@@ -26,7 +26,6 @@
 	"dependencies": {
 		"@internal/auth-client": "workspace:*",
 		"@internal/auth-db": "workspace:*",
-		"@internal/chat-contract": "workspace:*",
 		"better-auth": "catalog:",
 		"drizzle-orm": "catalog:",
 		"hono": "catalog:",

@@ -1,6 +1,6 @@
-import { CHAT_DISPLAY_NAME_MAX_CHARS } from "@internal/chat-contract";
 import { createSelectSchema, createUpdateSchema } from "drizzle-zod";
 import * as z from "zod";
+import { PROFILE_NAME_MAX_CHARS } from "../constants";
 import { user } from "../schema";
 
 /** Explicit allowlist — new user columns stay locked until added here. */
@@ -10,7 +10,7 @@ export const profilePatchableColumns = {
 } as const satisfies Partial<Record<keyof typeof user.$inferSelect, true>>;
 
 export const profileUpdateSchema = createUpdateSchema(user, {
-	name: z.string().trim().min(1).max(CHAT_DISPLAY_NAME_MAX_CHARS),
+	name: z.string().trim().min(1).max(PROFILE_NAME_MAX_CHARS),
 })
 	.pick(profilePatchableColumns)
 	.strict()
@@ -22,7 +22,7 @@ export type ProfileUpdate = z.infer<typeof profileUpdateSchema>;
 
 /** Required single-field name update (admin set user name). */
 export const profileNameRequiredSchema = createUpdateSchema(user, {
-	name: z.string().trim().min(1).max(CHAT_DISPLAY_NAME_MAX_CHARS),
+	name: z.string().trim().min(1).max(PROFILE_NAME_MAX_CHARS),
 })
 	.pick({ name: true })
 	.required({ name: true });

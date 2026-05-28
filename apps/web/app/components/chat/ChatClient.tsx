@@ -328,10 +328,13 @@ function ChatClientWithSocket({
 					) : (
 						<>
 							Guest names appear faded;{" "}
-							<Link className="text-blue-600 dark:text-blue-400 underline" to={href("/login")}>
-								sign in
+							<Link
+								className="text-blue-600 dark:text-blue-400 underline"
+								to={href("/guest/upgrade")}
+							>
+								create an account
 							</Link>{" "}
-							for a permanent account and name.
+							to keep your name and history permanently.
 						</>
 					)}
 				</p>
@@ -339,8 +342,11 @@ function ChatClientWithSocket({
 					<p className="text-sm text-sky-900 dark:text-sky-100 bg-sky-50 dark:bg-sky-950/40 border border-sky-200 dark:border-sky-800 rounded-lg px-3 py-2">
 						Your guest name and history on this device last{" "}
 						<strong>{guestRetentionDays} days</strong> from your last visit. Come back before{" "}
-						<strong>{formatSessionExpiry(sessionExpiresAt)}</strong> to keep them, or sign in to
-						keep them permanently.
+						<strong>{formatSessionExpiry(sessionExpiresAt)}</strong> to keep them, or{" "}
+						<Link className="underline font-medium" to={href("/guest/upgrade")}>
+							create an account
+						</Link>{" "}
+						to keep them permanently.
 					</p>
 				) : null}
 				{!isAnonymousGuest && !usesAccountName ? (

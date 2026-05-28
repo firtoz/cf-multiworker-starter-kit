@@ -1,6 +1,6 @@
 import { SockaDoSession, type SockaDoSessionConfig, SockaWebSocketDO } from "@firtoz/socka/do";
+import { PROFILE_NAME_MAX_CHARS } from "@internal/auth-db/constants";
 import {
-	CHAT_DISPLAY_NAME_MAX_CHARS,
 	CHAT_MESSAGE_TEXT_MAX_CHARS,
 	CHATROOM_AUTH_DISPLAY_NAME_HEADER,
 	CHATROOM_AUTH_IS_GUEST_HEADER,
@@ -33,9 +33,7 @@ type ChatroomSession = SockaDoSession<typeof chatContract, SessionData, Env>;
 /** Clamp display name input to contract max. */
 function clampChatDisplayName(raw: string | null): string {
 	const base = raw?.trim() || "anon";
-	return base.length <= CHAT_DISPLAY_NAME_MAX_CHARS
-		? base
-		: base.slice(0, CHAT_DISPLAY_NAME_MAX_CHARS);
+	return base.length <= PROFILE_NAME_MAX_CHARS ? base : base.slice(0, PROFILE_NAME_MAX_CHARS);
 }
 
 function chatMessageRowFromDb(r: InferSelectModel<typeof chatMessagesTable>): ChatMessageRow {
@@ -44,9 +42,9 @@ function chatMessageRowFromDb(r: InferSelectModel<typeof chatMessagesTable>): Ch
 		ts: r.ts,
 		userId: r.userId,
 		displayName:
-			r.displayName.length <= CHAT_DISPLAY_NAME_MAX_CHARS
+			r.displayName.length <= PROFILE_NAME_MAX_CHARS
 				? r.displayName
-				: r.displayName.slice(0, CHAT_DISPLAY_NAME_MAX_CHARS),
+				: r.displayName.slice(0, PROFILE_NAME_MAX_CHARS),
 		isGuest: r.isGuest,
 		text:
 			r.text.length <= CHAT_MESSAGE_TEXT_MAX_CHARS
@@ -119,9 +117,9 @@ export class ChatroomDo extends SockaWebSocketDO<ChatroomSession, Env> {
 					throw new Error("Chat requires attested identity headers");
 				}
 				const name =
-					displayName.length <= CHAT_DISPLAY_NAME_MAX_CHARS
+					displayName.length <= PROFILE_NAME_MAX_CHARS
 						? displayName
-						: displayName.slice(0, CHAT_DISPLAY_NAME_MAX_CHARS);
+						: displayName.slice(0, PROFILE_NAME_MAX_CHARS);
 				return { userId, displayName: name, isGuest };
 			},
 			onAttached: async (session) => {

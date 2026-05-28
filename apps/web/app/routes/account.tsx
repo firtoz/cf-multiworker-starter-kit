@@ -50,7 +50,7 @@ export async function loader({ request }: Route.LoaderArgs): Promise<
 		throw redirect(`${href("/login")}?redirectTo=${encodeURIComponent(href("/account"))}`);
 	}
 	if (session.user.isAnonymous === true) {
-		throw redirect(href("/chat"));
+		throw redirect(`${href("/guest/upgrade")}?redirectTo=${encodeURIComponent(href("/account"))}`);
 	}
 
 	const summaryResult = await auth.account.getSummary();

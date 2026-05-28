@@ -1,4 +1,4 @@
-import { CHAT_DISPLAY_NAME_MAX_CHARS } from "./limits";
+import { PROFILE_NAME_MAX_CHARS } from "@internal/auth-db/constants";
 
 export type ChatAttestedIdentity = {
 	userId: string;
@@ -15,9 +15,7 @@ export type ChatSignedInIdentity = {
 };
 
 function clampDisplayName(raw: string): string {
-	return raw.length <= CHAT_DISPLAY_NAME_MAX_CHARS
-		? raw
-		: raw.slice(0, CHAT_DISPLAY_NAME_MAX_CHARS);
+	return raw.length <= PROFILE_NAME_MAX_CHARS ? raw : raw.slice(0, PROFILE_NAME_MAX_CHARS);
 }
 
 /** Resolve chat presence after the chatroom worker reads the session from the AUTH binding. */

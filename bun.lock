@@ -77,6 +77,7 @@
         "@firtoz/socka": "catalog:",
         "@firtoz/websocket-do": "^13.0.2",
         "@internal/auth-client": "workspace:*",
+        "@internal/auth-db": "workspace:*",
         "@internal/chat-contract": "workspace:*",
         "drizzle-orm": "catalog:",
         "hono": "catalog:",
@@ -132,7 +133,6 @@
       "dependencies": {
         "@firtoz/maybe-error": "^1.6.1",
         "@internal/auth-db": "workspace:*",
-        "@internal/chat-contract": "workspace:*",
         "alchemy-utils": "workspace:*",
       },
       "devDependencies": {
@@ -145,7 +145,6 @@
     "packages/auth-db": {
       "name": "@internal/auth-db",
       "dependencies": {
-        "@internal/chat-contract": "workspace:*",
         "better-auth": "catalog:",
         "drizzle-orm": "catalog:",
         "drizzle-zod": "^0.8.3",
@@ -167,6 +166,7 @@
       "name": "@internal/chat-contract",
       "dependencies": {
         "@firtoz/socka": "catalog:",
+        "@internal/auth-db": "workspace:*",
         "alchemy-utils": "workspace:*",
         "zod": "catalog:",
       },
@@ -222,7 +222,6 @@
       "dependencies": {
         "@internal/auth-client": "workspace:*",
         "@internal/auth-db": "workspace:*",
-        "@internal/chat-contract": "workspace:*",
         "better-auth": "catalog:",
         "drizzle-orm": "catalog:",
         "hono": "catalog:",

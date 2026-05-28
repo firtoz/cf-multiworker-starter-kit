@@ -1,4 +1,4 @@
-import { AUTH_API_PREFIX, resolveChatIdentityFromAuth } from "@internal/auth-client";
+import { AUTH_API_PREFIX, GUEST_API_PREFIX } from "@internal/auth-client";
 import {
 	applyChatIdentityHeaders,
 	buildWebSocketForwardRequest,
@@ -7,6 +7,7 @@ import {
 } from "@internal/chat-contract";
 import { Hono } from "hono";
 import type { CloudflareEnv } from "../types/env.d.ts";
+import { resolveChatIdentityFromAuth } from "./resolve-chat-identity";
 
 const CHAT_WS_PREFIX = "/api/ws/";
 
@@ -58,6 +59,7 @@ export function createWebWorkerApp(
 			});
 		})
 		.all(`${AUTH_API_PREFIX}*`, (c) => c.env.AUTH.fetch(c.req.raw))
+		.all(`${GUEST_API_PREFIX}*`, (c) => c.env.AUTH.fetch(c.req.raw))
 		.all(`${CHAT_WS_PREFIX}*`, async (c) => {
 			const rest = c.req.path.slice(CHAT_WS_PREFIX.length);
 			const room = sanitizeChatRoomId(decodeURIComponent(rest));

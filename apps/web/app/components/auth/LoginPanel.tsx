@@ -45,8 +45,8 @@ export function LoginPanel({ redirectTo, providers, googlePortlessWarning }: Log
 			setBusyProvider(provider);
 			try {
 				const result = await signInWithSocial(provider, callback);
-				if (!result.ok) {
-					setError(result.message);
+				if (!result.success) {
+					setError(result.error);
 				}
 			} finally {
 				setBusyProvider(null);

@@ -56,9 +56,8 @@ OAuth redirect URIs must match the resolved URL: `https://<host>/api/auth/callba
 - Display names: **`unique-names-generator`** (adjective + animal, e.g. `Coastal-Falcon`) via `workers/auth-worker/src/guest-display-name.ts` — not a shared `"Guest"` label.
 - **`/chat` loader** calls `ensureChatSession` → `POST /api/auth/sign-in/anonymous` when logged out; sets session cookie on the document response.
 - Session **`expiresIn` 7 days** with **`updateAge` 1 day** — each visit extends expiry; no visit for a week and the guest identity is gone.
-- **Chatroom worker** calls `resolveChatIdentityFromAuth(env.AUTH, request)` on WebSocket connect (display name from AUTH profile, not client headers).
-- Chat UI shows retention copy from `session.expiresAt`.
-- Signing in with email/OAuth while anonymous runs **`onLinkAccount`** (chat history in DO SQLite is not migrated automatically).
+- **Guest upgrade** at **`/guest/upgrade`**: email (`POST /api/guest/upgrade/email`) or OAuth **`link-social`** promotes the **same** `user.id` (`isAnonymous: false`); chat history in DO SQLite stays attached without migration.
+- Nav shows **Create account** for guests; `/login` redirects anonymous sessions to `/guest/upgrade`.
 
 ## Service binding calls (`AUTH.fetch`)
 

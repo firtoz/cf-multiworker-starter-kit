@@ -1,5 +1,4 @@
-import type { AdminUserRow } from "@internal/auth-client";
-import { CHAT_DISPLAY_NAME_MAX_CHARS } from "@internal/chat-contract";
+import { type AdminUserRow, PROFILE_NAME_MAX_CHARS } from "@internal/auth-client";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useFetcher } from "react-router";
 import type { Route } from "../../routes/+types/admin.users";
@@ -227,7 +226,7 @@ export function AdminUsersPanel({
 												className="flex-1 min-w-40 border border-gray-300 dark:border-gray-600 rounded px-2 py-1 text-sm dark:bg-gray-900"
 												name="name"
 												defaultValue={u.name}
-												maxLength={CHAT_DISPLAY_NAME_MAX_CHARS}
+												maxLength={PROFILE_NAME_MAX_CHARS}
 												required
 												aria-label={`Display name for ${rowLabel}`}
 											/>
@@ -236,7 +235,7 @@ export function AdminUsersPanel({
 											</button>
 										</form>
 									</td>
-									<td className="py-2 pr-4 font-mono text-xs align-top min-w-[10rem]">
+									<td className="py-2 pr-4 font-mono text-xs align-top min-w-40">
 										{isGuest ? (
 											<span className="text-gray-400" title="Synthetic guest address hidden">
 												—

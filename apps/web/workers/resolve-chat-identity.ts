@@ -1,6 +1,5 @@
+import { accountDisplayName, getSession } from "@internal/auth-client";
 import { type ChatAttestedIdentity, resolveChatAttestedIdentity } from "@internal/chat-contract";
-import { accountDisplayName } from "./display-name";
-import { getSession } from "./session";
 
 /**
  * Resolve chat presence by calling the auth worker service binding (`getSession`).
