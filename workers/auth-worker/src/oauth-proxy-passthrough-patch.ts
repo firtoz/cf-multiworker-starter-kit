@@ -8,6 +8,7 @@ import { createAuthMiddleware } from "better-auth/api";
 import { symmetricDecrypt, symmetricEncrypt } from "better-auth/crypto";
 import {
 	type AuthMiddlewareCtx,
+	applyProductionOAuthBaseUrl,
 	completeOAuthAccountLink,
 	decryptOAuthProxyStateData,
 	decryptOAuthProxyStatePackage,
@@ -44,9 +45,9 @@ function productionCallbackMatcher(
 	);
 }
 
-type OAuthProxyEndpoint = {
-	handler?: (ctx: AuthMiddlewareCtx) => Promise<unknown>;
-};
+function oauthProxyCallbackMatcher(ctx: { path?: string }): boolean {
+	return ctx.path === "/oauth-proxy-callback";
+}
 
 type OAuthLinkCompletionProvider = Parameters<typeof completeOAuthAccountLink>[1]["provider"];
 
@@ -76,6 +77,19 @@ export function configurePassthroughOAuthProxy(
 		if (hooks.after?.[0]) {
 			hooks.after[0].matcher = isPassthroughOAuthProxyStart;
 		}
+
+		hooks.before.push({
+			matcher: oauthProxyCallbackMatcher,
+			handler: createAuthMiddleware(async (ctx: AuthMiddlewareCtx) => {
+				const handled = await tryCompleteProxyLinkFromQuery(ctx, {
+					browserBaseUrl,
+					maxAge,
+				});
+				if (handled) {
+					return;
+				}
+			}),
+		});
 	}
 
 	// Staging callback: proxied `/link-social` from previews exchanges here, then redirects to preview.
@@ -94,7 +108,6 @@ export function configurePassthroughOAuthProxy(
 			if (
 				!statePackage ||
 				statePackage["isOAuthProxy"] !== true ||
-				typeof statePackage["state"] !== "string" ||
 				typeof statePackage["stateCookie"] !== "string"
 			) {
 				return;
@@ -106,9 +119,18 @@ export function configurePassthroughOAuthProxy(
 			if (!stateData || !isOAuthLinkState(stateData["link"])) {
 				return;
 			}
+
 			const link = stateData["link"];
-			const errorRedirectUrl = oauthLinkErrorRedirectUrl(stateData, browserBaseUrl, "/guest/upgrade");
+			const errorRedirectUrl = oauthLinkErrorRedirectUrl(
+				stateData,
+				browserBaseUrl,
+				"/guest/upgrade",
+			);
 			if (typeof callbackParams["error"] === "string") {
+				console.error("oauth-proxy passthrough link: provider error", {
+					provider: ctx.params?.id,
+					error: callbackParams["error"],
+				});
 				redirectWithOAuthError(ctx, errorRedirectUrl, callbackParams["error"]);
 			}
 			const codeRaw = callbackParams["code"];
@@ -120,6 +142,7 @@ export function configurePassthroughOAuthProxy(
 			if (!provider) {
 				redirectWithOAuthError(ctx, errorRedirectUrl, "oauth_provider_not_found");
 			}
+			applyProductionOAuthBaseUrl(ctx, productionURL);
 			const codeVerifier =
 				typeof stateData["codeVerifier"] === "string" ? stateData["codeVerifier"] : "";
 			let tokens: Awaited<ReturnType<typeof provider.validateAuthorizationCode>>;
@@ -129,7 +152,12 @@ export function configurePassthroughOAuthProxy(
 					codeVerifier,
 					redirectURI: `${ctx.context.baseURL}/callback/${provider.id}`,
 				});
-			} catch {
+			} catch (error) {
+				console.error("oauth-proxy passthrough link: invalid_code at staging callback", {
+					provider: provider.id,
+					redirectURI: `${ctx.context.baseURL}/callback/${provider.id}`,
+					error,
+				});
 				redirectWithOAuthError(ctx, errorRedirectUrl, "invalid_code");
 			}
 			if (!tokens) {
@@ -172,42 +200,32 @@ export function configurePassthroughOAuthProxy(
 			throw ctx.redirect(proxyCallbackURL.toString());
 		}),
 	});
-
-	if (isClientPassthrough) {
-		wrapOAuthProxyCallbackForLink(plugin, { browserBaseUrl, maxAge });
-	}
 }
 
-function wrapOAuthProxyCallbackForLink(
-	plugin: BetterAuthPlugin,
+async function tryCompleteProxyLinkFromQuery(
+	ctx: AuthMiddlewareCtx,
 	options: { browserBaseUrl: string; maxAge: number },
-): void {
-	const endpoint = (plugin.endpoints as { oAuthProxy?: OAuthProxyEndpoint } | undefined)?.oAuthProxy;
-	const stockHandler = endpoint?.handler;
-	if (!endpoint || typeof stockHandler !== "function") {
-		return;
+): Promise<boolean> {
+	const encryptedProfile = (ctx.query as { profile?: string }).profile;
+	if (typeof encryptedProfile !== "string" || encryptedProfile.length === 0) {
+		return false;
 	}
-
-	endpoint.handler = async (ctx: AuthMiddlewareCtx) => {
-		const encryptedProfile = (ctx.query as { profile?: string }).profile;
-		if (typeof encryptedProfile === "string" && encryptedProfile.length > 0) {
-			let decryptedPayload: string;
-			try {
-				decryptedPayload = await symmetricDecrypt({
-					key: ctx.context.secretConfig,
-					data: encryptedProfile,
-				});
-			} catch {
-				return stockHandler(ctx);
-			}
-			const payload = parseJsonRecord(decryptedPayload);
-			if (payload && isOAuthLinkState(payload["link"])) {
-				await handleProxyLinkCallback(ctx, payload, options);
-				return;
-			}
-		}
-		return stockHandler(ctx);
-	};
+	let decryptedPayload: string;
+	try {
+		decryptedPayload = await symmetricDecrypt({
+			key: ctx.context.secretConfig,
+			data: encryptedProfile,
+		});
+	} catch (error) {
+		console.error("oauth-proxy passthrough link: could not decrypt preview profile", { error });
+		return false;
+	}
+	const payload = parseJsonRecord(decryptedPayload);
+	if (!payload || !isOAuthLinkState(payload["link"])) {
+		return false;
+	}
+	await handleProxyLinkCallback(ctx, payload, options);
+	return true;
 }
 
 async function handleProxyLinkCallback(
@@ -220,10 +238,12 @@ async function handleProxyLinkCallback(
 		`${stripTrailingSlash(options.browserBaseUrl)}/guest/upgrade`;
 	const timestamp = payload["timestamp"];
 	if (typeof timestamp !== "number") {
+		console.error("oauth-proxy passthrough link: invalid_payload (timestamp)");
 		redirectWithOAuthError(ctx, defaultErrorURL, "invalid_payload");
 	}
 	const age = (Date.now() - timestamp) / 1000;
 	if (age > options.maxAge || age < -10) {
+		console.error("oauth-proxy passthrough link: payload_expired", { age, maxAge: options.maxAge });
 		redirectWithOAuthError(ctx, defaultErrorURL, "payload_expired");
 	}
 	const link = payload["link"];
@@ -268,13 +288,25 @@ async function handleProxyLinkCallback(
 	};
 	const errorRedirectUrl =
 		(typeof payload["errorURL"] === "string" && payload["errorURL"]) || defaultErrorURL;
-	await completeOAuthAccountLink(ctx, {
-		link,
-		provider: provider as OAuthLinkCompletionProvider,
-		tokens,
-		userInfo,
-		errorRedirectUrl,
-	});
+	try {
+		await completeOAuthAccountLink(ctx, {
+			link,
+			provider: provider as OAuthLinkCompletionProvider,
+			tokens,
+			userInfo,
+			errorRedirectUrl,
+		});
+	} catch (error) {
+		if (error && typeof error === "object" && "status" in error) {
+			throw error;
+		}
+		console.error("oauth-proxy passthrough link: completeOAuthAccountLink failed", {
+			userId: link.userId,
+			providerId,
+			error,
+		});
+		redirectWithOAuthError(ctx, errorRedirectUrl, "unable_to_link_account");
+	}
 	const returnUrl =
 		(typeof payload["callbackURL"] === "string" && payload["callbackURL"]) ||
 		resolveOAuthReturnUrl({}, options.browserBaseUrl, "/guest/upgrade");

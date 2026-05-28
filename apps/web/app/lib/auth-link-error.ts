@@ -10,6 +10,9 @@ export const BETTER_AUTH_LINK_ERROR_CODES = {
 	noCode: "no_code",
 	providerNotFound: "oauth_provider_not_found",
 	emailNotFound: "email_not_found",
+	invalidPayload: "invalid_payload",
+	payloadExpired: "payload_expired",
+	userCreationFailed: "user_creation_failed",
 } as const;
 
 const LINK_ERROR_MESSAGES: Record<string, string> = {
@@ -26,6 +29,12 @@ const LINK_ERROR_MESSAGES: Record<string, string> = {
 	[BETTER_AUTH_LINK_ERROR_CODES.providerNotFound]: "That provider is not configured on this app.",
 	[BETTER_AUTH_LINK_ERROR_CODES.emailNotFound]:
 		"That provider did not return an email address. Try another account.",
+	[BETTER_AUTH_LINK_ERROR_CODES.invalidPayload]:
+		"OAuth link data was invalid. Try connecting again from this preview.",
+	[BETTER_AUTH_LINK_ERROR_CODES.payloadExpired]:
+		"OAuth link took too long — start Connect again from this page.",
+	[BETTER_AUTH_LINK_ERROR_CODES.userCreationFailed]:
+		"Could not finish sign-in after OAuth. Try again or use email instead.",
 };
 
 /** Map Better Auth `?error=` codes to copy for the account page. */

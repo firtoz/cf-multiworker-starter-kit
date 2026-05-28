@@ -36,6 +36,12 @@ export function stripTrailingSlash(url: string): string {
 	return url.replace(/\/+$/, "");
 }
 
+/** Match redirect URI used when the proxy rewrites `ctx.context.baseURL` for provider starts. */
+export function applyProductionOAuthBaseUrl(ctx: AuthMiddlewareCtx, productionURL: string): void {
+	const basePath = ctx.context.options.basePath || "/api/auth";
+	ctx.context.baseURL = `${stripTrailingSlash(productionURL)}${basePath}`;
+}
+
 export function resolveOAuthReturnUrl(
 	stateData: Record<string, unknown>,
 	browserBaseUrl: string,
