@@ -52,6 +52,8 @@ jobs:
           CHATROOM_INTERNAL_SECRET: ${{ secrets.CHATROOM_INTERNAL_SECRET }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET }}
+          AUTH_ADMIN_SECRET: ${{ secrets.AUTH_ADMIN_SECRET }}
         run: bun run deploy:preflight:prod
 
       - name: Turbo deploy (production)
@@ -65,6 +67,14 @@ jobs:
           CHATROOM_INTERNAL_SECRET: ${{ secrets.CHATROOM_INTERNAL_SECRET }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET }}
+          AUTH_ADMIN_SECRET: ${{ secrets.AUTH_ADMIN_SECRET }}
+          AUTH_BOOTSTRAP_ADMIN_EMAILS: ${{ vars.AUTH_BOOTSTRAP_ADMIN_EMAILS }}
+          GOOGLE_CLIENT_ID: ${{ vars.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          GH_CLIENT_ID: ${{ vars.GH_CLIENT_ID }}
+          GH_CLIENT_SECRET: ${{ secrets.GH_CLIENT_SECRET }}
+          AUTH_DOMAINS: ${{ vars.AUTH_DOMAINS }}
           WEB_DOMAINS: ${{ vars.WEB_DOMAINS }}
           WEB_ROUTES: ${{ vars.WEB_ROUTES }}
           WEB_ZONE_ID: ${{ vars.WEB_ZONE_ID }}
