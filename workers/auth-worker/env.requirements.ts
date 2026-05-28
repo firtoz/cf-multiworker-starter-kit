@@ -29,7 +29,8 @@ export const AUTH_WORKER_ENV_REQUIREMENTS: readonly EnvRequirement[] = [
 		requiredIn: ["local", "staging", "prod"],
 		githubSync: "optional",
 		title: "Bootstrap admin emails",
-		description: "Comma-separated emails granted admin role on first login",
+		description:
+			"Comma-separated emails granted admin on first login · set in each stage dotfile and sync with github:sync:* (GitHub Environment variable)",
 		plaintextInSetup: true,
 	},
 	{
