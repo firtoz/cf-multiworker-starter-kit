@@ -1,4 +1,4 @@
-import { isLoopbackOAuthProxyProductionUrl } from "alchemy-utils/auth-oauth-proxy";
+import { isLoopbackOAuthProxyProductionUrl } from "alchemy-utils/auth-oauth-proxy-url";
 
 type AuthProviderEnv = {
 	readonly AUTH_BASE_URL?: string;

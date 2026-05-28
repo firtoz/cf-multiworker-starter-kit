@@ -1,7 +1,7 @@
 import { parseAuthRole } from "@internal/auth-client";
 import { getAuthDb } from "@internal/auth-db";
 import * as authSchema from "@internal/auth-db/schema";
-import { isLoopbackOAuthProxyProductionUrl } from "alchemy-utils/auth-oauth-proxy";
+import { isLoopbackOAuthProxyProductionUrl } from "alchemy-utils/auth-oauth-proxy-url";
 import { PRODUCT_PREFIX } from "alchemy-utils/worker-peer-scripts";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
