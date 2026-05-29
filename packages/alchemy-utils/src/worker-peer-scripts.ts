@@ -57,6 +57,8 @@ export const ALCHEMY_APP_IDS = {
 	other: `${PRODUCT_PREFIX}-other`,
 	database: `${PRODUCT_PREFIX}-database`,
 	auth: `${PRODUCT_PREFIX}-auth`,
+	/** Self-hosted PostHog reverse proxy (`workers/posthog-proxy`). */
+	posthogProxy: `${PRODUCT_PREFIX}-posthog-proxy`,
 	authDatabase: `${PRODUCT_PREFIX}-auth-database`,
 	admin: `${PRODUCT_PREFIX}-admin`,
 	/** Provision-only app: ensures shared [`CloudflareStateStore`](https://alchemy.run/guides/cloudflare-state-store) exists for non-local **`STAGE`** before parallel `deploy:*`. Turbo: list **`state-hub`** (workspace **`package.json`** **name**) as a **`devDependency`** and use **`^deploy:*`** so **`stateHub` runs first**. */

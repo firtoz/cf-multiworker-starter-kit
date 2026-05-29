@@ -48,6 +48,7 @@
 		"hono": "catalog:",
 		"isbot": "^5.1.39",
 		"ping-do": "workspace:*",
+		"posthog-proxy": "workspace:*",
 		"posthog-js": "^1.372.10",
 		"react": "^19.2.6",
 		"react-dom": "^19.2.6",

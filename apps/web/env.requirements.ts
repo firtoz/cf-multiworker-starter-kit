@@ -97,9 +97,33 @@ const posthogRequirements: readonly EnvRequirement[] = [
 		requiredIn: [],
 		optionalSetupModes: ["local", "staging", "prod"],
 		githubSync: "optional",
-		title: "PostHog ingest host (optional)",
+		title: "PostHog upstream ingest (proxy Worker only)",
 		description:
-			"e.g. `https://us.i.posthog.com` or `https://eu.i.posthog.com` · GitHub Environment **variable**",
+			"Optional override for **`workers/posthog-proxy`** upstream — e.g. `https://eu.i.posthog.com`. Omit to use **`POSTHOG_REGION`** default. **Not** the browser URL.",
+		plaintextInSetup: true,
+	},
+	{
+		key: "POSTHOG_REGION",
+		setupCategory: "analytics",
+		kind: "variable",
+		requiredIn: [],
+		optionalSetupModes: ["local", "staging", "prod"],
+		githubSync: "optional",
+		title: "PostHog Cloud region (optional)",
+		description:
+			"`eu` (default) or `us` — proxy upstream when **`POSTHOG_HOST`** is unset; default **`ui_host`**",
+		plaintextInSetup: true,
+	},
+	{
+		key: "POSTHOG_UI_HOST",
+		setupCategory: "analytics",
+		kind: "variable",
+		requiredIn: [],
+		optionalSetupModes: ["local", "staging", "prod"],
+		githubSync: "optional",
+		title: "PostHog app URL (optional)",
+		description:
+			"Toolbar / dashboard links — e.g. `https://eu.posthog.com` · inferred from **`POSTHOG_REGION`** when unset",
 		plaintextInSetup: true,
 	},
 	{

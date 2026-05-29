@@ -163,6 +163,7 @@ Typed keys live in **`env.requirements.ts`**; client/helpers are optional. **Not
 
 - **Stay dark:** leave **`POSTHOG_*`** unset in `.env.local` / staging / prod.
 - **Remove entirely:** drop the **`posthogRequirements`** block from **`env.requirements.ts`**, remove unused components/helpers/bindings/`@posthog/*` deps — same as stripping any other demo feature.
+- **PostHog proxy:** set **`POSTHOG_KEY`**. Browser uses same-origin **`/ingest`** (web worker forwards to **`workers/posthog-proxy`** service binding). **`POSTHOG_HOST`** is upstream ingest for the proxy Worker only.
 
 ## Development
 

@@ -11,6 +11,9 @@ export const PORTLESS_TLD_ENV_KEY = "PORTLESS_TLD" as const;
 /** Auth worker `dev.port` in `workers/auth-worker/alchemy.run.ts`. */
 export const LOCAL_AUTH_DEV_PORT = 8784;
 
+/** PostHog proxy worker `dev.port` in `workers/posthog-proxy/alchemy.run.ts`. */
+export const LOCAL_POSTHOG_PROXY_DEV_PORT = 8785;
+
 export function isLocalPortlessExplicitlyDisabled(env: NodeJS.ProcessEnv = process.env): boolean {
 	return env[LOCAL_PORTLESS_ENV_KEY]?.trim().toLowerCase() === "off";
 }

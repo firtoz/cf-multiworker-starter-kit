@@ -17,6 +17,7 @@ import {
 	portlessRunShellEnvPrefix,
 } from "alchemy-utils/local-portless-dev";
 import { pickListenPort } from "alchemy-utils/pick-listen-port";
+import { isPosthogAnalyticsEnabled, POSTHOG_INGEST_API_PATH } from "alchemy-utils/posthog-host";
 import {
 	reactRouterDomainsFromProcessEnv,
 	reactRouterRoutesFromProcessEnv,
@@ -29,6 +30,7 @@ import { authWorker } from "auth-worker/alchemy";
 import { chatroomWorker } from "chatroom-do/alchemy";
 import { otherWorker } from "other-worker/alchemy";
 import { pingWorker } from "ping-do/alchemy";
+import { posthogProxyWorker } from "posthog-proxy/alchemy";
 import { logPosthogSourcemapsAlchemyPlan } from "./posthog/log-sourcemaps-plan";
 import { defaultPosthogReleaseName, resolvePosthogReleaseBuild } from "./posthog/release-names";
 import { resolvePosthogReleaseVersion } from "./posthog/release-version";
@@ -95,6 +97,8 @@ logPosthogSourcemapsAlchemyPlan({
 	runUploadAfterClientBuild: posthogSourcemapUploadAfterBuild,
 });
 
+const posthogKey = readProcessEnvTrimmed("POSTHOG_KEY");
+
 export const web = await ReactRouter(DEFAULT_REACT_ROUTER_WEB_RESOURCE_ID, {
 	main: "workers/app.ts",
 	compatibility: "node",
@@ -116,8 +120,10 @@ export const web = await ReactRouter(DEFAULT_REACT_ROUTER_WEB_RESOURCE_ID, {
 		OTHER: otherWorker,
 		STAGE: stage,
 		LOCAL_PORTLESS: readProcessEnvTrimmed("LOCAL_PORTLESS"),
-		POSTHOG_KEY: readProcessEnvTrimmed("POSTHOG_KEY"),
-		POSTHOG_HOST: readProcessEnvTrimmed("POSTHOG_HOST"),
+		POSTHOG: posthogProxyWorker,
+		POSTHOG_KEY: posthogKey,
+		POSTHOG_UI_HOST: readProcessEnvTrimmed("POSTHOG_UI_HOST"),
+		POSTHOG_REGION: readProcessEnvTrimmed("POSTHOG_REGION"),
 		POSTHOG_SITE: readProcessEnvTrimmed("POSTHOG_SITE"),
 		/** Symbol-set name — see **`posthog/release-names.ts`**. */
 		POSTHOG_RELEASE_NAME: defaultPosthogReleaseName(stage, process.env),
@@ -157,3 +163,10 @@ writeCiDeployUrlIfGithubActions(CI_WEB_DEPLOY_URL_RELPATH, ciWebPublicUrl ?? web
 // `GitHubComment` here on CI + `STAGE=pr-*` — `verifyGitHubAuth` often 404s for fork/private PRs.
 
 await app.finalize();
+
+if (isPosthogAnalyticsEnabled(process.env)) {
+	console.log({
+		posthogIngestPath: POSTHOG_INGEST_API_PATH,
+		posthogProxyWorker: posthogProxyWorker.name,
+	});
+}
