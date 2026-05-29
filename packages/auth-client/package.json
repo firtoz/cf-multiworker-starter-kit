@@ -15,9 +15,14 @@
 		"typecheck": "tsgo --noEmit -p ."
 	},
 	"dependencies": {
+		"@firtoz/hono-fetcher": "^2.7.2",
 		"@firtoz/maybe-error": "^1.6.1",
 		"@internal/auth-db": "workspace:*",
-		"alchemy-utils": "workspace:*"
+		"alchemy-utils": "workspace:*",
+		"auth-worker": "workspace:*",
+		"better-auth": "catalog:",
+		"hono": "^4.12.23",
+		"zod": "catalog:"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "catalog:",

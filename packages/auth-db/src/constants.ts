@@ -1,5 +1,13 @@
+import { PRODUCT_PREFIX } from "alchemy-utils/worker-peer-scripts";
+
 /** Max length for `user.name` (profile display name). */
 export const PROFILE_NAME_MAX_CHARS = 64;
+
+/** Machine-to-machine admin API header (origins CRUD without browser session). */
+export const AUTH_ADMIN_SECRET_HEADER = `x-${PRODUCT_PREFIX}-auth-admin-secret`;
+
+/** Better Auth `advanced.cookiePrefix` — keep in sync with auth-worker `createAuth()`. */
+export const BETTER_AUTH_COOKIE_PREFIX = "better-auth";
 
 /**
  * Better Auth OAuth redirect error for email owned by another account.

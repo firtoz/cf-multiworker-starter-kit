@@ -1,67 +1,70 @@
+import type { TypedHonoFetcher } from "@firtoz/hono-fetcher";
 import type { MaybeError } from "@firtoz/maybe-error";
-import type {
-	AdminOkResponse,
-	AdminOriginsResponse,
-	AdminSetUserNameResponse,
-	AdminUsersResponse,
+import {
+	type AdminOkResponse,
+	type AdminOriginsResponse,
+	type AdminSetUserNameResponse,
+	type AdminUsersResponse,
+	adminOkResponseSchema,
+	adminOriginsResponseSchema,
+	adminSetUserNameResponseSchema,
+	adminUsersResponseSchema,
 } from "@internal/auth-db/api-schemas";
-import type { createAuthBindingFetch } from "../binding/auth-binding-fetch";
-import { parseBindingJson } from "./parse-binding-json";
+import type { AdminApp } from "auth-worker/admin";
+import type { HonoClientApp } from "../binding/hono-client-app";
+import { parseBindingJson } from "./parse-json";
 
-export type AuthBindingFetch = ReturnType<typeof createAuthBindingFetch>;
+type AdminAppClient = HonoClientApp<AdminApp>;
 
-export function createAdminApi(fetch: AuthBindingFetch) {
+export function createAdminApi(api: TypedHonoFetcher<AdminAppClient>) {
 	return {
 		listUsers(): Promise<MaybeError<AdminUsersResponse>> {
-			return parseBindingJson(fetch("/admin/users"), "Failed to load users");
+			return parseBindingJson(
+				api.get({ url: "/users" }),
+				"Failed to load users",
+				adminUsersResponseSchema,
+			);
 		},
 		listOrigins(): Promise<MaybeError<AdminOriginsResponse>> {
-			return parseBindingJson(fetch("/admin/origins"), "Failed to load origins");
+			return parseBindingJson(
+				api.get({ url: "/origins" }),
+				"Failed to load origins",
+				adminOriginsResponseSchema,
+			);
 		},
 		addOrigin(origin: string): Promise<MaybeError<AdminOriginsResponse>> {
 			return parseBindingJson(
-				fetch("/admin/origins/add", {
-					method: "POST",
-					headers: { "Content-Type": "application/json" },
-					body: JSON.stringify({ origin }),
-				}),
+				api.post({ url: "/origins/add", body: { origin } }),
 				"Could not add origin",
+				adminOriginsResponseSchema,
 			);
 		},
 		removeOrigin(origin: string): Promise<MaybeError<AdminOriginsResponse>> {
 			return parseBindingJson(
-				fetch(`/admin/origins/${encodeURIComponent(origin)}`, {
-					method: "DELETE",
-				}),
+				api.delete({ url: "/origins/:origin", params: { origin } }),
 				"Could not remove origin",
+				adminOriginsResponseSchema,
 			);
 		},
 		setUserRole(userId: string, role: "user" | "admin"): Promise<MaybeError<AdminOkResponse>> {
 			return parseBindingJson(
-				fetch(`/admin/users/${encodeURIComponent(userId)}/role`, {
-					method: "POST",
-					headers: { "Content-Type": "application/json" },
-					body: JSON.stringify({ role }),
-				}),
+				api.post({ url: "/users/:id/role", params: { id: userId }, body: { role } }),
 				"Update failed",
+				adminOkResponseSchema,
 			);
 		},
 		setUserName(userId: string, name: string): Promise<MaybeError<AdminSetUserNameResponse>> {
 			return parseBindingJson(
-				fetch(`/admin/users/${encodeURIComponent(userId)}/name`, {
-					method: "POST",
-					headers: { "Content-Type": "application/json" },
-					body: JSON.stringify({ name }),
-				}),
+				api.post({ url: "/users/:id/name", params: { id: userId }, body: { name } }),
 				"Could not save name",
+				adminSetUserNameResponseSchema,
 			);
 		},
 		deleteUser(userId: string): Promise<MaybeError<AdminOkResponse>> {
 			return parseBindingJson(
-				fetch(`/admin/users/${encodeURIComponent(userId)}`, {
-					method: "DELETE",
-				}),
+				api.delete({ url: "/users/:id", params: { id: userId } }),
 				"Delete failed",
+				adminOkResponseSchema,
 			);
 		},
 	};

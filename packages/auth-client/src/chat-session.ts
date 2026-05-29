@@ -1,24 +1,13 @@
+import { createBindingAuthWorkerHonoClient } from "./binding/create-binding-hono-client";
 import { buildAuthBindingHeaders } from "./binding-headers";
-import { AUTH_INTERNAL_ORIGIN, AUTH_SIGN_IN_ANONYMOUS_PATH } from "./constants";
 import { collectSetCookieHeaders, cookieHeaderAfterSetCookie } from "./cookies";
 import type { AuthSession } from "./roles";
 import { getSession } from "./session";
 
 export type EnsureChatSessionResult = {
 	session: AuthSession;
-	/** Non-empty when a new anonymous session was created — forward on the document response. */
 	setCookieHeaders: string[];
 };
-
-async function signInAnonymous(auth: Fetcher, request: Request): Promise<Response> {
-	const headers = buildAuthBindingHeaders(request);
-	return auth.fetch(
-		new Request(`${AUTH_INTERNAL_ORIGIN}${AUTH_SIGN_IN_ANONYMOUS_PATH}`, {
-			method: "POST",
-			headers,
-		}),
-	);
-}
 
 function requestWithCookieHeader(pageRequest: Request, cookie: string | null): Request {
 	const headers = buildAuthBindingHeaders(pageRequest);
@@ -42,7 +31,8 @@ export async function ensureChatSession(
 		return { session: existing, setCookieHeaders: [] };
 	}
 
-	const signInRes = await signInAnonymous(auth, request);
+	const api = createBindingAuthWorkerHonoClient(auth, request);
+	const signInRes = await api.betterAuth.post({ url: "/sign-in/anonymous" });
 	if (!signInRes.ok) {
 		return null;
 	}

@@ -22,6 +22,10 @@
 			"types": "./src/constants.ts",
 			"default": "./src/constants.ts"
 		},
+		"./roles": {
+			"types": "./src/roles.ts",
+			"default": "./src/roles.ts"
+		},
 		"./alchemy": "./alchemy.run.ts"
 	},
 	"scripts": {
@@ -39,6 +43,7 @@
 		"typecheck": "tsgo --noEmit -p ."
 	},
 	"dependencies": {
+		"alchemy-utils": "workspace:*",
 		"better-auth": "catalog:",
 		"drizzle-orm": "catalog:",
 		"drizzle-zod": "^0.8.3",

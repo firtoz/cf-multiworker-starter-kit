@@ -1,65 +1,77 @@
+import type { TypedHonoFetcher } from "@firtoz/hono-fetcher";
 import type { MaybeError } from "@firtoz/maybe-error";
-import type { AccountSummary } from "@internal/auth-db/api-schemas";
-import type { createAuthBindingFetch } from "../binding/auth-binding-fetch";
-import { parseBindingJson } from "./parse-binding-json";
+import {
+	type AccountSummary,
+	accountSummarySchema,
+	authAddContactEmailResponseSchema,
+	authMutationOkResponseSchema,
+} from "@internal/auth-db/api-schemas";
+import type { AccountApp } from "auth-worker/account";
+import type { HonoClientApp } from "../binding/hono-client-app";
+import { parseBindingJson } from "./parse-json";
 
-export function createAccountApi(fetch: ReturnType<typeof createAuthBindingFetch>) {
+type AccountAppClient = HonoClientApp<AccountApp>;
+
+export function createAccountApi(api: TypedHonoFetcher<AccountAppClient>) {
 	return {
 		getSummary(): Promise<MaybeError<AccountSummary>> {
-			return parseBindingJson(fetch("/api/account"), "Could not load account");
+			return parseBindingJson(
+				api.get({ url: "/" }),
+				"Could not load account",
+				accountSummarySchema,
+			);
 		},
-		async setNotificationEmail(emailId: string): Promise<MaybeError<{ ok: true }>> {
-			const result = await parseBindingJson<{ ok: true }>(
-				fetch("/api/account", {
-					method: "PATCH",
-					headers: { "Content-Type": "application/json" },
-					body: JSON.stringify({ intent: "setNotificationEmail", emailId }),
+		setNotificationEmail(emailId: string): Promise<MaybeError<{ ok: true }>> {
+			return parseBindingJson(
+				api.patch({
+					url: "/",
+					body: { intent: "setNotificationEmail", emailId },
 				}),
 				"Could not update notification email",
+				authMutationOkResponseSchema,
 			);
-			return result;
 		},
-		async addContactEmail(email: string): Promise<MaybeError<{ ok: true; emailId: string }>> {
+		addContactEmail(email: string): Promise<MaybeError<{ ok: true; emailId: string }>> {
 			return parseBindingJson(
-				fetch("/api/account", {
-					method: "PATCH",
-					headers: { "Content-Type": "application/json" },
-					body: JSON.stringify({ intent: "addContactEmail", email }),
+				api.patch({
+					url: "/",
+					body: { intent: "addContactEmail", email },
 				}),
 				"Could not add email",
+				authAddContactEmailResponseSchema,
 			);
 		},
-		async setSignInEmail(emailId: string): Promise<MaybeError<{ ok: true }>> {
+		setSignInEmail(emailId: string): Promise<MaybeError<{ ok: true }>> {
 			return parseBindingJson(
-				fetch("/api/account", {
-					method: "PATCH",
-					headers: { "Content-Type": "application/json" },
-					body: JSON.stringify({ intent: "setSignInEmail", emailId }),
+				api.patch({
+					url: "/",
+					body: { intent: "setSignInEmail", emailId },
 				}),
 				"Could not update sign-in email",
+				authMutationOkResponseSchema,
 			);
 		},
-		async setPassword(newPassword: string): Promise<MaybeError<{ ok: true }>> {
+		setPassword(newPassword: string): Promise<MaybeError<{ ok: true }>> {
 			return parseBindingJson(
-				fetch("/api/account/password", {
-					method: "POST",
-					headers: { "Content-Type": "application/json" },
-					body: JSON.stringify({ intent: "setPassword", newPassword }),
+				api.post({
+					url: "/password",
+					body: { intent: "setPassword", newPassword },
 				}),
 				"Could not set password",
+				authMutationOkResponseSchema,
 			);
 		},
-		async changePassword(
+		changePassword(
 			currentPassword: string,
 			newPassword: string,
 		): Promise<MaybeError<{ ok: true }>> {
 			return parseBindingJson(
-				fetch("/api/account/password", {
-					method: "POST",
-					headers: { "Content-Type": "application/json" },
-					body: JSON.stringify({ intent: "changePassword", currentPassword, newPassword }),
+				api.post({
+					url: "/password",
+					body: { intent: "changePassword", currentPassword, newPassword },
 				}),
 				"Could not change password",
+				authMutationOkResponseSchema,
 			);
 		},
 	};

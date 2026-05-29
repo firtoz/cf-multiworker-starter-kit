@@ -1,4 +1,3 @@
-import { parseAuthRole } from "@internal/auth-client";
 import {
 	emailFromOAuthIdToken,
 	findOtherUserIdForEmail,
@@ -10,7 +9,9 @@ import { authRoleSchema } from "@internal/auth-db/api-schemas";
 import {
 	AUTH_OAUTH_EMAIL_ALREADY_IN_USE_CODE,
 	AUTH_OAUTH_EMAIL_ALREADY_IN_USE_MESSAGE,
+	BETTER_AUTH_COOKIE_PREFIX,
 } from "@internal/auth-db/constants";
+import { parseAuthRole } from "@internal/auth-db/roles";
 import type { AuthRole } from "@internal/auth-db/schema";
 import * as authSchema from "@internal/auth-db/schema";
 import { isLoopbackOAuthProxyProductionUrl } from "alchemy-utils/auth-oauth-proxy-url";
@@ -19,6 +20,7 @@ import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { APIError } from "better-auth/api";
 import { anonymous, oAuthProxy } from "better-auth/plugins";
+import { eq } from "drizzle-orm";
 import { generateAnonymousGuestName } from "./guest-display-name";
 import { graduateAnonymousUserFromOAuthAccount } from "./guest-graduate";
 import { configureLocalGoogleOAuthProxy } from "./local-oauth-proxy-patch";
@@ -105,6 +107,9 @@ export function createAuth(env: AuthWorkerEnv, trustedOrigins: string[]) {
 	return betterAuth({
 		baseURL: env.AUTH_BASE_URL,
 		secret: env.BETTER_AUTH_SECRET,
+		advanced: {
+			cookiePrefix: BETTER_AUTH_COOKIE_PREFIX,
+		},
 		database: drizzleAdapter(db, {
 			provider: "sqlite",
 			schema: authSchema,
@@ -170,7 +175,7 @@ export function createAuth(env: AuthWorkerEnv, trustedOrigins: string[]) {
 				create: {
 					before: async (user) => {
 						const email = user.email?.trim().toLowerCase();
-						const isGuest = "isAnonymous" in user && user.isAnonymous === true;
+						const isGuest = "isAnonymous" in user && user["isAnonymous"] === true;
 						if (email && !isGuest) {
 							await rejectEmailOwnedByOtherAccount(db, email);
 						}
@@ -214,11 +219,19 @@ export function createAuth(env: AuthWorkerEnv, trustedOrigins: string[]) {
 								createdAccount.idToken,
 							);
 						} catch (error) {
-							console.error("Failed to graduate guest after OAuth link", {
-								userId,
-								providerId: createdAccount.providerId,
-								error,
-							});
+							if (createdAccount.id) {
+								await db
+									.delete(authSchema.account)
+									.where(eq(authSchema.account.id, createdAccount.id));
+							}
+							const message = error instanceof Error ? error.message : String(error);
+							if (message.toLowerCase().includes("already registered")) {
+								throw APIError.from("BAD_REQUEST", {
+									message: AUTH_OAUTH_EMAIL_ALREADY_IN_USE_MESSAGE,
+									code: AUTH_OAUTH_EMAIL_ALREADY_IN_USE_CODE,
+								});
+							}
+							throw error;
 						}
 						try {
 							await syncUserEmailsForUser(db, userId);
@@ -259,9 +272,9 @@ export type UserWithRoleInput = {
 	id: string;
 	email: string;
 	name?: string | null;
-	image?: string | null;
+	image?: string | null | undefined;
 	role: AuthRole | string;
-	isAnonymous?: boolean | null;
+	isAnonymous?: boolean | null | undefined;
 };
 
 export function mapUserWithRole(user: UserWithRoleInput) {

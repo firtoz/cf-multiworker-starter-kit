@@ -1,6 +1,7 @@
 import type { AuthProviders, AuthUser } from "@internal/auth-client";
 import { accountDisplayName, GUEST_SESSION_RETENTION_DAYS } from "@internal/auth-client";
-import { type FormEvent, useCallback, useEffect, useState } from "react";
+import { type ComponentProps, useCallback, useEffect, useState } from "react";
+import { href } from "react-router";
 import { GoogleOAuthPortlessWarning } from "~/components/auth/GoogleOAuthPortlessWarning";
 import { OAuthStagingProxyNotice } from "~/components/auth/OAuthStagingProxyNotice";
 import { authCallbackUrl } from "~/lib/auth-callback-url";
@@ -24,6 +25,9 @@ export function GuestUpgradePanel({
 	linkErrorMessage,
 }: GuestUpgradePanelProps) {
 	const callback = authCallbackUrl(redirectTo);
+	const upgradeErrorCallback = authCallbackUrl(
+		`${href("/guest/upgrade")}?redirectTo=${encodeURIComponent(redirectTo)}`,
+	);
 	const displayName = accountDisplayName(user) ?? "Guest";
 	const [email, setEmail] = useState("");
 	const [password, setPassword] = useState("");
@@ -45,8 +49,8 @@ export function GuestUpgradePanel({
 		window.history.replaceState(null, "", q ? `${path}?${q}` : path);
 	}, [linkErrorMessage]);
 
-	const onEmailSubmit = useCallback(
-		async (e: FormEvent) => {
+	const onEmailSubmit = useCallback<NonNullable<ComponentProps<"form">["onSubmit"]>>(
+		async (e) => {
 			e.preventDefault();
 			setError(null);
 			if (password !== confirmPassword) {
@@ -71,7 +75,7 @@ export function GuestUpgradePanel({
 			setError(null);
 			setBusy(provider);
 			try {
-				const result = await linkSocialProvider(provider, callback);
+				const result = await linkSocialProvider(provider, callback, upgradeErrorCallback);
 				if (!result.success) {
 					setError(result.error);
 				}
@@ -79,7 +83,7 @@ export function GuestUpgradePanel({
 				setBusy(null);
 			}
 		},
-		[callback],
+		[callback, upgradeErrorCallback],
 	);
 
 	const showOAuth = providers.google || providers.github;

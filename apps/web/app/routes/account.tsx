@@ -6,8 +6,8 @@ import {
 	type AuthUser,
 	accountDisplayName,
 	createAuthClient,
-	parseAuthRole,
 } from "@internal/auth-client";
+import { parseAuthRole } from "@internal/auth-db/roles";
 import { href, redirect } from "react-router";
 import { AccountDisplayNameForm } from "~/components/account/AccountDisplayNameForm";
 import { AccountEmailsSection } from "~/components/account/AccountEmailsSection";

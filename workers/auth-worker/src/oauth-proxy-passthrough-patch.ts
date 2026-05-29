@@ -137,7 +137,7 @@ export function configurePassthroughOAuthProxy(
 			);
 			if (typeof callbackParams["error"] === "string") {
 				console.error("oauth-proxy passthrough link: provider error", {
-					provider: ctx.params?.id,
+					provider: ctx.params?.["id"],
 					error: callbackParams["error"],
 				});
 				redirectWithOAuthError(ctx, errorRedirectUrl, callbackParams["error"]);
@@ -146,7 +146,7 @@ export function configurePassthroughOAuthProxy(
 			if (typeof codeRaw !== "string") {
 				redirectWithOAuthError(ctx, errorRedirectUrl, "no_code");
 			}
-			const providerId = ctx.params?.id as string | undefined;
+			const providerId = ctx.params?.["id"] as string | undefined;
 			const provider = ctx.context.socialProviders.find((p: { id: string }) => p.id === providerId);
 			if (!provider) {
 				redirectWithOAuthError(ctx, errorRedirectUrl, "oauth_provider_not_found");
@@ -287,23 +287,32 @@ async function handleProxyLinkCallback(
 		redirectWithOAuthError(ctx, defaultErrorURL, "invalid_payload");
 	}
 	const userInfo = userInfoRaw as Record<string, unknown>;
-	const tokens = {
-		accessToken: typeof account["accessToken"] === "string" ? account["accessToken"] : undefined,
-		refreshToken: typeof account["refreshToken"] === "string" ? account["refreshToken"] : undefined,
-		idToken: typeof account["idToken"] === "string" ? account["idToken"] : undefined,
-		accessTokenExpiresAt:
-			typeof account["accessTokenExpiresAtSerialized"] === "string"
-				? new Date(account["accessTokenExpiresAtSerialized"])
-				: undefined,
-		refreshTokenExpiresAt:
-			typeof account["refreshTokenExpiresAtSerialized"] === "string"
-				? new Date(account["refreshTokenExpiresAtSerialized"])
-				: undefined,
-		scopes:
-			typeof account["scope"] === "string" && account["scope"].length > 0
-				? account["scope"].split(",")
-				: undefined,
-	};
+	const tokens: {
+		accessToken?: string;
+		refreshToken?: string;
+		idToken?: string;
+		accessTokenExpiresAt?: Date;
+		refreshTokenExpiresAt?: Date;
+		scopes?: string[];
+	} = {};
+	if (typeof account["accessToken"] === "string") {
+		tokens.accessToken = account["accessToken"];
+	}
+	if (typeof account["refreshToken"] === "string") {
+		tokens.refreshToken = account["refreshToken"];
+	}
+	if (typeof account["idToken"] === "string") {
+		tokens.idToken = account["idToken"];
+	}
+	if (typeof account["accessTokenExpiresAtSerialized"] === "string") {
+		tokens.accessTokenExpiresAt = new Date(account["accessTokenExpiresAtSerialized"]);
+	}
+	if (typeof account["refreshTokenExpiresAtSerialized"] === "string") {
+		tokens.refreshTokenExpiresAt = new Date(account["refreshTokenExpiresAtSerialized"]);
+	}
+	if (typeof account["scope"] === "string" && account["scope"].length > 0) {
+		tokens.scopes = account["scope"].split(",");
+	}
 	const errorRedirectUrl =
 		(typeof payload["errorURL"] === "string" && payload["errorURL"]) || defaultErrorURL;
 	try {
@@ -313,8 +322,10 @@ async function handleProxyLinkCallback(
 			tokens,
 			userInfo,
 			errorRedirectUrl,
-			afterOAuthLink: options.afterOAuthLink,
-			isEmailOwnedByOtherAccount: options.isEmailOwnedByOtherAccount,
+			...(options.afterOAuthLink ? { afterOAuthLink: options.afterOAuthLink } : {}),
+			...(options.isEmailOwnedByOtherAccount
+				? { isEmailOwnedByOtherAccount: options.isEmailOwnedByOtherAccount }
+				: {}),
 		});
 	} catch (error) {
 		if (error && typeof error === "object" && "status" in error) {

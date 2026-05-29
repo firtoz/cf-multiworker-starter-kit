@@ -64,3 +64,51 @@ export const changePasswordSchema = z.object({
 	currentPassword: z.string().min(1),
 	newPassword: z.string().min(8).max(128),
 });
+
+export const setNotificationEmailPatchSchema = setNotificationEmailSchema.extend({
+	intent: z.literal("setNotificationEmail"),
+});
+
+export const addContactEmailPatchSchema = addContactEmailSchema.extend({
+	intent: z.literal("addContactEmail"),
+});
+
+export const setSignInEmailPatchSchema = setSignInEmailSchema.extend({
+	intent: z.literal("setSignInEmail"),
+});
+
+export const accountPatchBodySchema = z.discriminatedUnion("intent", [
+	setNotificationEmailPatchSchema,
+	addContactEmailPatchSchema,
+	setSignInEmailPatchSchema,
+]);
+
+export type AccountPatchBody = z.infer<typeof accountPatchBodySchema>;
+
+export const setPasswordPostSchema = setPasswordSchema.extend({
+	intent: z.literal("setPassword"),
+});
+
+export const changePasswordPostSchema = changePasswordSchema.extend({
+	intent: z.literal("changePassword"),
+});
+
+export const accountPasswordBodySchema = z.discriminatedUnion("intent", [
+	setPasswordPostSchema,
+	changePasswordPostSchema,
+]);
+
+export type AccountPasswordBody = z.infer<typeof accountPasswordBodySchema>;
+
+export const authMutationOkResponseSchema = z.object({
+	ok: z.literal(true),
+});
+
+export type AuthMutationOkResponse = z.infer<typeof authMutationOkResponseSchema>;
+
+export const authAddContactEmailResponseSchema = z.object({
+	ok: z.literal(true),
+	emailId: z.string(),
+});
+
+export type AuthAddContactEmailResponse = z.infer<typeof authAddContactEmailResponseSchema>;

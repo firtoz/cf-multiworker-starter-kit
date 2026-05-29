@@ -30,6 +30,7 @@
         "@fontsource-variable/dm-sans": "^5.2.8",
         "@fontsource-variable/fira-code": "^5.2.7",
         "@internal/auth-client": "workspace:*",
+        "@internal/auth-db": "workspace:*",
         "@internal/chat-contract": "workspace:*",
         "@internal/db": "workspace:*",
         "@posthog/react": "^1.9.0",
@@ -131,9 +132,14 @@
     "packages/auth-client": {
       "name": "@internal/auth-client",
       "dependencies": {
+        "@firtoz/hono-fetcher": "^2.7.2",
         "@firtoz/maybe-error": "^1.6.1",
         "@internal/auth-db": "workspace:*",
         "alchemy-utils": "workspace:*",
+        "auth-worker": "workspace:*",
+        "better-auth": "catalog:",
+        "hono": "^4.12.23",
+        "zod": "catalog:",
       },
       "devDependencies": {
         "@biomejs/biome": "catalog:",
@@ -145,6 +151,7 @@
     "packages/auth-db": {
       "name": "@internal/auth-db",
       "dependencies": {
+        "alchemy-utils": "workspace:*",
         "better-auth": "catalog:",
         "drizzle-orm": "catalog:",
         "drizzle-zod": "^0.8.3",
@@ -220,12 +227,13 @@
     "workers/auth-worker": {
       "name": "auth-worker",
       "dependencies": {
-        "@internal/auth-client": "workspace:*",
+        "@hono/zod-validator": "^0.8.0",
         "@internal/auth-db": "workspace:*",
         "better-auth": "catalog:",
         "drizzle-orm": "catalog:",
         "hono": "catalog:",
         "unique-names-generator": "^4.7.1",
+        "zod": "catalog:",
       },
       "devDependencies": {
         "@biomejs/biome": "catalog:",
@@ -519,6 +527,8 @@
     "@fontsource-variable/dm-sans": ["@fontsource-variable/dm-sans@5.2.8", "", {}, "sha512-AxkvMTvNWgfrmlyjiV05vlHYJa+nRQCf1EfvIrQAPBpFJW0O9VTz7oAFr9S3lvbWdmnFoBk7yFqQL86u64nl2g=="],
 
     "@fontsource-variable/fira-code": ["@fontsource-variable/fira-code@5.2.7", "", {}, "sha512-J2bxN7fz5rd8WpQYyau4o19WqTzxoTqaNj9jhsv4p21GSu1Rf34tbqsxqjyDCR+wDMHM3SajyFqtq+5uvRUQ7w=="],
+
+    "@hono/zod-validator": ["@hono/zod-validator@0.8.0", "", { "peerDependencies": { "hono": ">=4.10.0", "zod": "^3.25.0 || ^4.0.0" } }, "sha512-5uS4S1/LKtZQYvD4BtpPUFkOv8d1wNxHHrChm26buMiEYc1FrHWvDUaKVBwkiVtvSExHSpLGDvcnpI2Copyj9w=="],
 
     "@iarna/toml": ["@iarna/toml@2.2.5", "", {}, "sha512-trnsAYxU3xnS1gPHPyU961coFyLkh4gAD/0zQ5mymY4yOZ+CYvsPqUbOFSw0aDM4y0tV7tiFxL/1XfXPNC6IPg=="],
 

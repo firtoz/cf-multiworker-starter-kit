@@ -38,6 +38,7 @@
 		"@posthog/react": "^1.9.0",
 		"alchemy-utils": "workspace:*",
 		"@internal/auth-client": "workspace:*",
+		"@internal/auth-db": "workspace:*",
 		"@internal/chat-contract": "workspace:*",
 		"@internal/db": "workspace:*",
 		"auth-worker": "workspace:*",

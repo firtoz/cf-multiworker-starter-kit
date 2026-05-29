@@ -1,4 +1,4 @@
-import { AUTH_OAUTH_EMAIL_ALREADY_IN_USE_CODE } from "@internal/auth-client";
+import { AUTH_OAUTH_EMAIL_ALREADY_IN_USE_CODE } from "@internal/auth-db/constants";
 
 /** Better Auth appends this query param on failed OAuth redirects (see `redirectOnError` in better-auth). */
 export const BETTER_AUTH_OAUTH_ERROR_QUERY = "error";

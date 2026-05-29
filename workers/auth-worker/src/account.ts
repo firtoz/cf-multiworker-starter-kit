@@ -7,26 +7,17 @@ import {
 	syncUserEmailsForUser,
 } from "@internal/auth-db";
 import {
+	accountPasswordBodySchema,
+	accountPatchBodySchema,
 	accountSummarySchema,
-	addContactEmailSchema,
-	changePasswordSchema,
-	setNotificationEmailSchema,
-	setPasswordSchema,
-	setSignInEmailSchema,
 } from "@internal/auth-db/api-schemas";
 import { account as accountTable, userEmail } from "@internal/auth-db/schema";
 import { eq } from "drizzle-orm";
-import type { CloudflareEnv } from "../env";
-import type { createAuth } from "./auth";
+import { Hono } from "hono";
+import type { AuthWorkerAppEnv } from "./app-env";
 import { mapUserWithRole } from "./auth";
 import { authProviderFlags } from "./auth-provider-flags";
-
-type AuthInstance = ReturnType<typeof createAuth>;
-
-type AppVariables = {
-	auth: AuthInstance;
-	trustedOrigins: string[];
-};
+import { jsonValidator } from "./hono-zod";
 
 type EmailRow = { email: string; source: string };
 
@@ -52,10 +43,10 @@ function oauthProviderEmail(
 	return null;
 }
 
-export function registerAccountRoutes(
-	app: import("hono").Hono<{ Bindings: CloudflareEnv; Variables: AppVariables }>,
-) {
-	app.get("/api/account", async (c) => {
+export const accountPath = "/api/account" as const;
+
+export const account = new Hono<AuthWorkerAppEnv>()
+	.get("/", async (c) => {
 		const session = await c.var.auth.api.getSession({ headers: c.req.raw.headers });
 		if (!session?.user) {
 			return c.json({ error: "Unauthorized" }, 401);
@@ -158,7 +149,14 @@ export function registerAccountRoutes(
 			}));
 
 		const summary = accountSummarySchema.parse({
-			user: mapUserWithRole(sessionUser),
+			user: mapUserWithRole({
+				id: sessionUser.id,
+				email: sessionUser.email,
+				name: sessionUser.name,
+				image: sessionUser.image ?? null,
+				role: sessionUser.role,
+				isAnonymous: sessionUser.isAnonymous ?? null,
+			}),
 			signInMethods,
 			emails,
 			hasPassword,
@@ -166,113 +164,73 @@ export function registerAccountRoutes(
 		});
 
 		return c.json(summary);
-	});
-
-	app.patch("/api/account", async (c) => {
+	})
+	.patch("/", jsonValidator(accountPatchBodySchema), async (c) => {
 		const session = await c.var.auth.api.getSession({ headers: c.req.raw.headers });
 		if (!session?.user) {
 			return c.json({ error: "Unauthorized" }, 401);
 		}
 
-		const body = await c.req.json().catch(() => null);
-		const intent =
-			body != null && typeof body === "object" && "intent" in body
-				? String((body as { intent: unknown }).intent)
-				: "";
-
+		const body = c.req.valid("json");
 		const db = getAuthDb(c.env.DB);
 
-		if (intent === "setNotificationEmail") {
-			const parsed = setNotificationEmailSchema.safeParse(body);
-			if (!parsed.success) {
-				return c.json({ error: parsed.error.issues[0]?.message ?? "Invalid request" }, 400);
-			}
-			const result = await setNotificationPreferredEmail(db, session.user.id, parsed.data.emailId);
+		if (body.intent === "setNotificationEmail") {
+			const result = await setNotificationPreferredEmail(db, session.user.id, body.emailId);
 			if (!result.ok) {
 				return c.json({ error: result.error }, 400);
 			}
-			return c.json({ ok: true });
+			return c.json({ ok: true as const });
 		}
 
-		if (intent === "addContactEmail") {
-			const parsed = addContactEmailSchema.safeParse(body);
-			if (!parsed.success) {
-				return c.json({ error: parsed.error.issues[0]?.message ?? "Invalid request" }, 400);
-			}
-			const result = await addManualUserEmail(db, session.user.id, parsed.data.email);
+		if (body.intent === "addContactEmail") {
+			const result = await addManualUserEmail(db, session.user.id, body.email);
 			if (!result.ok) {
 				return c.json({ error: result.error }, 400);
 			}
-			return c.json({ ok: true, emailId: result.id });
+			return c.json({ ok: true as const, emailId: result.id });
 		}
 
-		if (intent === "setSignInEmail") {
-			const parsed = setSignInEmailSchema.safeParse(body);
-			if (!parsed.success) {
-				return c.json({ error: parsed.error.issues[0]?.message ?? "Invalid request" }, 400);
-			}
-			const result = await setSignInEmail(db, session.user.id, parsed.data.emailId);
-			if (!result.ok) {
-				return c.json({ error: result.error }, 400);
-			}
-			return c.json({ ok: true });
+		const result = await setSignInEmail(db, session.user.id, body.emailId);
+		if (!result.ok) {
+			return c.json({ error: result.error }, 400);
 		}
-
-		return c.json({ error: "Unknown action" }, 400);
-	});
-
-	app.post("/api/account/password", async (c) => {
+		return c.json({ ok: true as const });
+	})
+	.post("/password", jsonValidator(accountPasswordBodySchema), async (c) => {
 		const session = await c.var.auth.api.getSession({ headers: c.req.raw.headers });
 		if (!session?.user) {
 			return c.json({ error: "Unauthorized" }, 401);
 		}
 
-		const body = await c.req.json().catch(() => null);
-		const intent =
-			body != null && typeof body === "object" && "intent" in body
-				? String((body as { intent: unknown }).intent)
-				: "";
+		const body = c.req.valid("json");
 
-		if (intent === "setPassword") {
-			const parsed = setPasswordSchema.safeParse(body);
-			if (!parsed.success) {
-				return c.json({ error: parsed.error.issues[0]?.message ?? "Invalid request" }, 400);
-			}
+		if (body.intent === "setPassword") {
 			try {
 				await c.var.auth.api.setPassword({
-					body: { newPassword: parsed.data.newPassword },
+					body: { newPassword: body.newPassword },
 					headers: c.req.raw.headers,
 				});
-				return c.json({ ok: true });
+				return c.json({ ok: true as const });
 			} catch (e) {
 				const message = e instanceof Error ? e.message : "Could not set password";
 				return c.json({ error: message }, 400);
 			}
 		}
 
-		if (intent === "changePassword") {
-			const parsed = changePasswordSchema.safeParse(body);
-			if (!parsed.success) {
-				return c.json({ error: parsed.error.issues[0]?.message ?? "Invalid request" }, 400);
-			}
-			try {
-				await c.var.auth.api.changePassword({
-					body: {
-						currentPassword: parsed.data.currentPassword,
-						newPassword: parsed.data.newPassword,
-						revokeOtherSessions: false,
-					},
-					headers: c.req.raw.headers,
-				});
-				return c.json({ ok: true });
-			} catch (e) {
-				const message = e instanceof Error ? e.message : "Could not change password";
-				return c.json({ error: message }, 400);
-			}
+		try {
+			await c.var.auth.api.changePassword({
+				body: {
+					currentPassword: body.currentPassword,
+					newPassword: body.newPassword,
+					revokeOtherSessions: false,
+				},
+				headers: c.req.raw.headers,
+			});
+			return c.json({ ok: true as const });
+		} catch (e) {
+			const message = e instanceof Error ? e.message : "Could not change password";
+			return c.json({ error: message }, 400);
 		}
-
-		return c.json({ error: "Unknown action" }, 400);
 	});
 
-	return app;
-}
+export type AccountApp = typeof account;

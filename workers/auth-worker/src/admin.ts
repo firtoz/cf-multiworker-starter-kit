@@ -1,4 +1,3 @@
-import { AUTH_ADMIN_SECRET_HEADER, parseAuthRole } from "@internal/auth-client";
 import { getAuthDb, session as sessionTable, user as userTable } from "@internal/auth-db";
 import {
 	type AdminUserSessionActivity,
@@ -9,9 +8,13 @@ import {
 	parseTimestampOrNull,
 	toAdminUserRowWire,
 } from "@internal/auth-db/api-schemas";
+import { AUTH_ADMIN_SECRET_HEADER } from "@internal/auth-db/constants";
+import { parseAuthRole } from "@internal/auth-db/roles";
 import { eq } from "drizzle-orm";
-import type { Context } from "hono";
-import type { createAuth } from "./auth";
+import { Hono } from "hono";
+import { createMiddleware } from "hono/factory";
+import type { AuthWorkerAppEnv } from "./app-env";
+import { jsonValidator } from "./hono-zod";
 import {
 	appendTrustedOrigin,
 	getTrustedOrigins,
@@ -19,14 +22,7 @@ import {
 	setTrustedOrigins,
 } from "./origins";
 
-type AuthInstance = ReturnType<typeof createAuth>;
-
-import type { CloudflareEnv } from "../env";
-
-type AppVariables = {
-	auth: AuthInstance;
-	trustedOrigins: string[];
-};
+export const adminPath = "/admin" as const;
 
 function aggregateSessionActivity(
 	sessions: { userId: string; updatedAt: unknown; expiresAt: unknown }[],
@@ -53,9 +49,12 @@ function aggregateSessionActivity(
 	return map;
 }
 
-export async function assertAdminAccess(
-	c: Context<{ Bindings: CloudflareEnv; Variables: AppVariables }>,
-): Promise<Response | null> {
+export async function assertAdminAccess(c: {
+	env: AuthWorkerAppEnv["Bindings"];
+	var: AuthWorkerAppEnv["Variables"];
+	req: { header: (name: string) => string | undefined; raw: Request };
+	json: (body: unknown, status?: number) => Response;
+}): Promise<Response | null> {
 	const secretHeader = c.req.header(AUTH_ADMIN_SECRET_HEADER);
 	if (secretHeader && secretHeader === c.env.AUTH_ADMIN_SECRET) {
 		return null;
@@ -68,61 +67,36 @@ export async function assertAdminAccess(
 	return null;
 }
 
-export function registerAdminRoutes(
-	app: import("hono").Hono<{ Bindings: CloudflareEnv; Variables: AppVariables }>,
-) {
-	app.get("/admin/origins", async (c) => {
-		const denied = await assertAdminAccess(c);
-		if (denied) {
-			return denied;
-		}
+const requireAdmin = createMiddleware<AuthWorkerAppEnv>(async (c, next) => {
+	const denied = await assertAdminAccess(c);
+	if (denied) {
+		return denied;
+	}
+	await next();
+});
+
+export const admin = new Hono<AuthWorkerAppEnv>()
+	.use("*", requireAdmin)
+	.get("/origins", async (c) => {
 		const origins = await getTrustedOrigins(c.env.AUTH_KV);
 		return c.json({ origins });
-	});
-
-	app.post("/admin/origins", async (c) => {
-		const denied = await assertAdminAccess(c);
-		if (denied) {
-			return denied;
-		}
-		const body = await c.req.json().catch(() => null);
-		const parsed = adminSetOriginsSchema.safeParse(body);
-		if (!parsed.success) {
-			return c.json({ error: "origins array required" }, 400);
-		}
-		await setTrustedOrigins(c.env.AUTH_KV, parsed.data.origins);
-		return c.json({ origins: parsed.data.origins });
-	});
-
-	app.post("/admin/origins/add", async (c) => {
-		const denied = await assertAdminAccess(c);
-		if (denied) {
-			return denied;
-		}
-		const body = await c.req.json().catch(() => null);
-		const parsed = adminAddOriginSchema.safeParse(body);
-		if (!parsed.success) {
-			return c.json({ error: "origin required" }, 400);
-		}
-		const origins = await appendTrustedOrigin(c.env.AUTH_KV, parsed.data.origin);
+	})
+	.post("/origins", jsonValidator(adminSetOriginsSchema), async (c) => {
+		const { origins } = c.req.valid("json");
+		await setTrustedOrigins(c.env.AUTH_KV, origins);
 		return c.json({ origins });
-	});
-
-	app.delete("/admin/origins/:origin", async (c) => {
-		const denied = await assertAdminAccess(c);
-		if (denied) {
-			return denied;
-		}
+	})
+	.post("/origins/add", jsonValidator(adminAddOriginSchema), async (c) => {
+		const { origin } = c.req.valid("json");
+		const origins = await appendTrustedOrigin(c.env.AUTH_KV, origin);
+		return c.json({ origins });
+	})
+	.delete("/origins/:origin", async (c) => {
 		const origin = decodeURIComponent(c.req.param("origin"));
 		const origins = await removeTrustedOrigin(c.env.AUTH_KV, origin);
 		return c.json({ origins });
-	});
-
-	app.get("/admin/users", async (c) => {
-		const denied = await assertAdminAccess(c);
-		if (denied) {
-			return denied;
-		}
+	})
+	.get("/users", async (c) => {
 		const db = getAuthDb(c.env.DB);
 		const nowMs = Date.now();
 		const [rows, sessions] = await Promise.all([
@@ -139,22 +113,13 @@ export function registerAdminRoutes(
 		return c.json({
 			users: rows.map((r) => toAdminUserRowWire(r, activityByUser.get(r.id))),
 		});
-	});
-
-	app.post("/admin/users/:id/role", async (c) => {
-		const denied = await assertAdminAccess(c);
-		if (denied) {
-			return denied;
-		}
-		const body = await c.req.json().catch(() => null);
-		const parsed = adminSetRoleSchema.safeParse(body);
-		if (!parsed.success) {
-			return c.json({ error: "role must be user or admin" }, 400);
-		}
+	})
+	.post("/users/:id/role", jsonValidator(adminSetRoleSchema), async (c) => {
+		const { role } = c.req.valid("json");
 		const db = getAuthDb(c.env.DB);
 		const userId = c.req.param("id");
 
-		if (parsed.data.role === "user") {
+		if (role === "user") {
 			const admins = await db.select().from(userTable).where(eq(userTable.role, "admin"));
 			const target = admins.find((a) => a.id === userId);
 			if (target && admins.length <= 1) {
@@ -162,15 +127,10 @@ export function registerAdminRoutes(
 			}
 		}
 
-		await db.update(userTable).set({ role: parsed.data.role }).where(eq(userTable.id, userId));
+		await db.update(userTable).set({ role }).where(eq(userTable.id, userId));
 		return c.json({ ok: true as const });
-	});
-
-	app.delete("/admin/users/:id", async (c) => {
-		const denied = await assertAdminAccess(c);
-		if (denied) {
-			return denied;
-		}
+	})
+	.delete("/users/:id", async (c) => {
 		const userId = c.req.param("id");
 		const db = getAuthDb(c.env.DB);
 
@@ -193,26 +153,16 @@ export function registerAdminRoutes(
 
 		await db.delete(userTable).where(eq(userTable.id, userId));
 		return c.json({ ok: true as const });
-	});
-
-	app.post("/admin/users/:id/name", async (c) => {
-		const denied = await assertAdminAccess(c);
-		if (denied) {
-			return denied;
-		}
-		const body = await c.req.json().catch(() => null);
-		const parsed = adminSetUserNameSchema.safeParse(body);
-		if (!parsed.success) {
-			const message = parsed.error.issues[0]?.message ?? "Display name is required";
-			return c.json({ error: message }, 400);
-		}
+	})
+	.post("/users/:id/name", jsonValidator(adminSetUserNameSchema), async (c) => {
+		const { name } = c.req.valid("json");
 		const userId = c.req.param("id");
 		const db = getAuthDb(c.env.DB);
 		const [row] = await db.select().from(userTable).where(eq(userTable.id, userId)).limit(1);
 		if (!row) {
 			return c.json({ error: "User not found" }, 404);
 		}
-		await db.update(userTable).set({ name: parsed.data.name }).where(eq(userTable.id, userId));
+		await db.update(userTable).set({ name }).where(eq(userTable.id, userId));
 		const [sessions, updatedRow] = await Promise.all([
 			db
 				.select({
@@ -234,8 +184,8 @@ export function registerAdminRoutes(
 		}
 		const activity = aggregateSessionActivity(sessions, Date.now()).get(userId);
 		return c.json({
-			user: toAdminUserRowWire({ ...updatedRow, name: parsed.data.name }, activity),
+			user: toAdminUserRowWire({ ...updatedRow, name }, activity),
 		});
 	});
-	return app;
-}
+
+export type AdminApp = typeof admin;

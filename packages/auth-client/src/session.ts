@@ -1,6 +1,9 @@
-import { buildAuthBindingHeaders } from "./binding-headers";
-import { AUTH_GET_SESSION_PATH, AUTH_INTERNAL_ORIGIN, AUTH_PROVIDERS_PATH } from "./constants";
-import { type AuthSession, type AuthUser, isAdminUser, parseAuthRole } from "./roles";
+import { parseAuthRole } from "@internal/auth-db/roles";
+import {
+	createBindingAuthWorkerHonoClient,
+	createBindingAuthWorkerHonoClientWithHeaders,
+} from "./binding/create-binding-hono-client";
+import { type AuthSession, type AuthUser, isAdminUser } from "./roles";
 
 type GetSessionResponse = {
 	user?: {
@@ -40,39 +43,35 @@ function mapSession(body: GetSessionResponse | null): AuthSession | null {
 }
 
 export async function getSession(auth: Fetcher, request: Request): Promise<AuthSession | null> {
-	const headers = buildAuthBindingHeaders(request);
-	const sessionUrl = `${AUTH_INTERNAL_ORIGIN}${AUTH_GET_SESSION_PATH}`;
+	const api = createBindingAuthWorkerHonoClient(auth, request);
 
-	let res = await auth.fetch(new Request(sessionUrl, { headers }));
+	let res = await api.betterAuth.get({ url: "/get-session" });
 	for (let attempt = 0; res.status === 503 && attempt < 2; attempt++) {
-		res = await auth.fetch(new Request(sessionUrl, { headers }));
+		res = await api.betterAuth.get({ url: "/get-session" });
 	}
 
 	if (!res.ok) {
 		return null;
 	}
-	const body = (await res.json()) as GetSessionResponse | null;
-	return mapSession(body);
+	return mapSession(await res.json());
 }
 
 export type AuthProviders = {
 	google: boolean;
 	github: boolean;
 	email: boolean;
-	/** Better Auth `oAuthProxy` is active (loopback or staging passthrough). */
 	oauthProxy?: boolean;
-	/** OAuth completes on another host (e.g. PR preview → staging callback). */
 	oauthProxyPassthrough?: boolean;
-	/** Local Portless: OAuth redirect uses loopback via Better Auth `oAuthProxy`. */
 	googleLoopbackOAuthProxy?: boolean;
 };
 
 export async function getAuthProviders(auth: Fetcher): Promise<AuthProviders> {
-	const res = await auth.fetch(new Request(`${AUTH_INTERNAL_ORIGIN}${AUTH_PROVIDERS_PATH}`));
+	const api = createBindingAuthWorkerHonoClientWithHeaders(auth, new Headers());
+	const res = await api.betterAuth.get({ url: "/providers" });
 	if (!res.ok) {
 		return { google: false, github: false, email: true };
 	}
-	return (await res.json()) as AuthProviders;
+	return res.json();
 }
 
 export async function requireAdmin(auth: Fetcher, request: Request): Promise<AuthSession | null> {

@@ -4,10 +4,8 @@ import { KVNamespace, Worker } from "alchemy/cloudflare";
 import { requireAlchemyPassword, requireEnv } from "alchemy-utils";
 import { alchemyCiCloudStateStoreOptions } from "alchemy-utils/alchemy-cloud-state-store";
 import { authDomainsFromProcessEnv, resolveAuthBaseUrl } from "alchemy-utils/auth-deploy-hostnames";
-import {
-	isLoopbackOAuthProxyProductionUrl,
-	resolveAuthOAuthProxyProductionUrl,
-} from "alchemy-utils/auth-oauth-proxy";
+import { resolveAuthOAuthProxyProductionUrl } from "alchemy-utils/auth-oauth-proxy";
+import { isLoopbackOAuthProxyProductionUrl } from "alchemy-utils/auth-oauth-proxy-url";
 import {
 	CI_AUTH_DEPLOY_URL_RELPATH,
 	writeCiDeployUrlIfGithubActions,

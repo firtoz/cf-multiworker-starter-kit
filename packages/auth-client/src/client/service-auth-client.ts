@@ -1,5 +1,5 @@
-import { createAuthBindingFetch } from "../binding/auth-binding-fetch";
-import { AUTH_ADMIN_SECRET_HEADER } from "../constants";
+import { AUTH_ADMIN_SECRET_HEADER } from "@internal/auth-db/constants";
+import { createBindingAuthWorkerHonoClientWithHeaders } from "../binding/create-binding-hono-client";
 import { createAdminApi } from "./admin-api";
 
 export type ServiceAuthClient = ReturnType<typeof createServiceAuthClient>;
@@ -8,12 +8,10 @@ export type ServiceAuthClient = ReturnType<typeof createServiceAuthClient>;
 export function createServiceAuthClient(auth: Fetcher, secret: string) {
 	const headers = new Headers();
 	headers.set(AUTH_ADMIN_SECRET_HEADER, secret);
-	const fetch = createAuthBindingFetch(auth, headers);
+	const hono = createBindingAuthWorkerHonoClientWithHeaders(auth, headers);
 
 	return {
-		fetch,
-		admin: createAdminApi(fetch),
+		admin: createAdminApi(hono.admin),
+		hono,
 	};
 }
-
-export type { AuthBindingFetch } from "./admin-api";

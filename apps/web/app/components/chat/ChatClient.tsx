@@ -1,10 +1,10 @@
 import type { InferSockaPushHandlers } from "@firtoz/socka";
 import { useSockaSession } from "@firtoz/socka/react";
 import {
-	AUTH_GET_SESSION_PATH,
 	type AuthUser,
 	accountDisplayName,
 	hasAccountDisplayName,
+	waitForBrowserSession,
 } from "@internal/auth-client";
 import { type ChatMessageRow, chatContract } from "@internal/chat-contract";
 import type { KeyboardEvent as ReactKeyboardEvent } from "react";
@@ -68,24 +68,11 @@ export function ChatClient(props: ChatClientProps) {
 			return;
 		}
 		let cancelled = false;
-		const waitForBrowserSession = async () => {
-			for (let attempt = 0; attempt < 40 && !cancelled; attempt++) {
-				try {
-					const res = await fetch(AUTH_GET_SESSION_PATH, { credentials: "include" });
-					if (res.ok) {
-						const body = (await res.json()) as { user?: unknown; session?: unknown };
-						if (body.user && body.session) {
-							setWsConnectReady(true);
-							return;
-						}
-					}
-				} catch {
-					// retry
-				}
-				await new Promise((resolve) => setTimeout(resolve, 100));
+		void (async () => {
+			if (!cancelled && (await waitForBrowserSession())) {
+				setWsConnectReady(true);
 			}
-		};
-		void waitForBrowserSession();
+		})();
 		return () => {
 			cancelled = true;
 		};

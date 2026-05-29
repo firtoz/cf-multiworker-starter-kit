@@ -215,7 +215,7 @@ export function configureLocalGoogleOAuthProxy(
 				redirectWithOAuthError(ctx, errorRedirectUrl, "no_code");
 			}
 			const code = codeRaw;
-			const providerId = ctx.params?.id as string | undefined;
+			const providerId = ctx.params?.["id"] as string | undefined;
 			const provider = ctx.context.socialProviders.find((p: { id: string }) => p.id === providerId);
 			if (!provider) {
 				redirectWithOAuthError(ctx, errorRedirectUrl, "oauth_provider_not_found");

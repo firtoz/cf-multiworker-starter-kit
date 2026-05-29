@@ -21,15 +21,15 @@ export const adminUserRowSchema = createSelectSchema(user)
 		id: true,
 		email: true,
 		name: true,
-		createdAt: true,
 	})
 	.extend({
-		updatedAt: z.date(),
+		createdAt: z.coerce.date(),
+		updatedAt: z.coerce.date(),
 		isAnonymous: z.boolean(),
 		/** Latest `session.updatedAt` across all sessions (sliding refresh on visit). */
-		lastSeenAt: z.date().nullable(),
+		lastSeenAt: z.coerce.date().nullable(),
 		/** Latest active session `expiresAt` (`null` when no non-expired session). */
-		sessionExpiresAt: z.date().nullable(),
+		sessionExpiresAt: z.coerce.date().nullable(),
 		role: z.enum(AUTH_ROLES),
 	});
 

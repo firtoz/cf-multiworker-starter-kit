@@ -1,4 +1,4 @@
-import { AUTH_API_PREFIX, GUEST_API_PREFIX } from "@internal/auth-client";
+import { authApiPrefix, guestApiPrefix } from "@internal/auth-client";
 import {
 	applyChatIdentityHeaders,
 	buildWebSocketForwardRequest,
@@ -58,8 +58,8 @@ export function createWebWorkerApp(
 				note: "Demo probe: chatroomAck confirms AUTH service binding from chatroom worker.",
 			});
 		})
-		.all(`${AUTH_API_PREFIX}*`, (c) => c.env.AUTH.fetch(c.req.raw))
-		.all(`${GUEST_API_PREFIX}*`, (c) => c.env.AUTH.fetch(c.req.raw))
+		.all(`${authApiPrefix}*`, (c) => c.env.AUTH.fetch(c.req.raw))
+		.all(`${guestApiPrefix}*`, (c) => c.env.AUTH.fetch(c.req.raw))
 		.all(`${CHAT_WS_PREFIX}*`, async (c) => {
 			const rest = c.req.path.slice(CHAT_WS_PREFIX.length);
 			const room = sanitizeChatRoomId(decodeURIComponent(rest));

@@ -35,7 +35,7 @@ export function cookieHeaderAfterSetCookie(
 	return Array.from(jar, ([k, v]) => `${k}=${v}`).join("; ");
 }
 
-export function collectSetCookieHeaders(response: Response): string[] {
+export function collectSetCookieHeaders(response: { headers: Headers }): string[] {
 	const headers = response.headers as Headers & { getSetCookie?: () => string[] };
 	if (typeof headers.getSetCookie === "function") {
 		return headers.getSetCookie();

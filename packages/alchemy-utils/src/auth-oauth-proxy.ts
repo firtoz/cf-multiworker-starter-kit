@@ -5,8 +5,6 @@ import {
 	shouldEnableLocalGoogleOAuthProxy,
 } from "./local-google-oauth-dev";
 
-export { isLoopbackOAuthProxyProductionUrl } from "./auth-oauth-proxy-url";
-
 export type ResolveAuthOAuthProxyProductionUrlOptions = {
 	readonly stage: string;
 	readonly env?: NodeJS.ProcessEnv;

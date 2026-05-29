@@ -7,7 +7,30 @@
 	},
 	"exports": {
 		"./alchemy": "./alchemy.run.ts",
-		"./hono-app": "./src/hono-app.ts",
+		"./admin": {
+			"types": "./src/admin.ts",
+			"default": "./src/admin.ts"
+		},
+		"./account": {
+			"types": "./src/account.ts",
+			"default": "./src/account.ts"
+		},
+		"./profile": {
+			"types": "./src/profile.ts",
+			"default": "./src/profile.ts"
+		},
+		"./guest-upgrade": {
+			"types": "./src/guest-upgrade.ts",
+			"default": "./src/guest-upgrade.ts"
+		},
+		"./better-auth": {
+			"types": "./src/better-auth-routes.ts",
+			"default": "./src/better-auth-routes.ts"
+		},
+		"./hono-app": {
+			"types": "./src/hono-app.ts",
+			"default": "./src/hono-app.ts"
+		},
 		"./workers/rpc": "./workers/rpc.ts"
 	},
 	"scripts": {
@@ -24,12 +47,13 @@
 		"lint:format": "biome format --write ."
 	},
 	"dependencies": {
-		"@internal/auth-client": "workspace:*",
+		"@hono/zod-validator": "^0.8.0",
 		"@internal/auth-db": "workspace:*",
 		"better-auth": "catalog:",
 		"drizzle-orm": "catalog:",
 		"hono": "catalog:",
-		"unique-names-generator": "^4.7.1"
+		"unique-names-generator": "^4.7.1",
+		"zod": "catalog:"
 	},
 	"devDependencies": {
 		"state-hub": "workspace:*",

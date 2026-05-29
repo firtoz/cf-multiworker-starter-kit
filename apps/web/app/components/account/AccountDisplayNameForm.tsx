@@ -1,4 +1,4 @@
-import { PROFILE_NAME_MAX_CHARS } from "@internal/auth-client";
+import { PROFILE_NAME_MAX_CHARS } from "@internal/auth-db/constants";
 import { useFetcher } from "react-router";
 
 type AccountDisplayNameFormProps = {

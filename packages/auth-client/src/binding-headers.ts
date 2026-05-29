@@ -1,13 +1,15 @@
-/**
- * Headers for `AUTH.fetch` service-binding calls.
- *
- * - Better Auth validates `Origin` on non-GET routes when a `Cookie` header is present.
- * - Behind Portless, `request.url` is often the Vite bind URL (`http://127.0.0.1:5173`) while the
- *   browser uses `https://<prefix>-web.localhost` — use `Host` / `X-Forwarded-*` for `Origin`.
- * - Third-party cookies (e.g. PostHog) must not be forwarded; they trigger CSRF checks without helping auth.
- */
+import { BETTER_AUTH_COOKIE_PREFIX } from "@internal/auth-db/constants";
+import { parseCookies, SECURE_COOKIE_PREFIX } from "better-auth/cookies";
+
+/** Whether a cookie name belongs to Better Auth (handles `__Secure-` and configured prefix). */
 export function isBetterAuthCookieName(name: string): boolean {
-	return name.includes("better-auth");
+	const bare = name.startsWith(SECURE_COOKIE_PREFIX)
+		? name.slice(SECURE_COOKIE_PREFIX.length)
+		: name;
+	return (
+		bare.startsWith(`${BETTER_AUTH_COOKIE_PREFIX}.`) ||
+		bare.startsWith(`${BETTER_AUTH_COOKIE_PREFIX}-`)
+	);
 }
 
 /** Keep only Better Auth session cookies for service-binding calls. */
@@ -15,19 +17,13 @@ export function filterAuthCookieHeader(cookieHeader: string | null): string | nu
 	if (!cookieHeader) {
 		return null;
 	}
-	const kept: string[] = [];
-	for (const part of cookieHeader.split(";")) {
-		const trimmed = part.trim();
-		if (!trimmed) {
-			continue;
-		}
-		const eq = trimmed.indexOf("=");
-		const name = eq > 0 ? trimmed.slice(0, eq).trim() : trimmed;
+	const parts: string[] = [];
+	for (const [name, value] of parseCookies(cookieHeader)) {
 		if (isBetterAuthCookieName(name)) {
-			kept.push(trimmed);
+			parts.push(`${name}=${value}`);
 		}
 	}
-	return kept.length > 0 ? kept.join("; ") : null;
+	return parts.length > 0 ? parts.join("; ") : null;
 }
 
 /** Browser-facing origin for CSRF checks (Portless-aware). */
@@ -50,6 +46,14 @@ export function resolvePageOrigin(request: Request): string | null {
 	}
 }
 
+/**
+ * Headers for `AUTH.fetch` service-binding calls.
+ *
+ * - Better Auth validates `Origin` on non-GET routes when a `Cookie` header is present.
+ * - Behind Portless, `request.url` is often the Vite bind URL (`http://127.0.0.1:5173`) while the
+ *   browser uses `https://<prefix>-web.localhost` — use `Host` / `X-Forwarded-*` for `Origin`.
+ * - Third-party cookies (e.g. PostHog) must not be forwarded; they trigger CSRF checks without helping auth.
+ */
 export function buildAuthBindingHeaders(request: Request): Headers {
 	const headers = new Headers();
 	const authCookie = filterAuthCookieHeader(request.headers.get("cookie"));
