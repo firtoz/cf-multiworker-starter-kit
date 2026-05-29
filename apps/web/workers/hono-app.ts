@@ -5,7 +5,7 @@ import {
 	CHATROOM_INTERNAL_SECRET_HEADER,
 	stripClientChatIdentityHeaders,
 } from "@internal/chat-contract";
-import { POSTHOG_INGEST_API_PATH, rewritePosthogIngestRequest } from "alchemy-utils/posthog-host";
+import { POSTHOG_BROWSER_API_PATH, rewritePosthogBrowserApiRequest } from "alchemy-utils/posthog-host";
 import { Hono } from "hono";
 import type { CloudflareEnv } from "../types/env.d.ts";
 import { resolveChatIdentityFromAuth } from "./resolve-chat-identity";
@@ -61,11 +61,11 @@ export function createWebWorkerApp(
 		})
 		.all(`${authApiPrefix}*`, (c) => c.env.AUTH.fetch(c.req.raw))
 		.all(`${guestApiPrefix}*`, (c) => c.env.AUTH.fetch(c.req.raw))
-		.all(`${POSTHOG_INGEST_API_PATH}/*`, (c) =>
-			c.env.POSTHOG.fetch(rewritePosthogIngestRequest(c.req.raw)),
+		.all(`${POSTHOG_BROWSER_API_PATH}/*`, (c) =>
+			c.env.POSTHOG.fetch(rewritePosthogBrowserApiRequest(c.req.raw)),
 		)
-		.all(POSTHOG_INGEST_API_PATH, (c) =>
-			c.env.POSTHOG.fetch(rewritePosthogIngestRequest(c.req.raw)),
+		.all(POSTHOG_BROWSER_API_PATH, (c) =>
+			c.env.POSTHOG.fetch(rewritePosthogBrowserApiRequest(c.req.raw)),
 		)
 		.all(`${CHAT_WS_PREFIX}*`, async (c) => {
 			const rest = c.req.path.slice(CHAT_WS_PREFIX.length);

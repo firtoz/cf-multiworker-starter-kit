@@ -17,7 +17,7 @@ import {
 	portlessRunShellEnvPrefix,
 } from "alchemy-utils/local-portless-dev";
 import { pickListenPort } from "alchemy-utils/pick-listen-port";
-import { isPosthogAnalyticsEnabled, POSTHOG_INGEST_API_PATH } from "alchemy-utils/posthog-host";
+import { isPosthogAnalyticsEnabled, POSTHOG_BROWSER_API_PATH } from "alchemy-utils/posthog-host";
 import {
 	reactRouterDomainsFromProcessEnv,
 	reactRouterRoutesFromProcessEnv,
@@ -166,7 +166,7 @@ await app.finalize();
 
 if (isPosthogAnalyticsEnabled(process.env)) {
 	console.log({
-		posthogIngestPath: POSTHOG_INGEST_API_PATH,
+		posthogBrowserApiPath: POSTHOG_BROWSER_API_PATH,
 		posthogProxyWorker: posthogProxyWorker.name,
 	});
 }

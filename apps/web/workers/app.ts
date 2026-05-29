@@ -24,7 +24,7 @@ const requestHandler = createRequestHandler(
 const webWorkerApp = createWebWorkerApp(requestHandler);
 
 /**
- * Web Application Worker Entrypoint: `/api/auth/*` → auth worker, `/ingest/*` → PostHog proxy, Socka WS → chatroom, else React Router.
+ * Web Application Worker Entrypoint: `/api/auth/*` → auth worker, `/d/*` → PostHog proxy, Socka WS → chatroom, else React Router.
  */
 export default class WebAppWorker extends WorkerEntrypoint<CloudflareEnv> {
 	readonly app = webWorkerApp;

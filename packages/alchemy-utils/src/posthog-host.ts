@@ -2,15 +2,19 @@
  * PostHog env wiring:
  *
  * - **`POSTHOG_HOST`** — upstream ingest for **`workers/posthog-proxy`** only (optional; default from **`POSTHOG_REGION`**).
- * - Browser **`api_host`** — same-origin **`POSTHOG_INGEST_API_PATH`** on the web worker (forwards to the proxy service binding).
+ * - Browser **`api_host`** — same-origin **`POSTHOG_BROWSER_API_PATH`** on the web worker (forwards to the proxy service binding).
  */
 
 export const POSTHOG_REGION_ENV_KEY = "POSTHOG_REGION" as const;
 /** Upstream PostHog Cloud ingest — **`workers/posthog-proxy`** binding only. */
 export const POSTHOG_HOST_ENV_KEY = "POSTHOG_HOST" as const;
 
-/** Same-origin path the browser uses for PostHog ingest (web worker forwards to **`POSTHOG`** binding). */
-export const POSTHOG_INGEST_API_PATH = "/ingest" as const;
+/**
+ * Same-origin path for browser **`api_host`**. Deliberately short/neutral — uBlock EasyPrivacy
+ * blocklists obvious names like **`/ingest`**, **`/analytics`**, **`/tracking`**. Forks can change
+ * this literal to something app-specific ([PostHog proxy docs](https://posthog.com/docs/advanced/proxy)).
+ */
+export const POSTHOG_BROWSER_API_PATH = "/d" as const;
 
 export function parsePosthogHostUrl(raw: string | undefined): URL | null {
 	const trimmed = raw?.trim();
@@ -63,17 +67,17 @@ export function resolvePosthogUpstreamIngestOrigin(env: NodeJS.ProcessEnv = proc
 }
 
 /**
- * Strip **`POSTHOG_INGEST_API_PATH`** before forwarding to the proxy Worker (expects root PostHog paths).
+ * Strip **`POSTHOG_BROWSER_API_PATH`** before forwarding to the proxy Worker (expects root PostHog paths).
  */
-export function rewritePosthogIngestRequest(
+export function rewritePosthogBrowserApiRequest(
 	request: Request,
-	ingestPath: string = POSTHOG_INGEST_API_PATH,
+	browserApiPath: string = POSTHOG_BROWSER_API_PATH,
 ): Request {
 	const url = new URL(request.url);
-	if (!url.pathname.startsWith(ingestPath)) {
+	if (!url.pathname.startsWith(browserApiPath)) {
 		return request;
 	}
-	const rest = url.pathname.slice(ingestPath.length);
+	const rest = url.pathname.slice(browserApiPath.length);
 	url.pathname = rest === "" || rest === "/" ? "/" : rest.startsWith("/") ? rest : `/${rest}`;
 	return new Request(url.toString(), request);
 }

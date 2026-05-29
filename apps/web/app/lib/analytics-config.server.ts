@@ -1,7 +1,7 @@
 import { parsePrNumberFromStage } from "alchemy-utils/deployment-stage";
 import {
 	defaultPosthogUiHostForRegion,
-	POSTHOG_INGEST_API_PATH,
+	POSTHOG_BROWSER_API_PATH,
 	posthogRegionFromProcessEnv,
 } from "alchemy-utils/posthog-host";
 
@@ -99,7 +99,7 @@ export function getPostHogClientConfig(workerEnv: PostHogWorkerEnvSlice): {
 	return {
 		enabled: true,
 		key,
-		host: POSTHOG_INGEST_API_PATH,
+		host: POSTHOG_BROWSER_API_PATH,
 		uiHost,
 		site,
 		releaseName,
