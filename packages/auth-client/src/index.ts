@@ -21,6 +21,7 @@ export type {
 	ProfileUpdateResponse,
 	ProfileUserWire,
 	UserEmailRow,
+	UserEmailSource,
 } from "@internal/auth-db/api-schemas";
 export {
 	accountSummarySchema,
@@ -41,6 +42,7 @@ export {
 	profileUpdateSchema,
 	profileUserSchema,
 	userEmailRowSchema,
+	userEmailSourceSchema,
 } from "@internal/auth-db/api-schemas";
 export * from "./binding-headers";
 export * from "./chat-session";

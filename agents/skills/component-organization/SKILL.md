@@ -167,7 +167,7 @@ import { ThemeSection } from "./ThemeSection";
 import { SEOSection } from "./SEOSection";
 
 export function SettingsPage({ settings }) {
-  const submitter = useDynamicSubmitter();
+  const submitter = useDynamicSubmitter<typeof import("~/routes/admin/settings")>("/admin/settings");
   const [siteInfo, setSiteInfo] = useState(settings.siteInfo);
   const [theme, setTheme] = useState(settings.theme);
 

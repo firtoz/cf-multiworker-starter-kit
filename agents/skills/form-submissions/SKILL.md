@@ -9,6 +9,17 @@ Always use **`await submitter.submitJson(...)`** (or `await submitter.submit(...
 
 For internal React UI submissions, prefer `formAction` + `useDynamicSubmitter`. Do not reach for plain HTML forms unless you intentionally want browser-native form behavior.
 
+**Default stack:** route exports `route`, `formSchema`, and `formAction({ schema, handler })`; components call `useDynamicSubmitter<typeof import("./route")>("/path")` and `await submitter.submitJson(...)`. After a mutation that should refresh server data, call `useRevalidator().revalidate()`.
+
+## Anti-patterns (do not add new code like this)
+
+- ❌ `useFetcher()` + `fetcher.data as { success: ... }` — untyped casts; use `useDynamicSubmitter` so action results infer from the route module.
+- ❌ Plain `<form method="post">` while reading `useFetcher()` / `fetcher.Form` without wiring them together — submissions never hit the fetcher you observe.
+- ❌ Manual `request.formData()` + stringly `intent` parsing in actions when the route can use `formAction` + a Zod schema (including `z.discriminatedUnion("intent", [...])` for multi-intent routes).
+- ❌ Relying on route `actionData` when children submit via fetcher/submitter — parent `actionData` is not updated; revalidate the loader or lift state from the settled submit promise.
+
+When several components on the **same route** each call `useDynamicSubmitter`, pass a distinct **`keySuffix`** so fetcher keys do not collide.
+
 ## Loaders use `MaybeError` too
 
 Match actions: **loaders** should return `Promise<MaybeError<LoaderData>>` with `success` / `fail`, not a bare object. That keeps `loaderData` typed the same way as submitter/fetcher results and avoids ambiguous error shapes. See [routing/SKILL.md](../routing/SKILL.md).
@@ -114,6 +125,8 @@ Use **`useDynamicSubmitterFetcher(submitter)`** when you need **reactive** `fetc
 
 - ❌ `<Form>` from react-router for type-safe `formAction` flows (use submitter + JSON or the submitter’s `Form` with fetcher if needed)
 - ❌ `submitter.state` / `submitter.data` on the v9 `useDynamicSubmitter` return value (not reactive)
+- ❌ `useFetcher()` with manual `as` casts on `fetcher.data` for app forms (see **Anti-patterns** above)
+- ❌ Plain `<form method="post">` paired with `useFetcher()` unless the form is actually `fetcher.Form` or you submit via `submitter.submitJson`
 
 ### Do Use
 
@@ -144,6 +157,32 @@ Avoid teaching new app features to post plain forms to index routes. If an endpo
 - For **internal** create/join/settings flows, default to **controlled state + `submitJson` + `success` + explicit client navigation**; reserve raw `<form method="post">` for cases that need native form semantics.
 
 See also [routing/SKILL.md](../routing/SKILL.md) for `RoutePath` and patterns.
+
+## Multi-intent routes (one action, many forms)
+
+When one route handles several mutations (e.g. account settings), define a **discriminated union** schema and export it as `formSchema`:
+
+```typescript
+export const formSchema = z.discriminatedUnion("intent", [
+  saveDisplayNameBodySchema,
+  setNotificationEmailPatchSchema,
+  // ...
+]);
+
+export const action = formAction({
+  schema: formSchema,
+  handler: async ({ request }, body) => {
+    switch (body.intent) {
+      case "saveDisplayName":
+        // body.displayName is typed
+        return success({ ok: true as const });
+      // ...
+    }
+  },
+});
+```
+
+Each section component submits its branch with `await submitter.submitJson({ intent: "...", ... })`. Use **`keySuffix`** per section when multiple submitters target the same URL.
 
 ## Benefits
 

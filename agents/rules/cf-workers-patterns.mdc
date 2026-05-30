@@ -53,6 +53,7 @@ Prefer **typed success/error** from [`@firtoz/maybe-error`](https://www.npmjs.co
 
 - **Loaders:** `export async function loader(...): Promise<MaybeError<YourData>>` — return `success({ ... })` or `fail("...")` so `loaderData` narrows with `loaderData.success` / `loaderData.result`.
 - **Actions:** use `formAction` from `@firtoz/router-toolkit` (handler already returns `Promise<MaybeError<...>>`). For non-`formAction` actions, still return `success` / `fail` the same way.
+- **Components:** do not use raw `useFetcher()` + manual `fetcher.data as …` for internal forms; use `useDynamicSubmitter` + `await submitter.submitJson(...)` per [form-submissions/SKILL.md](../skills/form-submissions/SKILL.md).
 
 See [../skills/routing/SKILL.md](../skills/routing/SKILL.md) and [../skills/form-submissions/SKILL.md](../skills/form-submissions/SKILL.md).
 

@@ -1,4 +1,5 @@
 import * as z from "zod";
+import { PROFILE_NAME_MAX_CHARS } from "../constants";
 import { profileUserSchema } from "./profile";
 
 export const authProviderIdSchema = z.enum(["email", "google", "github"]);
@@ -15,10 +16,14 @@ export const linkedAuthMethodSchema = z.object({
 
 export type LinkedAuthMethod = z.infer<typeof linkedAuthMethodSchema>;
 
+export const userEmailSourceSchema = z.enum(["email", "google", "github", "manual", "profile"]);
+
+export type UserEmailSource = z.infer<typeof userEmailSourceSchema>;
+
 export const userEmailRowSchema = z.object({
 	id: z.string(),
 	email: z.string(),
-	source: z.enum(["email", "google", "github", "manual", "profile"]),
+	source: userEmailSourceSchema,
 	verified: z.boolean(),
 	isNotificationPreferred: z.boolean(),
 	/** Matches Better Auth `user.email` (email/password sign-in address). */
@@ -99,6 +104,25 @@ export const accountPasswordBodySchema = z.discriminatedUnion("intent", [
 ]);
 
 export type AccountPasswordBody = z.infer<typeof accountPasswordBodySchema>;
+
+export const saveDisplayNameBodySchema = z.object({
+	intent: z.literal("saveDisplayName"),
+	displayName: z.string().trim().min(1).max(PROFILE_NAME_MAX_CHARS),
+});
+
+export type SaveDisplayNameBody = z.infer<typeof saveDisplayNameBodySchema>;
+
+/** Web account route: display name, emails, and password mutations. */
+export const accountFormSchema = z.discriminatedUnion("intent", [
+	saveDisplayNameBodySchema,
+	setNotificationEmailPatchSchema,
+	addContactEmailPatchSchema,
+	setSignInEmailPatchSchema,
+	setPasswordPostSchema,
+	changePasswordPostSchema,
+]);
+
+export type AccountFormBody = z.infer<typeof accountFormSchema>;
 
 export const authMutationOkResponseSchema = z.object({
 	ok: z.literal(true),

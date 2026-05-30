@@ -1,12 +1,14 @@
 import { env } from "cloudflare:workers";
 import { fail, type MaybeError, success } from "@firtoz/maybe-error";
-import type { RoutePath } from "@firtoz/router-toolkit";
+import { formAction, type RoutePath } from "@firtoz/router-toolkit";
 import {
 	type AccountSummary,
 	type AuthUser,
 	accountDisplayName,
 	createAuthClient,
+	type ProfileUserWire,
 } from "@internal/auth-client";
+import { accountFormSchema } from "@internal/auth-db/api-schemas";
 import { parseAuthRole } from "@internal/auth-db/roles";
 import { href, redirect } from "react-router";
 import { AccountDisplayNameForm } from "~/components/account/AccountDisplayNameForm";
@@ -20,7 +22,15 @@ import type { Route } from "./+types/account";
 
 export const route: RoutePath<"/account"> = "/account";
 
-function summaryUserToAuthUser(user: AccountSummary["user"]): AuthUser {
+export const formSchema = accountFormSchema;
+
+export type AccountActionSuccess = {
+	ok: true;
+	user?: AuthUser;
+	summary?: AccountSummary;
+};
+
+function summaryUserToAuthUser(user: ProfileUserWire): AuthUser {
 	return {
 		id: user.id,
 		email: user.email,
@@ -35,14 +45,7 @@ export function meta(_args: Route.MetaArgs) {
 	return [{ title: "Account" }, { name: "description", content: "Your account" }];
 }
 
-export async function loader({ request }: Route.LoaderArgs): Promise<
-	MaybeError<{
-		summary: AccountSummary;
-		accountPath: string;
-		googlePortlessWarning?: string;
-		linkErrorMessage?: string;
-	}>
-> {
+export async function loader({ request }: Route.LoaderArgs) {
 	const auth = createAuthClient(env.AUTH, request);
 	const accountPath = href("/account");
 	const session = await auth.session.get();
@@ -73,114 +76,92 @@ export async function loader({ request }: Route.LoaderArgs): Promise<
 	});
 }
 
-export async function action({
-	request,
-}: Route.ActionArgs): Promise<MaybeError<{ ok: true; user?: AuthUser; summary?: AccountSummary }>> {
-	const auth = createAuthClient(env.AUTH, request);
-	const session = await auth.session.get();
-	if (!session) {
-		return fail("Not signed in");
-	}
+export const action = formAction({
+	schema: accountFormSchema,
+	handler: async ({ request }, body): Promise<MaybeError<AccountActionSuccess>> => {
+		const auth = createAuthClient(env.AUTH, request);
+		const session = await auth.session.get();
+		if (!session) {
+			return fail("Not signed in");
+		}
 
-	const form = await request.formData();
-	const intent = String(form.get("intent") ?? "");
+		switch (body.intent) {
+			case "saveDisplayName": {
+				const result = await auth.profile.update({ name: body.displayName });
+				if (!result.success) {
+					return fail(result.error);
+				}
+				const summaryResult = await auth.account.getSummary();
+				if (!summaryResult.success) {
+					return success({ ok: true as const, user: result.result.user });
+				}
+				return success({
+					ok: true as const,
+					user: result.result.user,
+					summary: summaryResult.result,
+				});
+			}
+			case "setNotificationEmail": {
+				const result = await auth.account.setNotificationEmail(body.emailId);
+				if (!result.success) {
+					return fail(result.error);
+				}
+				const summaryResult = await auth.account.getSummary();
+				if (!summaryResult.success) {
+					return fail(summaryResult.error);
+				}
+				return success({ ok: true as const, summary: summaryResult.result });
+			}
+			case "addContactEmail": {
+				const result = await auth.account.addContactEmail(body.email);
+				if (!result.success) {
+					return fail(result.error);
+				}
+				const summaryResult = await auth.account.getSummary();
+				if (!summaryResult.success) {
+					return fail(summaryResult.error);
+				}
+				return success({ ok: true as const, summary: summaryResult.result });
+			}
+			case "setSignInEmail": {
+				const result = await auth.account.setSignInEmail(body.emailId);
+				if (!result.success) {
+					return fail(result.error);
+				}
+				const summaryResult = await auth.account.getSummary();
+				if (!summaryResult.success) {
+					return fail(summaryResult.error);
+				}
+				return success({ ok: true as const, summary: summaryResult.result });
+			}
+			case "setPassword": {
+				const result = await auth.account.setPassword(body.newPassword);
+				if (!result.success) {
+					return fail(result.error);
+				}
+				const summaryResult = await auth.account.getSummary();
+				if (!summaryResult.success) {
+					return fail(summaryResult.error);
+				}
+				return success({ ok: true as const, summary: summaryResult.result });
+			}
+			case "changePassword": {
+				const result = await auth.account.changePassword(body.currentPassword, body.newPassword);
+				if (!result.success) {
+					return fail(result.error);
+				}
+				const summaryResult = await auth.account.getSummary();
+				if (!summaryResult.success) {
+					return fail(summaryResult.error);
+				}
+				return success({ ok: true as const, summary: summaryResult.result });
+			}
+		}
+	},
+});
 
-	if (intent === "saveDisplayName") {
-		const displayName = String(form.get("displayName") ?? "").trim();
-		if (!displayName) {
-			return fail("Display name is required");
-		}
-		const result = await auth.profile.update({ name: displayName });
-		if (!result.success) {
-			return fail(result.error);
-		}
-		const summaryResult = await auth.account.getSummary();
-		if (!summaryResult.success) {
-			return success({ ok: true, user: result.result.user });
-		}
-		return success({
-			ok: true,
-			user: result.result.user,
-			summary: summaryResult.result,
-		});
-	}
-
-	if (intent === "setNotificationEmail") {
-		const emailId = String(form.get("emailId") ?? "");
-		const result = await auth.account.setNotificationEmail(emailId);
-		if (!result.success) {
-			return fail(result.error);
-		}
-		const summaryResult = await auth.account.getSummary();
-		if (!summaryResult.success) {
-			return fail(summaryResult.error);
-		}
-		return success({ ok: true, summary: summaryResult.result });
-	}
-
-	if (intent === "addContactEmail") {
-		const email = String(form.get("email") ?? "").trim();
-		const result = await auth.account.addContactEmail(email);
-		if (!result.success) {
-			return fail(result.error);
-		}
-		const summaryResult = await auth.account.getSummary();
-		if (!summaryResult.success) {
-			return fail(summaryResult.error);
-		}
-		return success({ ok: true, summary: summaryResult.result });
-	}
-
-	if (intent === "setSignInEmail") {
-		const emailId = String(form.get("emailId") ?? "");
-		const result = await auth.account.setSignInEmail(emailId);
-		if (!result.success) {
-			return fail(result.error);
-		}
-		const summaryResult = await auth.account.getSummary();
-		if (!summaryResult.success) {
-			return fail(summaryResult.error);
-		}
-		return success({ ok: true, summary: summaryResult.result });
-	}
-
-	if (intent === "setPassword") {
-		const newPassword = String(form.get("newPassword") ?? "");
-		const result = await auth.account.setPassword(newPassword);
-		if (!result.success) {
-			return fail(result.error);
-		}
-		const summaryResult = await auth.account.getSummary();
-		if (!summaryResult.success) {
-			return fail(summaryResult.error);
-		}
-		return success({ ok: true, summary: summaryResult.result });
-	}
-
-	if (intent === "changePassword") {
-		const currentPassword = String(form.get("currentPassword") ?? "");
-		const newPassword = String(form.get("newPassword") ?? "");
-		const result = await auth.account.changePassword(currentPassword, newPassword);
-		if (!result.success) {
-			return fail(result.error);
-		}
-		const summaryResult = await auth.account.getSummary();
-		if (!summaryResult.success) {
-			return fail(summaryResult.error);
-		}
-		return success({ ok: true, summary: summaryResult.result });
-	}
-
-	return fail("Unknown action");
-}
-
-export default function AccountRoute({ loaderData, actionData }: Route.ComponentProps) {
-	const summary =
-		actionData?.success === true && actionData.result.summary
-			? actionData.result.summary
-			: loaderData.success
-				? loaderData.result.summary
-				: null;
+export default function AccountRoute({ loaderData }: Route.ComponentProps) {
+	const summary = loaderData.success ? loaderData.result.summary : null;
 	const accountPath = loaderData.success ? loaderData.result.accountPath : href("/account");
 	const googlePortlessWarning = loaderData.success
 		? loaderData.result.googlePortlessWarning

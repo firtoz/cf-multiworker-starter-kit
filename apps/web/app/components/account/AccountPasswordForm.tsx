@@ -1,39 +1,88 @@
-import { type FormEvent, useCallback, useState } from "react";
-import { useFetcher } from "react-router";
+import {
+	SubmitterSupersededError,
+	SubmitterUnmountedError,
+	useDynamicSubmitter,
+} from "@firtoz/router-toolkit";
+import { type SubmitEvent, useCallback, useRef, useState } from "react";
+import { useRevalidator } from "react-router";
+import { accountFormErrorMessage } from "~/lib/account-form-error";
+
+type RouteMod = typeof import("~/routes/account");
 
 type AccountPasswordFormProps = {
 	hasPassword: boolean;
 };
 
 export function AccountPasswordForm({ hasPassword }: AccountPasswordFormProps) {
-	const fetcher = useFetcher();
+	const submitter = useDynamicSubmitter<RouteMod>("/account", { keySuffix: "password" });
+	const { revalidate } = useRevalidator();
+	const submitSeq = useRef(0);
 	const [currentPassword, setCurrentPassword] = useState("");
 	const [newPassword, setNewPassword] = useState("");
 	const [confirmPassword, setConfirmPassword] = useState("");
 	const [clientError, setClientError] = useState<string | null>(null);
+	const [actionError, setActionError] = useState<string | null>(null);
+	const [busy, setBusy] = useState(false);
+	const [saved, setSaved] = useState(false);
 
-	const busy = fetcher.state !== "idle";
-	const data = fetcher.data as
-		| { success: true; result: { ok: true } }
-		| { success: false; error: string }
-		| undefined;
-	const actionError = data?.success === false ? data.error : undefined;
-	const saved = data?.success === true;
-
-	const onSubmit = useCallback(
-		(e: FormEvent) => {
+	const handleSubmit = useCallback(
+		async (event: SubmitEvent<HTMLFormElement>) => {
+			event.preventDefault();
 			setClientError(null);
+			setActionError(null);
+			setSaved(false);
+
 			if (newPassword !== confirmPassword) {
-				e.preventDefault();
 				setClientError("New passwords do not match");
 				return;
 			}
 			if (newPassword.length < 8) {
-				e.preventDefault();
 				setClientError("Password must be at least 8 characters");
+				return;
+			}
+
+			const id = ++submitSeq.current;
+			setBusy(true);
+			try {
+				const data = await submitter.submitJson(
+					hasPassword
+						? {
+								intent: "changePassword",
+								currentPassword,
+								newPassword,
+							}
+						: {
+								intent: "setPassword",
+								newPassword,
+							},
+				);
+				if (id !== submitSeq.current) {
+					return;
+				}
+				if (!data.success) {
+					setActionError(accountFormErrorMessage(data));
+					return;
+				}
+				setSaved(true);
+				setCurrentPassword("");
+				setNewPassword("");
+				setConfirmPassword("");
+				await revalidate();
+			} catch (err) {
+				if (err instanceof SubmitterSupersededError || err instanceof SubmitterUnmountedError) {
+					return;
+				}
+				if (id !== submitSeq.current) {
+					return;
+				}
+				throw err;
+			} finally {
+				if (id === submitSeq.current) {
+					setBusy(false);
+				}
 			}
 		},
-		[newPassword, confirmPassword],
+		[confirmPassword, currentPassword, hasPassword, newPassword, revalidate, submitter],
 	);
 
 	return (
@@ -44,19 +93,17 @@ export function AccountPasswordForm({ hasPassword }: AccountPasswordFormProps) {
 					? "Change your email sign-in password."
 					: "Set a password to sign in with email (for example after using Google or GitHub)."}
 			</p>
-			<fetcher.Form method="post" className="flex flex-col gap-3 max-w-sm" onSubmit={onSubmit}>
-				<input type="hidden" name="intent" value={hasPassword ? "changePassword" : "setPassword"} />
+			<form className="flex flex-col gap-3 max-w-sm" onSubmit={(event) => void handleSubmit(event)}>
 				{hasPassword ? (
 					<label className="flex flex-col gap-1 text-sm">
 						<span className="font-medium">Current password</span>
 						<input
 							type="password"
-							name="currentPassword"
 							required
 							autoComplete="current-password"
 							className="border rounded px-3 py-2 dark:bg-gray-900"
 							value={currentPassword}
-							onChange={(e) => setCurrentPassword(e.target.value)}
+							onChange={(event) => setCurrentPassword(event.target.value)}
 						/>
 					</label>
 				) : null}
@@ -64,13 +111,12 @@ export function AccountPasswordForm({ hasPassword }: AccountPasswordFormProps) {
 					<span className="font-medium">{hasPassword ? "New password" : "Password"}</span>
 					<input
 						type="password"
-						name="newPassword"
 						required
 						minLength={8}
 						autoComplete="new-password"
 						className="border rounded px-3 py-2 dark:bg-gray-900"
 						value={newPassword}
-						onChange={(e) => setNewPassword(e.target.value)}
+						onChange={(event) => setNewPassword(event.target.value)}
 					/>
 				</label>
 				<label className="flex flex-col gap-1 text-sm">
@@ -82,7 +128,7 @@ export function AccountPasswordForm({ hasPassword }: AccountPasswordFormProps) {
 						autoComplete="new-password"
 						className="border rounded px-3 py-2 dark:bg-gray-900"
 						value={confirmPassword}
-						onChange={(e) => setConfirmPassword(e.target.value)}
+						onChange={(event) => setConfirmPassword(event.target.value)}
 					/>
 				</label>
 				<button
@@ -92,7 +138,7 @@ export function AccountPasswordForm({ hasPassword }: AccountPasswordFormProps) {
 				>
 					{busy ? "Saving…" : hasPassword ? "Change password" : "Set password"}
 				</button>
-			</fetcher.Form>
+			</form>
 			{saved ? <p className="text-sm text-green-700 dark:text-green-400">Password saved.</p> : null}
 			{clientError ? <p className="text-sm text-red-600">{clientError}</p> : null}
 			{actionError ? <p className="text-sm text-red-600">{actionError}</p> : null}
