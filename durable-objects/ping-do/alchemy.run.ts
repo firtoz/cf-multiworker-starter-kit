@@ -3,6 +3,7 @@ import { DurableObjectNamespace, Worker, WorkerRef, WorkerStub } from "alchemy/c
 import { requireAlchemyPassword } from "alchemy-utils";
 import { alchemyCiCloudStateStoreOptions } from "alchemy-utils/alchemy-cloud-state-store";
 import { resolveStageFromEnv } from "alchemy-utils/deployment-stage";
+import { workerObservabilityWithTraces } from "alchemy-utils/worker-observability";
 import {
 	ALCHEMY_APP_IDS,
 	DEFAULT_WORKER_RESOURCE_ID,
@@ -36,6 +37,7 @@ export const pingWorker = await Worker(DEFAULT_WORKER_RESOURCE_ID, {
 	entrypoint: new URL("./workers/app.ts", import.meta.url).pathname,
 	compatibility: "node",
 	placement: { mode: "smart" },
+	observability: workerObservabilityWithTraces,
 	dev: { port: 8782 },
 	adopt: true,
 	bindings: {

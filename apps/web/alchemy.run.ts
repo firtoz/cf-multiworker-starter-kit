@@ -22,6 +22,7 @@ import {
 	reactRouterDomainsFromProcessEnv,
 	reactRouterRoutesFromProcessEnv,
 } from "alchemy-utils/web-deploy-hostnames";
+import { workerObservabilityWithTraces } from "alchemy-utils/worker-observability";
 import {
 	ALCHEMY_APP_IDS,
 	DEFAULT_REACT_ROUTER_WEB_RESOURCE_ID,
@@ -109,6 +110,7 @@ export const web = await ReactRouter(DEFAULT_REACT_ROUTER_WEB_RESOURCE_ID, {
 	main: "workers/app.ts",
 	compatibility: "node",
 	placement: { mode: "smart" },
+	observability: workerObservabilityWithTraces,
 	build: posthogSourcemapUploadAfterBuild
 		? `${reactRouterProductionBuild} && bun posthog/upload-sourcemaps.ts`
 		: reactRouterProductionBuild,

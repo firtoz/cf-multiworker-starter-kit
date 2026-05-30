@@ -3,6 +3,7 @@ import { DurableObjectNamespace, Worker } from "alchemy/cloudflare";
 import { alchemyCiCloudStateStoreOptions } from "alchemy-utils/alchemy-cloud-state-store";
 import { requireAlchemyPassword } from "alchemy-utils";
 import { resolveStageFromEnv } from "alchemy-utils/deployment-stage";
+import { workerObservabilityWithTraces } from "alchemy-utils/worker-observability";
 import { DEFAULT_WORKER_RESOURCE_ID, PRODUCT_PREFIX } from "alchemy-utils/worker-peer-scripts";
 import type { {{ pascalCase name }}DoRpc } from "./workers/rpc";
 
@@ -21,6 +22,7 @@ export const {{ camelCase name }}Worker = await Worker(DEFAULT_WORKER_RESOURCE_I
 	entrypoint: new URL("./workers/app.ts", import.meta.url).pathname,
 	compatibility: "node",
 	placement: { mode: "smart" },
+	observability: workerObservabilityWithTraces,
 	dev: { port: 8789 },
 	adopt: true,
 	bindings: {

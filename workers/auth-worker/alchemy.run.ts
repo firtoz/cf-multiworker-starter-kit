@@ -15,6 +15,7 @@ import {
 	LOCAL_WEB_DEV_PORT,
 } from "alchemy-utils/local-portless-dev";
 import { commaSeparatedEnvSegments, WEB_DOMAINS_ENV_KEY } from "alchemy-utils/web-deploy-hostnames";
+import { workerObservabilityWithTraces } from "alchemy-utils/worker-observability";
 import { ALCHEMY_APP_IDS, DEFAULT_WORKER_RESOURCE_ID } from "alchemy-utils/worker-peer-scripts";
 
 const stage = resolveStageFromEnv();
@@ -74,6 +75,7 @@ export const authWorker = await Worker(DEFAULT_WORKER_RESOURCE_ID, {
 	entrypoint: new URL("./workers/app.ts", import.meta.url).pathname,
 	compatibility: "node",
 	placement: { mode: "smart" },
+	observability: workerObservabilityWithTraces,
 	dev: { port: LOCAL_AUTH_DEV_PORT },
 	adopt: true,
 	url: false,

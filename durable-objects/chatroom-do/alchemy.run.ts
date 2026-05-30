@@ -3,6 +3,7 @@ import { DurableObjectNamespace, Worker, WorkerRef, WorkerStub } from "alchemy/c
 import { requireAlchemyPassword, requireEnv } from "alchemy-utils";
 import { alchemyCiCloudStateStoreOptions } from "alchemy-utils/alchemy-cloud-state-store";
 import { resolveStageFromEnv } from "alchemy-utils/deployment-stage";
+import { workerObservabilityWithTraces } from "alchemy-utils/worker-observability";
 import {
 	ALCHEMY_APP_IDS,
 	DEFAULT_WORKER_RESOURCE_ID,
@@ -42,6 +43,7 @@ export const chatroomWorker = await Worker(DEFAULT_WORKER_RESOURCE_ID, {
 	entrypoint: new URL("./workers/app.ts", import.meta.url).pathname,
 	compatibility: "node",
 	placement: { mode: "smart" },
+	observability: workerObservabilityWithTraces,
 	dev: { port: 8783 },
 	adopt: true,
 	bindings: {
