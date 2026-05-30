@@ -67,7 +67,10 @@ export const guestUpgrade = new Hono<AuthWorkerAppEnv>()
 
 		await syncUserEmailsForUser(db, session.user.id);
 
-		const refreshed = await c.var.auth.api.getSession({ headers: c.req.raw.headers });
+		const refreshed = await c.var.auth.api.getSession({
+			headers: c.req.raw.headers,
+			query: { disableCookieCache: true },
+		});
 		if (!refreshed?.user) {
 			return c.json({ error: "Account created but session could not be refreshed" }, 500);
 		}

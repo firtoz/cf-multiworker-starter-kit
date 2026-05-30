@@ -19,7 +19,7 @@ import {
 	userEmail,
 	user as userTable,
 } from "@internal/auth-db/schema";
-import { and, desc, eq, gt, ne } from "drizzle-orm";
+import { and, desc, eq, gt } from "drizzle-orm";
 import { Hono } from "hono";
 import type { AuthWorkerAppEnv } from "./app-env";
 import { mapUserWithRole } from "./auth";
@@ -229,7 +229,7 @@ export const account = new Hono<AuthWorkerAppEnv>()
 			.where(and(eq(sessionTable.userId, session.user.id), gt(sessionTable.expiresAt, now)))
 			.orderBy(desc(sessionTable.updatedAt));
 
-		const currentId = await resolveRequestSessionId(c, session);
+		const currentId = await resolveRequestSessionId(c);
 		const payload = accountSessionsResponseSchema.parse({
 			sessions: rows.map((row) => ({
 				id: row.id,
@@ -238,7 +238,7 @@ export const account = new Hono<AuthWorkerAppEnv>()
 				expiresAt: (parseTimestampOrNull(row.expiresAt) ?? new Date(0)).toISOString(),
 				ipAddress: row.ipAddress ?? null,
 				userAgent: row.userAgent ?? null,
-				isCurrent: row.id === currentId,
+				isCurrent: currentId !== null && row.id === currentId,
 			})),
 		});
 		return c.json(payload);
@@ -250,13 +250,16 @@ export const account = new Hono<AuthWorkerAppEnv>()
 		}
 
 		const sessionId = c.req.param("id");
-		const currentId = await resolveRequestSessionId(c, session);
+		const currentId = await resolveRequestSessionId(c);
+		if (!currentId) {
+			return c.json({ error: "Unauthorized" }, 401);
+		}
 		if (sessionId === currentId) {
 			return c.json({ error: "Cannot revoke the current session" }, 400);
 		}
 		const db = getAuthDb(c.env.DB);
 		const [target] = await db
-			.select({ id: sessionTable.id })
+			.select({ id: sessionTable.id, token: sessionTable.token })
 			.from(sessionTable)
 			.where(and(eq(sessionTable.id, sessionId), eq(sessionTable.userId, session.user.id)))
 			.limit(1);
@@ -264,7 +267,15 @@ export const account = new Hono<AuthWorkerAppEnv>()
 			return c.json({ error: "Session not found" }, 404);
 		}
 
-		await db.delete(sessionTable).where(eq(sessionTable.id, sessionId));
+		try {
+			await c.var.auth.api.revokeSession({
+				body: { token: target.token },
+				headers: c.req.raw.headers,
+			});
+		} catch (e) {
+			const message = e instanceof Error ? e.message : "Could not revoke session";
+			return c.json({ error: message }, 400);
+		}
 		return c.json({ ok: true as const });
 	})
 	.post("/sessions/revoke-others", async (c) => {
@@ -273,11 +284,19 @@ export const account = new Hono<AuthWorkerAppEnv>()
 			return c.json({ error: "Unauthorized" }, 401);
 		}
 
-		const db = getAuthDb(c.env.DB);
-		const currentId = await resolveRequestSessionId(c, session);
-		await db
-			.delete(sessionTable)
-			.where(and(eq(sessionTable.userId, session.user.id), ne(sessionTable.id, currentId)));
+		const currentId = await resolveRequestSessionId(c);
+		if (!currentId) {
+			return c.json({ error: "Unauthorized" }, 401);
+		}
+
+		try {
+			await c.var.auth.api.revokeOtherSessions({
+				headers: c.req.raw.headers,
+			});
+		} catch (e) {
+			const message = e instanceof Error ? e.message : "Could not sign out other sessions";
+			return c.json({ error: message }, 400);
+		}
 		return c.json({ ok: true as const });
 	})
 	.post("/password", jsonValidator(accountPasswordBodySchema), async (c) => {

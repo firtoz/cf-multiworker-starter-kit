@@ -3,7 +3,9 @@ import {
 	createBindingAuthWorkerHonoClient,
 	createBindingAuthWorkerHonoClientWithHeaders,
 } from "./binding/create-binding-hono-client";
+import { filterAuthCookieHeader } from "./binding-headers";
 import { type AuthSession, type AuthUser, isAdminUser } from "./roles";
+import { signOut } from "./sign-out";
 
 type GetSessionResponse = {
 	user?: {
@@ -45,15 +47,36 @@ function mapSession(body: GetSessionResponse | null): AuthSession | null {
 export async function getSession(auth: Fetcher, request: Request): Promise<AuthSession | null> {
 	const api = createBindingAuthWorkerHonoClient(auth, request);
 
-	let res = await api.betterAuth.get({ url: "/get-session" });
+	let res = await api.betterAuth.get({
+		url: "/get-session",
+		query: { disableCookieCache: true },
+	});
 	for (let attempt = 0; res.status === 503 && attempt < 2; attempt++) {
-		res = await api.betterAuth.get({ url: "/get-session" });
+		res = await api.betterAuth.get({
+			url: "/get-session",
+			query: { disableCookieCache: true },
+		});
 	}
 
 	if (!res.ok) {
 		return null;
 	}
 	return mapSession(await res.json());
+}
+
+/** Document preload: DB-backed session; clears stale browser cookies when revoked elsewhere. */
+export async function resolveDocumentAuthSession(
+	auth: Fetcher,
+	request: Request,
+): Promise<{ session: AuthSession | null; staleCookieHeaders: string[] }> {
+	const session = await getSession(auth, request);
+	if (session) {
+		return { session, staleCookieHeaders: [] };
+	}
+	if (!filterAuthCookieHeader(request.headers.get("cookie"))) {
+		return { session: null, staleCookieHeaders: [] };
+	}
+	return { session: null, staleCookieHeaders: await signOut(auth, request) };
 }
 
 export type AuthProviders = {

@@ -1,9 +1,9 @@
 import {
 	AUTH_INTERNAL_ORIGIN,
 	authApiPrefix,
-	getSession,
 	guestApiPrefix,
 	machineAdminBootstrapSyncPath,
+	resolveDocumentAuthSession,
 } from "@internal/auth-client";
 import { AUTH_ADMIN_SECRET_HEADER } from "@internal/auth-db/constants";
 import { INTERNAL_BINDING_SESSION_HEADER } from "@internal/auth-db/internal-binding-session";
@@ -128,12 +128,30 @@ export function createWebWorkerApp(
 		})
 		.all("*", async (c) => {
 			const pathname = new URL(c.req.url).pathname;
+			let staleCookieHeaders: string[] = [];
 			const authSession = shouldPreloadAuthSession(pathname)
-				? await getSession(c.env.AUTH, c.req.raw)
+				? await resolveDocumentAuthSession(c.env.AUTH, c.req.raw).then(
+						({ session, staleCookieHeaders: headers }) => {
+							staleCookieHeaders = headers;
+							return session;
+						},
+					)
 				: null;
-			return requestHandler(c.req.raw, {
+			const response = await requestHandler(c.req.raw, {
 				cloudflare: { env: c.env, ctx: c.executionCtx },
 				authSession,
+			});
+			if (staleCookieHeaders.length === 0) {
+				return response;
+			}
+			const headers = new Headers(response.headers);
+			for (const cookie of staleCookieHeaders) {
+				headers.append("Set-Cookie", cookie);
+			}
+			return new Response(response.body, {
+				status: response.status,
+				statusText: response.statusText,
+				headers,
 			});
 		});
 }
