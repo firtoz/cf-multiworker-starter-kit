@@ -79,8 +79,8 @@ export function createAuth(env: AuthWorkerEnv, trustedOrigins: string[]) {
 		id?: string;
 		userId?: string | null;
 		providerId: string;
-		idToken?: string | null;
-		accessToken?: string | null;
+		idToken?: string | null | undefined;
+		accessToken?: string | null | undefined;
 	};
 
 	const promoteGuestAfterLinkedOAuthAccount = async (
