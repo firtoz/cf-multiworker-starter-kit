@@ -1,5 +1,6 @@
 import type { MaybeError } from "@firtoz/maybe-error";
-import { browserClient, type GuestUpgradeEmailResponse } from "@internal/auth-client";
+import { browserClient } from "@internal/auth-client";
+import type { GuestUpgradeEmailResponse } from "@internal/auth-db/api-schemas";
 import { setLastLoginMethod } from "~/lib/last-login-method";
 
 /** Upgrade the current guest session to email/password without changing user id. */

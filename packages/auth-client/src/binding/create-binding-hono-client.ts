@@ -1,8 +1,8 @@
-import { buildAuthBindingHeaders } from "../binding-headers";
 import {
 	createInternalBindingSessionToken,
 	INTERNAL_BINDING_SESSION_HEADER,
 } from "@internal/auth-db/internal-binding-session";
+import { buildAuthBindingHeaders } from "../binding-headers";
 import type { AuthSession } from "../roles";
 import { createAuthBindingFetch } from "./auth-binding-fetch";
 import { type AuthWorkerHonoClient, createAuthWorkerHonoClient } from "./auth-worker-hono-client";

@@ -3,7 +3,7 @@ import {
 	SubmitterUnmountedError,
 	useDynamicSubmitter,
 } from "@firtoz/router-toolkit";
-import type { AccountSummary, UserEmailSource } from "@internal/auth-client";
+import type { AccountSummary, UserEmailSource } from "@internal/auth-db/api-schemas";
 import { useCallback, useRef, useState } from "react";
 import { useRevalidator } from "react-router";
 import { accountFormErrorMessage } from "~/lib/account-form-error";

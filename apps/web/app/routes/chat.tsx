@@ -1,11 +1,8 @@
 import { env } from "cloudflare:workers";
 import { fail, type MaybeError, success } from "@firtoz/maybe-error";
 import type { RoutePath } from "@firtoz/router-toolkit";
-import {
-	type AuthUser,
-	accountDisplayName,
-	GUEST_SESSION_RETENTION_DAYS,
-} from "@internal/auth-client";
+import { type AuthUser, accountDisplayName } from "@internal/auth-client";
+import { GUEST_SESSION_RETENTION_DAYS } from "@internal/auth-db/constants";
 import { createChatAttestToken, resolveChatAttestedIdentity } from "@internal/chat-contract";
 import { data } from "react-router";
 import { ChatClient } from "~/components/chat/ChatClient";

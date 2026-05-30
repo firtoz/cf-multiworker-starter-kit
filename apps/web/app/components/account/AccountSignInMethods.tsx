@@ -1,4 +1,4 @@
-import type { AccountSummary } from "@internal/auth-client";
+import type { AccountSummary } from "@internal/auth-db/api-schemas";
 import { useCallback, useEffect, useState } from "react";
 import { GoogleOAuthPortlessWarning } from "~/components/auth/GoogleOAuthPortlessWarning";
 import { authCallbackUrl } from "~/lib/auth-callback-url";

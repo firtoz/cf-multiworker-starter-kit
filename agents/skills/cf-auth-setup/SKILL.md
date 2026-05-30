@@ -6,9 +6,9 @@ Use when configuring authentication for a fork of this starter kit: env secrets,
 
 | Package | Role |
 |---------|------|
-| `packages/auth-db` | D1 schema + migrations (Better Auth tables + `role`) |
+| `packages/auth-db` | D1 schema, migrations, **`api-schemas`**, **`constants`** |
 | `workers/auth-worker` | Better Auth HTTP API, KV trusted origins, admin API |
-| `packages/auth-client` | `getSession`, `requireAdmin`, shared constants |
+| `packages/auth-client` | Binding/session client (`createAuthClient`, `getSession`) — not a barrel for auth-db |
 | `apps/web` | Login UI, account, admin UI, session in root loader |
 
 ## Fork checklist
@@ -60,7 +60,9 @@ OAuth redirect URIs must match the resolved URL: `https://<host>/api/auth/callba
 
 ## Service binding calls (`AUTH.fetch`)
 
-**Do not** call `env.AUTH.fetch` directly from web routes for custom auth-worker APIs. Use **`@internal/auth-client`**:
+**Do not** call `env.AUTH.fetch` directly from web routes for custom auth-worker APIs. Use **`@internal/auth-client`** for client/session/binding helpers only.
+
+**Imports:** [typescript-imports.mdc](../../rules/typescript-imports.mdc) — do not pull `AccountSummary`, `AdminUserRow`, etc. from `@internal/auth-client`. Use **`@internal/auth-db/api-schemas`** (and **`@internal/auth-db/constants`** for TTL/copy constants).
 
 - **`createAuthClient(env.AUTH, request)`** — browser-backed session + custom API. Returns `{ session, admin, profile, fetch }` with **`MaybeError`** on mutations.
 - **`createServiceAuthClient(env.AUTH, secret)`** — machine admin (`AUTH_ADMIN_SECRET`) for cron/automation without a browser session.
@@ -69,10 +71,13 @@ OAuth redirect URIs must match the resolved URL: `https://<host>/api/auth/callba
 Example:
 
 ```ts
+import { createAuthClient } from "@internal/auth-client";
+import type { AdminUserRow } from "@internal/auth-db/api-schemas";
+
 const auth = createAuthClient(env.AUTH, request);
 const session = await auth.session.get();
 await auth.profile.update({ name: displayName });
-await auth.admin.listUsers();
+const users = await auth.admin.listUsers(); // AdminUserRow[] in result
 ```
 
 ### Drizzle-derived API schemas

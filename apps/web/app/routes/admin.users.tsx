@@ -1,10 +1,8 @@
 import { fail, type MaybeError, success } from "@firtoz/maybe-error";
 import type { RoutePath } from "@firtoz/router-toolkit";
-import {
-	type AdminUserRow,
-	type AuthClient,
-	GUEST_SESSION_RETENTION_DAYS,
-} from "@internal/auth-client";
+import type { AuthClient } from "@internal/auth-client";
+import type { AdminUserRow } from "@internal/auth-db/api-schemas";
+import { GUEST_SESSION_RETENTION_DAYS } from "@internal/auth-db/constants";
 import { AdminUsersPanel } from "~/components/admin/AdminUsersPanel";
 import { createRouteAuthClient } from "~/lib/route-auth-client";
 import type { Route } from "./+types/admin.users";

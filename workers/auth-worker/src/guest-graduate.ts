@@ -6,9 +6,15 @@ import {
 	isSyntheticGuestEmail,
 	syncUserEmailsForUser,
 } from "@internal/auth-db";
-import { account, user as userTable } from "@internal/auth-db/schema";
+import { GUEST_SESSION_SECONDS, SIGNED_IN_SESSION_SECONDS } from "@internal/auth-db/constants";
+import {
+	account,
+	session as sessionTable,
+	userEmail,
+	user as userTable,
+} from "@internal/auth-db/schema";
 import { decryptOAuthToken } from "better-auth/oauth2";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 
 export type GraduateAnonymousInput = {
 	email: string;
@@ -98,6 +104,53 @@ async function resolveOAuthGraduationEmail(
 	return null;
 }
 
+export type GuestGraduationSnapshot = {
+	email: string;
+	emailVerified: boolean;
+	name: string;
+	image: string | null;
+};
+
+/** Extend active sessions when a guest becomes a permanent account. */
+export async function extendUserSessionsToSignedInDuration(
+	db: AuthDb,
+	userId: string,
+): Promise<void> {
+	const expiresAt = new Date(Date.now() + SIGNED_IN_SESSION_SECONDS * 1000);
+	await db
+		.update(sessionTable)
+		.set({ expiresAt, updatedAt: new Date() })
+		.where(eq(sessionTable.userId, userId));
+}
+
+/** Undo a failed email/password upgrade after {@link graduateAnonymousUser} succeeded. */
+export async function revertAnonymousUserGraduation(
+	db: AuthDb,
+	userId: string,
+	snapshot: GuestGraduationSnapshot,
+): Promise<void> {
+	await db
+		.update(userTable)
+		.set({
+			email: snapshot.email,
+			emailVerified: snapshot.emailVerified,
+			name: snapshot.name,
+			image: snapshot.image,
+			isAnonymous: true,
+			updatedAt: new Date(),
+		})
+		.where(eq(userTable.id, userId));
+	await db
+		.delete(account)
+		.where(and(eq(account.userId, userId), eq(account.providerId, "credential")));
+	await db.delete(userEmail).where(eq(userEmail.userId, userId));
+	const guestExpiresAt = new Date(Date.now() + GUEST_SESSION_SECONDS * 1000);
+	await db
+		.update(sessionTable)
+		.set({ expiresAt: guestExpiresAt, updatedAt: new Date() })
+		.where(eq(sessionTable.userId, userId));
+}
+
 export async function graduateAnonymousUser(
 	db: AuthDb,
 	userId: string,
@@ -150,6 +203,7 @@ export async function graduateAnonymousUser(
 
 	await db.update(userTable).set(patch).where(eq(userTable.id, userId));
 	await syncUserEmailsForUser(db, userId);
+	await extendUserSessionsToSignedInDuration(db, userId);
 	return { ok: true };
 }
 

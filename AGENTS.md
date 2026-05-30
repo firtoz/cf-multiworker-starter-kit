@@ -24,7 +24,7 @@ Short index for AI agents. **Details live in skills** under **[`agents/skills/`]
 
 **Always-on reminder (workers, env, routes):** [agents/rules/cf-workers-patterns.mdc](agents/rules/cf-workers-patterns.mdc)
 
-**Imports (no re-exports):** [agents/rules/typescript-imports.mdc](agents/rules/typescript-imports.mdc)
+**Imports (no cross-package re-exports):** [agents/rules/typescript-imports.mdc](agents/rules/typescript-imports.mdc) — package `index.ts` barrels **its own** modules only; import schemas/constants from `@internal/auth-db`, client helpers from `@internal/auth-client`, etc.
 
 **Generated artifacts policy:** [agents/rules/generated-artifacts.mdc](agents/rules/generated-artifacts.mdc). Never hand-author Drizzle migration SQL, Drizzle `meta/*.json`, React Router `+types`, lockfiles, or `.alchemy/` output. Edit the source of truth and run the generator.
 

@@ -18,7 +18,10 @@ type AdminAppClient = HonoClientApp<AdminApp>;
 
 export function createAdminApi(api: TypedHonoFetcher<AdminAppClient>) {
 	return {
-		listUsers(query?: { page?: number; pageSize?: number }): Promise<MaybeError<AdminUsersResponse>> {
+		listUsers(query?: {
+			page?: number;
+			pageSize?: number;
+		}): Promise<MaybeError<AdminUsersResponse>> {
 			const params = new URLSearchParams();
 			if (query?.page != null) {
 				params.set("page", String(query.page));

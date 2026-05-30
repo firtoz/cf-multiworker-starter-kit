@@ -1,4 +1,4 @@
-import type { AdminUserRow } from "@internal/auth-client";
+import type { AdminUserRow } from "@internal/auth-db/api-schemas";
 import { PROFILE_NAME_MAX_CHARS } from "@internal/auth-db/constants";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useFetcher } from "react-router";

@@ -20,6 +20,7 @@ export function AccountPasswordForm({ hasPassword }: AccountPasswordFormProps) {
 	const [currentPassword, setCurrentPassword] = useState("");
 	const [newPassword, setNewPassword] = useState("");
 	const [confirmPassword, setConfirmPassword] = useState("");
+	const [revokeOtherSessions, setRevokeOtherSessions] = useState(false);
 	const [clientError, setClientError] = useState<string | null>(null);
 	const [actionError, setActionError] = useState<string | null>(null);
 	const [busy, setBusy] = useState(false);
@@ -50,6 +51,7 @@ export function AccountPasswordForm({ hasPassword }: AccountPasswordFormProps) {
 								intent: "changePassword",
 								currentPassword,
 								newPassword,
+								...(revokeOtherSessions ? { revokeOtherSessions: true } : {}),
 							}
 						: {
 								intent: "setPassword",
@@ -82,7 +84,15 @@ export function AccountPasswordForm({ hasPassword }: AccountPasswordFormProps) {
 				}
 			}
 		},
-		[confirmPassword, currentPassword, hasPassword, newPassword, revalidate, submitter],
+		[
+			confirmPassword,
+			currentPassword,
+			hasPassword,
+			newPassword,
+			revokeOtherSessions,
+			revalidate,
+			submitter,
+		],
 	);
 
 	return (
@@ -131,6 +141,17 @@ export function AccountPasswordForm({ hasPassword }: AccountPasswordFormProps) {
 						onChange={(event) => setConfirmPassword(event.target.value)}
 					/>
 				</label>
+				{hasPassword ? (
+					<label className="flex items-start gap-2 text-sm text-gray-700 dark:text-gray-300">
+						<input
+							type="checkbox"
+							className="mt-1"
+							checked={revokeOtherSessions}
+							onChange={(event) => setRevokeOtherSessions(event.target.checked)}
+						/>
+						<span>Sign out my other devices after changing password</span>
+					</label>
+				) : null}
 				<button
 					type="submit"
 					disabled={busy}

@@ -68,6 +68,34 @@ export const setPasswordSchema = z.object({
 export const changePasswordSchema = z.object({
 	currentPassword: z.string().min(1),
 	newPassword: z.string().min(8).max(128),
+	revokeOtherSessions: z.boolean().optional(),
+});
+
+export const accountSessionRowSchema = z.object({
+	id: z.string(),
+	createdAt: z.string(),
+	updatedAt: z.string(),
+	expiresAt: z.string(),
+	ipAddress: z.string().nullable().optional(),
+	userAgent: z.string().nullable().optional(),
+	isCurrent: z.boolean(),
+});
+
+export type AccountSessionRow = z.infer<typeof accountSessionRowSchema>;
+
+export const accountSessionsResponseSchema = z.object({
+	sessions: z.array(accountSessionRowSchema),
+});
+
+export type AccountSessionsResponse = z.infer<typeof accountSessionsResponseSchema>;
+
+export const revokeAccountSessionSchema = z.object({
+	intent: z.literal("revokeSession"),
+	sessionId: z.string().min(1),
+});
+
+export const revokeOtherAccountSessionsSchema = z.object({
+	intent: z.literal("revokeOtherSessions"),
 });
 
 export const setNotificationEmailPatchSchema = setNotificationEmailSchema.extend({
@@ -120,6 +148,8 @@ export const accountFormSchema = z.discriminatedUnion("intent", [
 	setSignInEmailPatchSchema,
 	setPasswordPostSchema,
 	changePasswordPostSchema,
+	revokeAccountSessionSchema,
+	revokeOtherAccountSessionsSchema,
 ]);
 
 export type AccountFormBody = z.infer<typeof accountFormSchema>;

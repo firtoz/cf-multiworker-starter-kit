@@ -9,10 +9,13 @@ import {
 	AUTH_OAUTH_EMAIL_ALREADY_IN_USE_CODE,
 	AUTH_OAUTH_EMAIL_ALREADY_IN_USE_MESSAGE,
 	BETTER_AUTH_COOKIE_PREFIX,
+	GUEST_SESSION_SECONDS,
+	SIGNED_IN_SESSION_SECONDS,
 } from "@internal/auth-db/constants";
 import { parseAuthRole } from "@internal/auth-db/roles";
 import type { AuthRole } from "@internal/auth-db/schema";
 import * as authSchema from "@internal/auth-db/schema";
+import { user as userTable } from "@internal/auth-db/schema";
 import { isLoopbackOAuthProxyProductionUrl } from "alchemy-utils/auth-oauth-proxy-url";
 import { bootstrapAdminEmails } from "alchemy-utils/bootstrap-admin-emails";
 import { PRODUCT_PREFIX } from "alchemy-utils/worker-peer-scripts";
@@ -27,7 +30,35 @@ import { graduateAnonymousUserFromOAuthLink, type OAuthLinkCompleted } from "./g
 import { configureLocalGoogleOAuthProxy } from "./local-oauth-proxy-patch";
 import { configurePassthroughOAuthProxy } from "./oauth-proxy-passthrough-patch";
 
-const GUEST_SESSION_SECONDS = 60 * 60 * 24 * 7;
+async function isAnonymousUserId(
+	db: ReturnType<typeof getAuthDb>,
+	userId: string | undefined | null,
+): Promise<boolean> {
+	if (!userId) {
+		return false;
+	}
+	const [row] = await db
+		.select({ isAnonymous: userTable.isAnonymous })
+		.from(userTable)
+		.where(eq(userTable.id, userId))
+		.limit(1);
+	return row?.isAnonymous === true;
+}
+
+function clampGuestSessionExpiry(session: {
+	expiresAt?: Date | unknown;
+	userId?: string | null;
+}): Date | undefined {
+	if (!session.expiresAt) {
+		return undefined;
+	}
+	const proposed =
+		session.expiresAt instanceof Date
+			? session.expiresAt
+			: new Date(session.expiresAt as string | number);
+	const guestCap = new Date(Date.now() + GUEST_SESSION_SECONDS * 1000);
+	return proposed > guestCap ? guestCap : proposed;
+}
 
 export type AuthWorkerEnv = {
 	DB: D1Database;
@@ -157,7 +188,7 @@ export function createAuth(env: AuthWorkerEnv, trustedOrigins: string[]) {
 		}),
 		trustedOrigins,
 		session: {
-			expiresIn: GUEST_SESSION_SECONDS,
+			expiresIn: SIGNED_IN_SESSION_SECONDS,
 			updateAge: 60 * 60 * 24,
 			cookieCache: {
 				enabled: true,
@@ -216,6 +247,32 @@ export function createAuth(env: AuthWorkerEnv, trustedOrigins: string[]) {
 			},
 		},
 		databaseHooks: {
+			session: {
+				create: {
+					before: async (createdSession) => {
+						if (!(await isAnonymousUserId(db, createdSession.userId))) {
+							return { data: createdSession };
+						}
+						const capped = clampGuestSessionExpiry(createdSession);
+						if (!capped) {
+							return { data: createdSession };
+						}
+						return { data: { ...createdSession, expiresAt: capped } };
+					},
+				},
+				update: {
+					before: async (updatedSession) => {
+						if (!(await isAnonymousUserId(db, updatedSession.userId))) {
+							return { data: updatedSession };
+						}
+						const capped = clampGuestSessionExpiry(updatedSession);
+						if (!capped) {
+							return { data: updatedSession };
+						}
+						return { data: { ...updatedSession, expiresAt: capped } };
+					},
+				},
+			},
 			user: {
 				create: {
 					before: async (user) => {

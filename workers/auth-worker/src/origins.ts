@@ -4,9 +4,12 @@ const CACHE_TTL_MS = 5 * 60 * 1000;
 let cachedOrigins: string[] | null = null;
 let cacheExpiry = 0;
 
+import { bustAuthInstanceCache } from "./auth-instance";
+
 export function bustTrustedOriginsCache(): void {
 	cachedOrigins = null;
 	cacheExpiry = 0;
+	bustAuthInstanceCache();
 }
 
 export async function getTrustedOrigins(kv: KVNamespace): Promise<string[]> {

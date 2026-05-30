@@ -1,7 +1,9 @@
 import type { TypedHonoFetcher } from "@firtoz/hono-fetcher";
 import type { MaybeError } from "@firtoz/maybe-error";
 import {
+	type AccountSessionsResponse,
 	type AccountSummary,
+	accountSessionsResponseSchema,
 	accountSummarySchema,
 	authAddContactEmailResponseSchema,
 	authMutationOkResponseSchema,
@@ -64,13 +66,40 @@ export function createAccountApi(api: TypedHonoFetcher<AccountAppClient>) {
 		changePassword(
 			currentPassword: string,
 			newPassword: string,
+			options?: { revokeOtherSessions?: boolean },
 		): Promise<MaybeError<{ ok: true }>> {
 			return parseBindingJson(
 				api.post({
 					url: "/password",
-					body: { intent: "changePassword", currentPassword, newPassword },
+					body: {
+						intent: "changePassword",
+						currentPassword,
+						newPassword,
+						...(options?.revokeOtherSessions ? { revokeOtherSessions: true } : {}),
+					},
 				}),
 				"Could not change password",
+				authMutationOkResponseSchema,
+			);
+		},
+		listSessions(): Promise<MaybeError<AccountSessionsResponse>> {
+			return parseBindingJson(
+				api.get({ url: "/sessions" }),
+				"Could not load sessions",
+				accountSessionsResponseSchema,
+			);
+		},
+		revokeSession(sessionId: string): Promise<MaybeError<{ ok: true }>> {
+			return parseBindingJson(
+				api.delete({ url: "/sessions/:id", params: { id: sessionId } }),
+				"Could not sign out that session",
+				authMutationOkResponseSchema,
+			);
+		},
+		revokeOtherSessions(): Promise<MaybeError<{ ok: true }>> {
+			return parseBindingJson(
+				api.post({ url: "/sessions/revoke-others" }),
+				"Could not sign out other sessions",
 				authMutationOkResponseSchema,
 			);
 		},

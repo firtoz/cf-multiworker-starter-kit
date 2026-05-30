@@ -1,9 +1,9 @@
 import type { MaybeError } from "@firtoz/maybe-error";
-import {
-	type AuthSocialProvider,
-	type BetterAuthSessionOkResponse,
-	browserClient,
-} from "@internal/auth-client";
+import { browserClient } from "@internal/auth-client";
+import type {
+	AuthSocialProvider,
+	BetterAuthSessionOkResponse,
+} from "@internal/auth-db/api-schemas";
 import { setLastLoginMethod, setPendingLoginMethod } from "~/lib/last-login-method";
 
 function redirectIfOAuthStart(

@@ -1,4 +1,4 @@
-import type { AdminUserRow } from "@internal/auth-client";
+import type { AdminUserRow } from "@internal/auth-db/api-schemas";
 
 function toDate(value: Date | string | null | undefined): Date | null {
 	if (value == null) {

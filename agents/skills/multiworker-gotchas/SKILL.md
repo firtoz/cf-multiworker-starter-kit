@@ -9,6 +9,8 @@ These trip up new contributors and agents most often. For commands and checklist
 
 1. **Worker bindings and env** — Import the typed `env` from the Workers virtual module, not from React Router context: `import { env } from "cloudflare:workers"`. **Do not** use `context.cloudflare.env` (or similar) for Cloudflare bindings in this stack. More: [cf-workers-patterns.mdc](../../rules/cf-workers-patterns.mdc).
 
+1b. **Imports — no cross-package re-exports** — Import each symbol from the module that **defines** it. **`@internal/auth-client`** = session/client/binding code; **`@internal/auth-db/api-schemas`** = wire types and Zod schemas; **`@internal/auth-db/constants`** = shared auth constants. Do **not** re-export auth-db (or any other package) from auth-client’s `index.ts` for convenience. Full rule: [typescript-imports.mdc](../../rules/typescript-imports.mdc).
+
 2. **Generated artifacts**
    - Never hand-author files meant to be generated.
    - **Drizzle:** edit **`packages/db/src/schema.ts`** or **`durable-objects/<name>/src/schema.ts`**; set **`drizzle.config.ts`** driver (**`d1-http`** vs **`durable-sqlite`**); run **`bun run db:generate`** or the package’s **`db:generate`**.

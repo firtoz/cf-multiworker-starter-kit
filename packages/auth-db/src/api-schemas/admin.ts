@@ -106,8 +106,31 @@ export const adminSetRoleSchema = z.object({
 
 export type AdminSetRoleInput = z.infer<typeof adminSetRoleSchema>;
 
+/** Full origin (scheme + host, optional non-default port) — no path or trailing slash. */
+export const trustedOriginSchema = z
+	.string()
+	.trim()
+	.url()
+	.refine(
+		(value) => {
+			try {
+				const url = new URL(value);
+				if (url.pathname !== "/" && url.pathname !== "") {
+					return false;
+				}
+				if (url.search || url.hash) {
+					return false;
+				}
+				return `${url.protocol}//${url.host}` === value.replace(/\/+$/, "");
+			} catch {
+				return false;
+			}
+		},
+		{ message: "Must be a full origin (e.g. https://app.example.com)" },
+	);
+
 export const adminAddOriginSchema = z.object({
-	origin: z.string().trim().min(1),
+	origin: trustedOriginSchema,
 });
 
 export type AdminAddOriginInput = z.infer<typeof adminAddOriginSchema>;

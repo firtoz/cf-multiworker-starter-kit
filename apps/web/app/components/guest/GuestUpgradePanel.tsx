@@ -1,5 +1,5 @@
-import type { AuthProviders, AuthUser } from "@internal/auth-client";
-import { accountDisplayName, GUEST_SESSION_RETENTION_DAYS } from "@internal/auth-client";
+import { type AuthProviders, type AuthUser, accountDisplayName } from "@internal/auth-client";
+import { GUEST_SESSION_RETENTION_DAYS } from "@internal/auth-db/constants";
 import { type ComponentProps, useCallback, useEffect, useState } from "react";
 import { href } from "react-router";
 import { GoogleOAuthPortlessWarning } from "~/components/auth/GoogleOAuthPortlessWarning";

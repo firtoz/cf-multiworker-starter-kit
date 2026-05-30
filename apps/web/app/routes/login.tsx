@@ -8,6 +8,7 @@ import { ClientOnly } from "~/components/client/ClientOnly";
 import { BackToHomeLink } from "~/components/shared/BackToHomeLink";
 import { accountLinkErrorFromRequestUrl } from "~/lib/auth-link-error";
 import { googleOAuthPortlessWarningForWebEnv } from "~/lib/google-oauth-portless-warning";
+import { safeRedirectPath } from "~/lib/safe-redirect-path";
 import type { Route } from "./+types/login";
 
 export const route: RoutePath<"/login"> = "/login";
@@ -26,7 +27,7 @@ export async function loader({ request, context }: Route.LoaderArgs): Promise<
 > {
 	const session = await resolveAuthSession(context, env.AUTH, request);
 	const url = new URL(request.url);
-	const redirectTo = url.searchParams.get("redirectTo")?.trim() || href("/");
+	const redirectTo = safeRedirectPath(url.searchParams.get("redirectTo"), href("/"));
 	if (session && session.user.isAnonymous === true) {
 		const upgradeUrl = `${href("/guest/upgrade")}?redirectTo=${encodeURIComponent(redirectTo)}`;
 		throw redirect(upgradeUrl);

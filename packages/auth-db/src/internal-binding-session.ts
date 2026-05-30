@@ -1,7 +1,8 @@
 import { PRODUCT_PREFIX } from "alchemy-utils/worker-peer-scripts";
 
 /** HMAC-signed session snapshot for trusted web → auth service-binding calls (skips D1 `getSession`). */
-export const INTERNAL_BINDING_SESSION_HEADER = `x-${PRODUCT_PREFIX}-internal-binding-session` as const;
+export const INTERNAL_BINDING_SESSION_HEADER =
+	`x-${PRODUCT_PREFIX}-internal-binding-session` as const;
 
 const TOKEN_TTL_MS = 5 * 60 * 1000;
 

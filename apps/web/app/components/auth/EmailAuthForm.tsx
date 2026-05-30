@@ -1,4 +1,5 @@
-import { type FormEvent, useCallback, useState } from "react";
+import { type SubmitEvent, useCallback, useState } from "react";
+import { authCallbackUrl } from "~/lib/auth-callback-url";
 import { signInWithEmail, signUpWithEmail } from "~/lib/auth-email-client";
 
 type EmailAuthFormProps = {
@@ -6,7 +7,7 @@ type EmailAuthFormProps = {
 };
 
 export function EmailAuthForm({ redirectTo }: EmailAuthFormProps) {
-	const callbackURL = `${window.location.origin}${redirectTo.startsWith("/") ? redirectTo : `/${redirectTo}`}`;
+	const callbackURL = authCallbackUrl(redirectTo);
 	const [mode, setMode] = useState<"sign-in" | "sign-up">("sign-in");
 	const [name, setName] = useState("");
 	const [email, setEmail] = useState("");
@@ -15,8 +16,8 @@ export function EmailAuthForm({ redirectTo }: EmailAuthFormProps) {
 	const [busy, setBusy] = useState(false);
 
 	const onSubmit = useCallback(
-		async (e: FormEvent) => {
-			e.preventDefault();
+		async (event: SubmitEvent<HTMLFormElement>) => {
+			event.preventDefault();
 			setError(null);
 			setBusy(true);
 			try {

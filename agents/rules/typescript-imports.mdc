@@ -3,25 +3,63 @@ alwaysApply: true
 ---
 # TypeScript imports — no re-exports
 
-Do **not** re-export symbols from another module in application or worker source files.
+**Golden rule:** import each symbol from the module that **defines** it. A package `index.ts` may barrel **only its own** `./` modules — never another package.
+
+## Where to import (auth stack example)
+
+| You need | Import from | Not from |
+| -------- | ----------- | -------- |
+| `createAuthClient`, `getSession`, `AuthUser` | `@internal/auth-client` | `@internal/auth-db` |
+| `AccountSummary`, `AdminUserRow`, Zod wire schemas | `@internal/auth-db/api-schemas` | `@internal/auth-client` |
+| `GUEST_SESSION_RETENTION_DAYS`, cookie prefix | `@internal/auth-db/constants` | `@internal/auth-client` |
+| `parseAuthRole`, `AuthRole` | `@internal/auth-db/roles` or `schema` | `@internal/auth-client` |
+| `bootstrapAdminEmails` | `alchemy-utils/bootstrap-admin-emails` | a random worker helper |
+
+Same rule for every workspace package: **`packages/db`**, **`alchemy-utils`**, **`auth-worker/*` subpaths**, etc.
 
 ## Forbidden
 
+**Route modules, workers, helpers** — no re-exports at all:
+
 ```typescript
-// ❌ Hides the real source; callers should import from the defining module
+// ❌
 export { bootstrapAdminEmails } from "alchemy-utils/bootstrap-admin-emails";
-export { something } from "@internal/other-package";
+export { AccountSummary } from "@internal/auth-db/api-schemas";
 ```
 
-## Required
-
-Import at each call site from the module that **defines** the symbol:
+**Package `index.ts`** — no passthrough from other packages (even for “one import surface”):
 
 ```typescript
-import { bootstrapAdminEmails } from "alchemy-utils/bootstrap-admin-emails";
-import { ensureBootstrapAdminRole } from "./bootstrap-admin";
+// ❌ packages/auth-client/src/index.ts
+export type { AccountSummary } from "@internal/auth-db/api-schemas";
+export { GUEST_SESSION_RETENTION_DAYS } from "@internal/auth-db/constants";
 ```
 
-## Allowed exception
+**Internal implementation files** may `import` from other packages; they must not **`export { … } from "other-package"`** unless that file is not acting as a barrel (prefer not to re-export at all outside `index.ts`).
 
-**Package public API entrypoints** only — files meant as the single import surface for a workspace package (`package.json` `exports`, e.g. `@internal/auth-client` root `index.ts`). Do not add passthrough re-exports in random route modules, workers, or helpers.
+## Required at call sites
+
+```typescript
+import { createAuthClient } from "@internal/auth-client";
+import { AccountSummary } from "@internal/auth-db/api-schemas";
+import { GUEST_SESSION_RETENTION_DAYS } from "@internal/auth-db/constants";
+import { bootstrapAdminEmails } from "alchemy-utils/bootstrap-admin-emails";
+```
+
+## Allowed — same-package barrel only
+
+`packages/auth-client/src/index.ts` may re-export **auth-client’s own** modules:
+
+```typescript
+// ✅ Re-exports symbols defined under packages/auth-client/src/
+export * from "./client";
+export * from "./session";
+export * from "./constants";
+```
+
+`./constants` defines `authApiPrefix`, `AUTH_INTERNAL_ORIGIN`, etc. locally — it may **import** `@internal/auth-db/constants` for `AUTH_SERVICE_BINDING_HOST`, but must not **re-export** auth-db symbols.
+
+## Quick check before adding an export
+
+1. Is the symbol **defined in this file or a sibling `./` module in the same package**? → OK in that package’s `index.ts`.
+2. Is it defined in **another package**? → Callers import from that package’s export path; do not add to this package’s index.

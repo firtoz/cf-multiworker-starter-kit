@@ -9,6 +9,7 @@ import { BackToHomeLink } from "~/components/shared/BackToHomeLink";
 import { accountLinkErrorFromRequestUrl } from "~/lib/auth-link-error";
 import { googleOAuthPortlessWarningForWebEnv } from "~/lib/google-oauth-portless-warning";
 import { createRouteAuthClient } from "~/lib/route-auth-client";
+import { safeRedirectPath } from "~/lib/safe-redirect-path";
 import type { Route } from "./+types/guest.upgrade";
 
 export const route: RoutePath<"/guest/upgrade"> = "/guest/upgrade";
@@ -25,7 +26,7 @@ export function meta(_args: Route.MetaArgs) {
 
 export async function loader({ request, context }: Route.LoaderArgs) {
 	const url = new URL(request.url);
-	const redirectTo = url.searchParams.get("redirectTo")?.trim() || href("/chat");
+	const redirectTo = safeRedirectPath(url.searchParams.get("redirectTo"), href("/chat"));
 	const auth = createRouteAuthClient(request, context);
 	const ensured = await auth.session.ensureChat();
 	if (!ensured) {

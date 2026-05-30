@@ -3,6 +3,7 @@ import { account, accountPath } from "./account";
 import { admin, adminPath } from "./admin";
 import type { AuthWorkerAppEnv } from "./app-env";
 import { createAuth } from "./auth";
+import { getOrCreateAuth } from "./auth-instance";
 import { betterAuth, betterAuthPath } from "./better-auth-routes";
 import { guestUpgrade, guestUpgradePath } from "./guest-upgrade";
 import { ensureTrustedOriginsSeeded } from "./origins";
@@ -15,7 +16,10 @@ export const authWorkerApp = new Hono<AuthWorkerAppEnv>()
 			: [];
 		const trustedOrigins = await ensureTrustedOriginsSeeded(c.env.AUTH_KV, seeds);
 		c.set("trustedOrigins", trustedOrigins);
-		c.set("auth", createAuth(c.env, trustedOrigins));
+		c.set(
+			"auth",
+			getOrCreateAuth(trustedOrigins, (origins) => createAuth(c.env, origins)),
+		);
 		await next();
 	})
 	.get("/health", (c) => c.json({ ok: true }))

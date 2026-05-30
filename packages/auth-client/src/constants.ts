@@ -16,6 +16,3 @@ export const AUTH_INTERNAL_ORIGIN = `https://${AUTH_SERVICE_BINDING_HOST}` as co
  * Requires {@link AUTH_ADMIN_SECRET_HEADER}; returns 404 when unauthorized.
  */
 export const machineAdminBootstrapSyncPath = "/api/internal/admin/bootstrap-sync" as const;
-
-/** Anonymous guest sessions expire after this many days without a visit (Better Auth sliding `session`). */
-export const GUEST_SESSION_RETENTION_DAYS = 7;

@@ -1,18 +1,19 @@
 import { env } from "cloudflare:workers";
 import { fail, type MaybeError, success } from "@firtoz/maybe-error";
 import { formAction, type RoutePath } from "@firtoz/router-toolkit";
+import { type AuthUser, accountDisplayName } from "@internal/auth-client";
 import {
+	type AccountSessionRow,
 	type AccountSummary,
-	type AuthUser,
-	accountDisplayName,
+	accountFormSchema,
 	type ProfileUserWire,
-} from "@internal/auth-client";
-import { accountFormSchema } from "@internal/auth-db/api-schemas";
+} from "@internal/auth-db/api-schemas";
 import { parseAuthRole } from "@internal/auth-db/roles";
 import { href, redirect } from "react-router";
 import { AccountDisplayNameForm } from "~/components/account/AccountDisplayNameForm";
 import { AccountEmailsSection } from "~/components/account/AccountEmailsSection";
 import { AccountPasswordForm } from "~/components/account/AccountPasswordForm";
+import { AccountSessionsSection } from "~/components/account/AccountSessionsSection";
 import { AccountSignInMethods } from "~/components/account/AccountSignInMethods";
 import { BackToHomeLink } from "~/components/shared/BackToHomeLink";
 import { accountLinkErrorFromRequestUrl } from "~/lib/auth-link-error";
@@ -28,6 +29,7 @@ export type AccountActionSuccess = {
 	ok: true;
 	user?: AuthUser;
 	summary?: AccountSummary;
+	sessions?: AccountSessionRow[];
 };
 
 function summaryUserToAuthUser(user: ProfileUserWire): AuthUser {
@@ -61,6 +63,9 @@ export async function loader({ request, context }: Route.LoaderArgs) {
 		return fail(summaryResult.error);
 	}
 
+	const sessionsResult = await auth.account.listSessions();
+	const sessions = sessionsResult.success ? sessionsResult.result.sessions : [];
+
 	const googlePortlessWarning =
 		summaryResult.result.providers.google &&
 		!summaryResult.result.providers.googleLoopbackOAuthProxy &&
@@ -70,6 +75,7 @@ export async function loader({ request, context }: Route.LoaderArgs) {
 	const linkErrorMessage = accountLinkErrorFromRequestUrl(request.url);
 	return success({
 		summary: summaryResult.result,
+		sessions,
 		accountPath,
 		...(googlePortlessWarning ? { googlePortlessWarning } : {}),
 		...(linkErrorMessage ? { linkErrorMessage } : {}),
@@ -146,15 +152,46 @@ export const action = formAction({
 				return success({ ok: true as const, summary: summaryResult.result });
 			}
 			case "changePassword": {
-				const result = await auth.account.changePassword(body.currentPassword, body.newPassword);
+				const result = await auth.account.changePassword(body.currentPassword, body.newPassword, {
+					revokeOtherSessions: body.revokeOtherSessions === true,
+				});
 				if (!result.success) {
 					return fail(result.error);
 				}
-				const summaryResult = await auth.account.getSummary();
+				const [summaryResult, sessionsResult] = await Promise.all([
+					auth.account.getSummary(),
+					auth.account.listSessions(),
+				]);
 				if (!summaryResult.success) {
 					return fail(summaryResult.error);
 				}
-				return success({ ok: true as const, summary: summaryResult.result });
+				return success({
+					ok: true as const,
+					summary: summaryResult.result,
+					...(sessionsResult.success ? { sessions: sessionsResult.result.sessions } : {}),
+				});
+			}
+			case "revokeSession": {
+				const result = await auth.account.revokeSession(body.sessionId);
+				if (!result.success) {
+					return fail(result.error);
+				}
+				const sessionsResult = await auth.account.listSessions();
+				if (!sessionsResult.success) {
+					return fail(sessionsResult.error);
+				}
+				return success({ ok: true as const, sessions: sessionsResult.result.sessions });
+			}
+			case "revokeOtherSessions": {
+				const result = await auth.account.revokeOtherSessions();
+				if (!result.success) {
+					return fail(result.error);
+				}
+				const sessionsResult = await auth.account.listSessions();
+				if (!sessionsResult.success) {
+					return fail(sessionsResult.error);
+				}
+				return success({ ok: true as const, sessions: sessionsResult.result.sessions });
 			}
 		}
 	},
@@ -162,6 +199,7 @@ export const action = formAction({
 
 export default function AccountRoute({ loaderData }: Route.ComponentProps) {
 	const summary = loaderData.success ? loaderData.result.summary : null;
+	const sessions = loaderData.success ? loaderData.result.sessions : [];
 	const accountPath = loaderData.success ? loaderData.result.accountPath : href("/account");
 	const googlePortlessWarning = loaderData.success
 		? loaderData.result.googlePortlessWarning
@@ -198,6 +236,7 @@ export default function AccountRoute({ loaderData }: Route.ComponentProps) {
 			/>
 			<AccountEmailsSection summary={summary} />
 			<AccountPasswordForm hasPassword={summary.hasPassword} />
+			<AccountSessionsSection sessions={sessions} />
 		</div>
 	);
 }

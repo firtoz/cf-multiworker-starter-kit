@@ -9,10 +9,17 @@ import {
 import {
 	accountPasswordBodySchema,
 	accountPatchBodySchema,
+	accountSessionsResponseSchema,
 	accountSummarySchema,
+	parseTimestampOrNull,
 } from "@internal/auth-db/api-schemas";
-import { account as accountTable, userEmail, user as userTable } from "@internal/auth-db/schema";
-import { eq } from "drizzle-orm";
+import {
+	account as accountTable,
+	session as sessionTable,
+	userEmail,
+	user as userTable,
+} from "@internal/auth-db/schema";
+import { and, desc, eq, ne } from "drizzle-orm";
 import { Hono } from "hono";
 import type { AuthWorkerAppEnv } from "./app-env";
 import { mapUserWithRole } from "./auth";
@@ -200,6 +207,74 @@ export const account = new Hono<AuthWorkerAppEnv>()
 		await syncUserEmailsForUser(db, session.user.id);
 		return c.json({ ok: true as const });
 	})
+	.get("/sessions", async (c) => {
+		const session = c.var.authSession;
+		if (!session?.user) {
+			return c.json({ error: "Unauthorized" }, 401);
+		}
+
+		const db = getAuthDb(c.env.DB);
+		const rows = await db
+			.select({
+				id: sessionTable.id,
+				createdAt: sessionTable.createdAt,
+				updatedAt: sessionTable.updatedAt,
+				expiresAt: sessionTable.expiresAt,
+				ipAddress: sessionTable.ipAddress,
+				userAgent: sessionTable.userAgent,
+			})
+			.from(sessionTable)
+			.where(eq(sessionTable.userId, session.user.id))
+			.orderBy(desc(sessionTable.updatedAt));
+
+		const currentId = session.session.id;
+		const payload = accountSessionsResponseSchema.parse({
+			sessions: rows.map((row) => ({
+				id: row.id,
+				createdAt: (parseTimestampOrNull(row.createdAt) ?? new Date(0)).toISOString(),
+				updatedAt: (parseTimestampOrNull(row.updatedAt) ?? new Date(0)).toISOString(),
+				expiresAt: (parseTimestampOrNull(row.expiresAt) ?? new Date(0)).toISOString(),
+				ipAddress: row.ipAddress ?? null,
+				userAgent: row.userAgent ?? null,
+				isCurrent: row.id === currentId,
+			})),
+		});
+		return c.json(payload);
+	})
+	.delete("/sessions/:id", async (c) => {
+		const session = c.var.authSession;
+		if (!session?.user) {
+			return c.json({ error: "Unauthorized" }, 401);
+		}
+
+		const sessionId = c.req.param("id");
+		const db = getAuthDb(c.env.DB);
+		const [target] = await db
+			.select({ id: sessionTable.id })
+			.from(sessionTable)
+			.where(and(eq(sessionTable.id, sessionId), eq(sessionTable.userId, session.user.id)))
+			.limit(1);
+		if (!target) {
+			return c.json({ error: "Session not found" }, 404);
+		}
+
+		await db.delete(sessionTable).where(eq(sessionTable.id, sessionId));
+		return c.json({ ok: true as const });
+	})
+	.post("/sessions/revoke-others", async (c) => {
+		const session = c.var.authSession;
+		if (!session?.user) {
+			return c.json({ error: "Unauthorized" }, 401);
+		}
+
+		const db = getAuthDb(c.env.DB);
+		await db
+			.delete(sessionTable)
+			.where(
+				and(eq(sessionTable.userId, session.user.id), ne(sessionTable.id, session.session.id)),
+			);
+		return c.json({ ok: true as const });
+	})
 	.post("/password", jsonValidator(accountPasswordBodySchema), async (c) => {
 		const session = c.var.authSession;
 		if (!session?.user) {
@@ -226,7 +301,7 @@ export const account = new Hono<AuthWorkerAppEnv>()
 				body: {
 					currentPassword: body.currentPassword,
 					newPassword: body.newPassword,
-					revokeOtherSessions: false,
+					revokeOtherSessions: body.revokeOtherSessions === true,
 				},
 				headers: c.req.raw.headers,
 			});

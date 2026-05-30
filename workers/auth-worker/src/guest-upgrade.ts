@@ -1,9 +1,15 @@
 import { getAuthDb, syncUserEmailsForUser } from "@internal/auth-db";
 import { guestUpgradeEmailSchema } from "@internal/auth-db/api-schemas";
+import { user as userTable } from "@internal/auth-db/schema";
+import { eq } from "drizzle-orm";
 import { Hono } from "hono";
 import type { AuthWorkerAppEnv } from "./app-env";
 import { mapUserWithRole } from "./auth";
-import { graduateAnonymousUser } from "./guest-graduate";
+import {
+	type GuestGraduationSnapshot,
+	graduateAnonymousUser,
+	revertAnonymousUserGraduation,
+} from "./guest-graduate";
 import { jsonValidator } from "./hono-zod";
 import { loadAuthSession } from "./session-context";
 
@@ -23,6 +29,23 @@ export const guestUpgrade = new Hono<AuthWorkerAppEnv>()
 
 		const { email, password } = c.req.valid("json");
 		const db = getAuthDb(c.env.DB);
+
+		const [guestRow] = await db
+			.select()
+			.from(userTable)
+			.where(eq(userTable.id, session.user.id))
+			.limit(1);
+		if (!guestRow || guestRow.isAnonymous !== true) {
+			return c.json({ error: "You already have a full account" }, 400);
+		}
+
+		const snapshot: GuestGraduationSnapshot = {
+			email: guestRow.email,
+			emailVerified: guestRow.emailVerified,
+			name: guestRow.name,
+			image: guestRow.image ?? null,
+		};
+
 		const graduate = await graduateAnonymousUser(db, session.user.id, {
 			email,
 			emailVerified: false,
@@ -37,6 +60,7 @@ export const guestUpgrade = new Hono<AuthWorkerAppEnv>()
 				headers: c.req.raw.headers,
 			});
 		} catch (e) {
+			await revertAnonymousUserGraduation(db, session.user.id, snapshot);
 			const message = e instanceof Error ? e.message : "Could not set password";
 			return c.json({ error: message }, 400);
 		}
