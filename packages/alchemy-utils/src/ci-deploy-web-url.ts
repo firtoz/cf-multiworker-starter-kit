@@ -15,9 +15,6 @@ import { commaSeparatedEnvSegments, WEB_DOMAINS_ENV_KEY } from "./web-deploy-hos
  */
 export const CI_WEB_DEPLOY_URL_RELPATH = ".alchemy/ci/web-deploy-url.txt" as const;
 
-/** Canonical Better Auth public URL written during auth-worker deploy on CI (same ladder as `resolveAuthBaseUrl`). */
-export const CI_AUTH_DEPLOY_URL_RELPATH = ".alchemy/ci/auth-deploy-url.txt" as const;
-
 /** Last applied `AUTH_BOOTSTRAP_ADMIN_EMAILS` fingerprint (deploy script skips when unchanged). */
 export const CI_BOOTSTRAP_ADMIN_FINGERPRINT_RELPATH =
 	".alchemy/ci/bootstrap-admin-fingerprint.txt" as const;

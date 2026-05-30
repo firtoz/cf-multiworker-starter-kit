@@ -204,6 +204,7 @@
     "packages/scripts": {
       "name": "scripts",
       "dependencies": {
+        "@internal/auth-client": "workspace:*",
         "@internal/auth-db": "workspace:*",
         "alchemy-utils": "workspace:*",
         "dotenv": "catalog:",

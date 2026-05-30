@@ -55,7 +55,13 @@ const chatroomInternalSecretRaw = requireEnv(
 	"Shared secret used when the web worker forwards /api/ws/* to the chatroom DO",
 	app,
 );
+const authAdminSecretRaw = requireEnv(
+	"AUTH_ADMIN_SECRET",
+	"Machine admin API secret (bootstrap sync and auth-worker admin routes)",
+	app,
+);
 const chatroomInternalSecret = alchemy.secret(chatroomInternalSecretRaw);
+const authAdminSecret = alchemy.secret(authAdminSecretRaw);
 const PingDo = pingWorker.bindings.PingDo;
 
 const skipWebCustomHostnames = isPrStage(stage);
@@ -113,6 +119,7 @@ export const web = await ReactRouter(DEFAULT_REACT_ROUTER_WEB_RESOURCE_ID, {
 	bindings: {
 		DB: mainDb,
 		CHATROOM_INTERNAL_SECRET: chatroomInternalSecret,
+		AUTH_ADMIN_SECRET: authAdminSecret,
 		AUTH: authWorker,
 		CHATROOM: chatroomWorker,
 		PingDo,

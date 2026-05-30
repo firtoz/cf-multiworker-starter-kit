@@ -178,6 +178,17 @@ const posthogRequirements: readonly EnvRequirement[] = [
 /** Keys declared here must match bindings in {@link ./alchemy.run.ts}. */
 export const WEB_APP_ENV_REQUIREMENTS: readonly EnvRequirement[] = [
 	...localDevRequirements,
+	{
+		key: "AUTH_ADMIN_SECRET",
+		setupCategory: "core-secrets",
+		kind: "secret",
+		requiredIn: ["local", "staging", "prod"],
+		githubSync: "required",
+		title: "Auth admin API secret",
+		description:
+			"Validates machine-admin requests on the web worker (bootstrap sync); same value as auth-worker",
+		canAutoGenerate: true,
+	},
 	...webHostnameRequirements,
 	...posthogRequirements,
 ];

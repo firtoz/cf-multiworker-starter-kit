@@ -1,5 +1,4 @@
 import { Hono } from "hono";
-import { cors } from "hono/cors";
 import { account, accountPath } from "./account";
 import { admin, adminPath } from "./admin";
 import type { AuthWorkerAppEnv } from "./app-env";
@@ -18,20 +17,6 @@ export const authWorkerApp = new Hono<AuthWorkerAppEnv>()
 		c.set("trustedOrigins", trustedOrigins);
 		c.set("auth", createAuth(c.env, trustedOrigins));
 		await next();
-	})
-	.use("*", async (c, next) => {
-		const trustedOrigins = c.var.trustedOrigins;
-		return cors({
-			origin: (origin) => {
-				if (!origin) {
-					return null;
-				}
-				return trustedOrigins.includes(origin) ? origin : null;
-			},
-			allowHeaders: ["Content-Type", "Authorization", "Cookie"],
-			allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-			credentials: true,
-		})(c, next);
 	})
 	.get("/health", (c) => c.json({ ok: true }))
 	.route(adminPath, admin)

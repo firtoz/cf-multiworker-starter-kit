@@ -1,4 +1,10 @@
-import { authApiPrefix, guestApiPrefix } from "@internal/auth-client";
+import {
+	AUTH_INTERNAL_ORIGIN,
+	authApiPrefix,
+	guestApiPrefix,
+	machineAdminBootstrapSyncPath,
+} from "@internal/auth-client";
+import { AUTH_ADMIN_SECRET_HEADER } from "@internal/auth-db/constants";
 import {
 	applyChatIdentityHeaders,
 	buildWebSocketForwardRequest,
@@ -9,6 +15,7 @@ import {
 	POSTHOG_BROWSER_API_PATH,
 	rewritePosthogBrowserApiRequest,
 } from "alchemy-utils/posthog-host";
+import { adminPath } from "auth-worker/admin";
 import { Hono } from "hono";
 import type { CloudflareEnv } from "../types/env.d.ts";
 import { resolveChatIdentityFromAuth } from "./resolve-chat-identity";
@@ -64,6 +71,20 @@ export function createWebWorkerApp(
 		})
 		.all(`${authApiPrefix}*`, (c) => c.env.AUTH.fetch(c.req.raw))
 		.all(`${guestApiPrefix}*`, (c) => c.env.AUTH.fetch(c.req.raw))
+		.post(machineAdminBootstrapSyncPath, async (c) => {
+			const secret = c.req.header(AUTH_ADMIN_SECRET_HEADER);
+			if (!secret || secret !== c.env.AUTH_ADMIN_SECRET) {
+				return c.text("Not Found", 404);
+			}
+			const headers = new Headers();
+			headers.set(AUTH_ADMIN_SECRET_HEADER, secret);
+			return c.env.AUTH.fetch(
+				new Request(`${AUTH_INTERNAL_ORIGIN}${adminPath}/bootstrap-sync`, {
+					method: "POST",
+					headers,
+				}),
+			);
+		})
 		.all(`${POSTHOG_BROWSER_API_PATH}/*`, (c) =>
 			c.env.POSTHOG.fetch(rewritePosthogBrowserApiRequest(c.req.raw)),
 		)

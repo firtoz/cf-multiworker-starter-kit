@@ -1,4 +1,3 @@
-import { AUTH_DOMAINS_ENV_KEY } from "alchemy-utils/auth-deploy-hostnames";
 import type { EnvRequirement } from "alchemy-utils/env-requirements";
 
 export const AUTH_WORKER_ENV_REQUIREMENTS: readonly EnvRequirement[] = [
@@ -32,18 +31,6 @@ export const AUTH_WORKER_ENV_REQUIREMENTS: readonly EnvRequirement[] = [
 		title: "Bootstrap admin emails",
 		description:
 			"Comma-separated emails auto-promoted to admin (on sign-up; existing users via `bun run auth:sync-bootstrap-admins` after deploy) · optional in setup; sync with github:sync:* when set",
-		plaintextInSetup: true,
-	},
-	{
-		key: AUTH_DOMAINS_ENV_KEY,
-		setupCategory: "custom-domains",
-		kind: "variable",
-		requiredIn: [],
-		optionalSetupModes: ["staging", "prod"],
-		githubSync: "optional",
-		title: "Auth worker custom domains",
-		description:
-			"Optional dedicated auth host (e.g. auth.example.com) · otherwise auth URL is derived from WEB_DOMAINS or web workers.dev",
 		plaintextInSetup: true,
 	},
 	{

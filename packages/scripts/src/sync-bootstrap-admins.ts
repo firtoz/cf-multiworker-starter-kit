@@ -1,22 +1,22 @@
 /**
- * Post-deploy: promote users matching AUTH_BOOTSTRAP_ADMIN_EMAILS via auth-worker admin API.
+ * Post-deploy: promote users matching AUTH_BOOTSTRAP_ADMIN_EMAILS via the web worker machine-admin route.
  *
- * Requires auth-worker deployed and (CI) `.alchemy/ci/auth-deploy-url.txt` from that deploy.
- * Local: auth worker on http://127.0.0.1:8784 (see LOCAL_AUTH_DEV_PORT).
+ * Requires web + auth workers deployed. CI reads `.alchemy/ci/web-deploy-url.txt` from deploy.
+ * Local: web dev origin (Portless or `http://127.0.0.1:<port>`).
  */
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { machineAdminBootstrapSyncPath } from "@internal/auth-client";
 import { adminBootstrapSyncResponseSchema } from "@internal/auth-db/api-schemas";
 import { AUTH_ADMIN_SECRET_HEADER } from "@internal/auth-db/constants";
-import { resolveAuthBaseUrl } from "alchemy-utils/auth-deploy-hostnames";
 import { bootstrapAdminFingerprint } from "alchemy-utils/bootstrap-admin-emails";
 import {
-	CI_AUTH_DEPLOY_URL_RELPATH,
 	CI_BOOTSTRAP_ADMIN_FINGERPRINT_RELPATH,
+	CI_WEB_DEPLOY_URL_RELPATH,
 } from "alchemy-utils/ci-deploy-web-url";
 import { mergeCloudflareAlchemyAccountEnvInto } from "alchemy-utils/cloudflare-account-env";
 import { resolveStageFromEnv } from "alchemy-utils/deployment-stage";
-import { LOCAL_AUTH_DEV_PORT } from "alchemy-utils/local-portless-dev";
+import { resolveWebBaseUrl } from "alchemy-utils/web-deploy-hostnames";
 import { parse as parseDotenv } from "dotenv";
 
 const REPO_ROOT = resolve(import.meta.dir, "../../..");
@@ -36,14 +36,14 @@ function loadStageEnv(stage: string): Record<string, string | undefined> {
 	return mergeCloudflareAlchemyAccountEnvInto(out);
 }
 
-async function resolveAuthWorkerAdminBaseUrl(
+async function resolveWebAdminBaseUrl(
 	env: Record<string, string | undefined>,
 	stage: string,
 ): Promise<string> {
 	const workspace = process.env["GITHUB_WORKSPACE"]?.trim();
 	const ciUrlFile = resolve(
 		workspace && workspace.length > 0 ? workspace : REPO_ROOT,
-		CI_AUTH_DEPLOY_URL_RELPATH,
+		CI_WEB_DEPLOY_URL_RELPATH,
 	);
 	if (existsSync(ciUrlFile)) {
 		const url = readFileSync(ciUrlFile, "utf8").trim();
@@ -52,11 +52,7 @@ async function resolveAuthWorkerAdminBaseUrl(
 		}
 	}
 
-	if (stage === "local") {
-		return `http://127.0.0.1:${LOCAL_AUTH_DEV_PORT}`;
-	}
-
-	return (await resolveAuthBaseUrl({ stage, env })).replace(/\/$/, "");
+	return (await resolveWebBaseUrl({ stage, env })).replace(/\/$/, "");
 }
 
 function fingerprintCachePath(): string {
@@ -119,8 +115,9 @@ async function main(): Promise<void> {
 		return;
 	}
 
-	const baseUrl = await resolveAuthWorkerAdminBaseUrl(env, stage);
-	const res = await fetch(`${baseUrl}/admin/bootstrap-sync`, {
+	const baseUrl = await resolveWebAdminBaseUrl(env, stage);
+	const endpoint = `${baseUrl}${machineAdminBootstrapSyncPath}`;
+	const res = await fetch(endpoint, {
 		method: "POST",
 		headers: { [AUTH_ADMIN_SECRET_HEADER]: secret },
 	});
@@ -146,9 +143,7 @@ async function main(): Promise<void> {
 	}
 
 	writeFingerprintCache(bootstrapRaw);
-	console.log(
-		`[bootstrap-sync] OK (${parsed.data.promoted} user(s) promoted) — ${baseUrl}/admin/bootstrap-sync`,
-	);
+	console.log(`[bootstrap-sync] OK (${parsed.data.promoted} user(s) promoted) — ${endpoint}`);
 }
 
 await main();

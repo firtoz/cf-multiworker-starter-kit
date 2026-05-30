@@ -65,8 +65,10 @@ function httpsOriginFromHostname(hostname: string): string {
 }
 
 /**
- * Sync slice of the auth public URL ladder (local → AUTH_DOMAINS → WEB_DOMAINS).
+ * Sync slice of the auth public URL ladder (local web origin → WEB_DOMAINS).
  * Returns `undefined` when deploy should infer the web worker **workers.dev** URL via Cloudflare API.
+ *
+ * Auth is always reached through the web worker (`/api/auth/*` proxy). **`AUTH_DOMAINS`** is not used.
  */
 export function resolveAuthBaseUrlFromProcessEnv(
 	env: NodeJS.ProcessEnv = process.env,
@@ -75,12 +77,6 @@ export function resolveAuthBaseUrlFromProcessEnv(
 	const local = defaultLocalAuthBaseUrl(env, stage);
 	if (local) {
 		return local;
-	}
-
-	const authDomains = commaSeparatedEnvSegments(env[AUTH_DOMAINS_ENV_KEY]);
-	const authHost = authDomains[0];
-	if (authHost) {
-		return httpsOriginFromHostname(authHost);
 	}
 
 	if (stage && !isPrStage(stage)) {
@@ -102,7 +98,7 @@ export type ResolveAuthBaseUrlOptions = {
 /**
  * Canonical Better Auth public URL — wired to the auth worker `AUTH_BASE_URL` binding (must match the web origin when using `/api/auth/*` proxy).
  *
- * Ladder: local Portless web URL → **`AUTH_DOMAINS`** → **`WEB_DOMAINS`** (skipped on **`STAGE=pr-*`**)
+ * Ladder: local Portless web URL → **`WEB_DOMAINS`** (skipped on **`STAGE=pr-*`**)
  * → inferred web **workers.dev** URL (requires Cloudflare API creds).
  */
 export async function resolveAuthBaseUrl(options: ResolveAuthBaseUrlOptions): Promise<string> {
@@ -117,7 +113,7 @@ export async function resolveAuthBaseUrl(options: ResolveAuthBaseUrlOptions): Pr
 	if (!accountId || !apiToken) {
 		throw new Error(
 			[
-				"Missing auth public URL: set AUTH_DOMAINS or WEB_DOMAINS, or ensure CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_API_TOKEN",
+				"Missing auth public URL: set WEB_DOMAINS, or ensure CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_API_TOKEN",
 				"are set so Alchemy can infer the web workers.dev URL (see .env.example).",
 			].join(" "),
 		);

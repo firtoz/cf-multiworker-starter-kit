@@ -3,13 +3,9 @@ import alchemy from "alchemy";
 import { KVNamespace, Worker } from "alchemy/cloudflare";
 import { requireAlchemyPassword, requireEnv } from "alchemy-utils";
 import { alchemyCiCloudStateStoreOptions } from "alchemy-utils/alchemy-cloud-state-store";
-import { authDomainsFromProcessEnv, resolveAuthBaseUrl } from "alchemy-utils/auth-deploy-hostnames";
+import { AUTH_DOMAINS_ENV_KEY, resolveAuthBaseUrl } from "alchemy-utils/auth-deploy-hostnames";
 import { resolveAuthOAuthProxyProductionUrl } from "alchemy-utils/auth-oauth-proxy";
 import { isLoopbackOAuthProxyProductionUrl } from "alchemy-utils/auth-oauth-proxy-url";
-import {
-	CI_AUTH_DEPLOY_URL_RELPATH,
-	writeCiDeployUrlIfGithubActions,
-} from "alchemy-utils/ci-deploy-web-url";
 import { isPrStage, resolveStageFromEnv } from "alchemy-utils/deployment-stage";
 import { readProcessEnvTrimmed } from "alchemy-utils/env-requirements";
 import {
@@ -38,7 +34,13 @@ const bootstrapAdmins = readProcessEnvTrimmed("AUTH_BOOTSTRAP_ADMIN_EMAILS");
 
 const authBaseUrl = await resolveAuthBaseUrl({ stage });
 
-const authDomains = [...authDomainsFromProcessEnv()];
+if (commaSeparatedEnvSegments(process.env[AUTH_DOMAINS_ENV_KEY]).length > 0) {
+	console.warn({
+		worker: "auth-worker",
+		warning:
+			"AUTH_DOMAINS is ignored — auth worker is service-binding only. Use WEB_DOMAINS on the web worker.",
+	});
+}
 
 const webOriginsForCors = commaSeparatedEnvSegments(process.env[WEB_DOMAINS_ENV_KEY]).map(
 	(d) => `https://${d}`,
@@ -61,7 +63,6 @@ const authSeedOrigins = [
 	defaultLocalAuthBaseUrl(process.env, stage),
 	localViteOrigin,
 	...webOriginsForCors,
-	...authDomains.map((d) => `https://${d.domainName}`),
 ]
 	.filter((v): v is string => typeof v === "string" && v.length > 0)
 	.filter((v, i, a) => a.indexOf(v) === i)
@@ -75,7 +76,9 @@ export const authWorker = await Worker(DEFAULT_WORKER_RESOURCE_ID, {
 	placement: { mode: "smart" },
 	dev: { port: LOCAL_AUTH_DEV_PORT },
 	adopt: true,
-	domains: authDomains,
+	url: false,
+	previewSubdomains: false,
+	domains: [],
 	bindings: {
 		DB: authDb,
 		AUTH_KV: authKv,
@@ -119,8 +122,7 @@ console.log({
 	worker: "auth-worker",
 	scriptName: authWorker.name,
 	authBaseUrl,
-	authWorkerUrl: authWorker.url,
+	note: "Service-binding only (url: false) — no workers.dev; browsers use web /api/auth/*.",
 });
-writeCiDeployUrlIfGithubActions(CI_AUTH_DEPLOY_URL_RELPATH, authBaseUrl);
 
 await app.finalize();

@@ -86,13 +86,11 @@ export default function AdminOriginsRoute({ loaderData }: Route.ComponentProps) 
 				</p>
 				<p>
 					Add your public web origin here if it is missing. Use the full origin (scheme + host +
-					non-default port only). Do not add the auth worker&apos;s direct dev bind (
-					<code className="font-mono text-xs">http://127.0.0.1:8784</code>) unless you browse there.
+					non-default port only). The auth worker is not browsable — only the web app origin.
 				</p>
 				<p>
-					First deploy seeds from <code className="font-mono text-xs">WEB_DOMAINS</code>, optional{" "}
-					<code className="font-mono text-xs">AUTH_DOMAINS</code>, and related env. Stored in auth
-					KV.
+					First deploy seeds from <code className="font-mono text-xs">WEB_DOMAINS</code> and related
+					env. Stored in auth KV.
 				</p>
 			</div>
 			<ul className="text-sm flex flex-col gap-2">

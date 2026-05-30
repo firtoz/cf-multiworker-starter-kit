@@ -18,18 +18,18 @@ Use when configuring authentication for a fork of this starter kit: env secrets,
    - `BETTER_AUTH_SECRET` — `openssl rand -base64 32`
    - `AUTH_ADMIN_SECRET` — machine admin API (origins automation)
    - `AUTH_BOOTSTRAP_ADMIN_EMAILS` — optional operator email(s); auto-promote on sign-up; existing users via **`bun run auth:sync-bootstrap-admins`** after deploy (CI step); sync with `github:sync:*` when set (Environment **variable**, not secret)
-   - **`AUTH_DOMAINS`** (optional) — dedicated auth host, e.g. `auth.example.com`
-   - **`WEB_DOMAINS`** (optional) — when auth is proxied on the web worker (`/api/auth/*`), first hostname becomes the auth public URL
+   - **`WEB_DOMAINS`** (optional) — custom hostname(s) for the web app; also the Better Auth public URL (`/api/auth/*` on the web worker)
    - **Local dev** defaults to the web Portless URL (`https://<PRODUCT_PREFIX>-web.localhost`)
    - **workers.dev-only** staging/prod — Alchemy infers the web worker URL from Cloudflare API (no extra env)
+   - **`AUTH_DOMAINS`** — **ignored** (auth worker is service-binding only; do not set)
    - Optional: `GOOGLE_*`, `GITHUB_*` — [`docs/oauth-setup.md`](../../docs/oauth-setup.md). **Local Portless + Google:** register `http://127.0.0.1:5173/api/auth/callback/google`; Better Auth `oAuthProxy` keeps browsing on `https://<prefix>-web.localhost`. **GitHub:** one **OAuth App** per stage (single callback URL each). **PR previews:** OAuth (GitHub + Google) proxies through the **staging** callback — staging stack must stay deployed; see [`docs/oauth-setup.md` § PR previews](../../docs/oauth-setup.md#pr-previews). **Staging/production:** [`§ Multi-environment`](../../docs/oauth-setup.md#multi-environment-setup-local-staging-production) (`github:sync:*`).
 3. Run **`bun run setup:local`** (or staging/prod) so secrets flow into dotfiles and GitHub sync.
 4. **OAuth consoles** — register callback URLs (see [`docs/oauth-setup.md`](../../docs/oauth-setup.md)):
    - `https://<auth-host>/api/auth/callback/google`
    - `https://<auth-host>/api/auth/callback/github`
-   - Must match the resolved auth base URL exactly (Portless hostname, `WEB_DOMAINS`, `AUTH_DOMAINS`, or workers.dev)
+   - Must match the resolved **web** auth base URL exactly (Portless hostname, `WEB_DOMAINS`, or workers.dev)
 5. **`bun run dev`** — includes `@internal/auth-db`, `auth-worker`, web, chatroom-do.
-6. **First deploy** — auth-db migrations apply via Alchemy; trusted origins seed from the resolved auth URL, `WEB_DOMAINS`, and `AUTH_DOMAINS` on first auth-worker request.
+6. **First deploy** — auth-db migrations apply via Alchemy; trusted origins seed from the web auth URL and `WEB_DOMAINS` on first auth-worker request.
 7. **Smoke test** — sign in → `/account` → `/admin` (admin only) → `/chat` (authenticated WebSocket).
 8. After adding **`isAnonymous`** (Better Auth anonymous plugin), run **`bun run db:generate:auth`** and restart dev so D1 migrations apply.
 
@@ -40,15 +40,14 @@ Alchemy computes the public auth URL via **`resolveAuthBaseUrl`** in [`packages/
 **Ladder** (first match wins):
 
 1. **Local** — `https://<PRODUCT_PREFIX>-web.localhost` (Portless web origin; auth proxied at `/api/auth/*`)
-2. **`AUTH_DOMAINS`** — first hostname → `https://<host>` (optional dedicated auth subdomain)
-3. **`WEB_DOMAINS`** — first hostname → `https://<host>` (default **web-proxy** pattern; skip `AUTH_DOMAINS`)
-4. **workers.dev** — inferred web worker URL when neither domain env is set (requires Cloudflare API creds at deploy)
+2. **`WEB_DOMAINS`** — first hostname → `https://<host>`
+3. **workers.dev** — inferred web worker URL when domain env is unset (requires Cloudflare API creds at deploy)
 
-**Default recommendation:** use **web proxy** only — set **`WEB_DOMAINS`** for custom hostnames, or nothing for workers.dev-only. Skip **`AUTH_DOMAINS`** unless you intentionally want split-host auth.
+The auth worker has **no public HTTPS** — Alchemy deploys with **`url: false`** (no `workers.dev`), **`domains: []`**. Sibling workers reach it via **`env.AUTH`** only.
 
 OAuth redirect URIs must match the resolved URL: `https://<host>/api/auth/callback/google` (and GitHub).
 
-**Local dev listen URL vs public URL:** Alchemy may log the auth worker at `http://127.0.0.1:8784` (direct service binding port). Browsers and OAuth should use the **web** origin (`https://<PRODUCT_PREFIX>-web.localhost` by default) — auth is proxied at `/api/auth/*` on the web worker.
+**Local dev:** Alchemy may listen on auth worker `:8784` for the binding; do not browse or register OAuth there. Use the **web** origin.
 
 ## Anonymous chat guests
 
@@ -99,13 +98,13 @@ Trusted origins seed from the resolved auth URL, `WEB_DOMAINS`, `AUTH_SEED_ORIGI
 
 - Web reaches auth via **`env.AUTH`** (auth worker binding), not `context.cloudflare.env`.
 - Chat WebSocket: **web → chatroom worker → Chatroom DO**. The **chatroom worker** resolves identity via **`env.AUTH`** (`getSession` + profile display name); the web worker only forwards cookies and the internal secret.
-- **Human admin** = `user.role === "admin"` (browser `/admin/*`: trusted origins, user list with editable display names). **Machine admin** = `AUTH_ADMIN_SECRET` header (never in client bundles).
+- **Human admin** = `user.role === "admin"` (browser `/admin/*`: trusted origins, user list with editable display names). **Machine admin** = `AUTH_ADMIN_SECRET` header on **`POST /api/internal/admin/bootstrap-sync`** (web worker) or auth-worker `/admin/*` over service binding only — never exposed without the secret (404 when missing/wrong).
 
 ## Commands
 
 ```bash
 bun run db:generate:auth   # after editing packages/auth-db/src/schema.ts
-bun run auth:sync-bootstrap-admins   # after deploy or local auth-worker dev (promotes existing users)
+bun run auth:sync-bootstrap-admins   # after deploy (POST web /api/internal/admin/bootstrap-sync + AUTH_ADMIN_SECRET)
 bun run typegen            # after routes or alchemy binding changes
 bun run typecheck
 ```
