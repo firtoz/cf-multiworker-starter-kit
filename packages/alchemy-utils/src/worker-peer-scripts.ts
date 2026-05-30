@@ -35,8 +35,20 @@ export function physicalAuthScriptName(stage: string): string {
 /** ReactRouter / SSR app resource id inside the SSR Alchemy app (e.g. **`${PRODUCT_PREFIX}-frontend`**). */
 export const DEFAULT_REACT_ROUTER_WEB_RESOURCE_ID = "web" as const;
 
-/** Root D1 resource id (`packages/db`); physical name adds app id + stage. */
-export const DEFAULT_D1_DATABASE_RESOURCE_ID = "db" as const;
+/**
+ * App D1 resource id (`packages/db`); physical name adds app id + stage.
+ *
+ * Renamed from `db` → `main-db` so existing stages provision fresh D1s with
+ * `primaryLocationHint: weur` (region is immutable after creation).
+ */
+export const DEFAULT_D1_DATABASE_RESOURCE_ID = "main-db" as const;
+
+/**
+ * Better Auth D1 resource id (`packages/auth-db`); physical name adds app id + stage.
+ *
+ * Renamed from `db-auth` → `auth-db` for the same reason as {@link DEFAULT_D1_DATABASE_RESOURCE_ID}.
+ */
+export const DEFAULT_AUTH_D1_DATABASE_RESOURCE_ID = "auth-db" as const;
 
 /**
  * Leading segment for Alchemy **`await alchemy("…")`** ids — default **`starter`** yields **`starter-frontend`**, **`starter-ping`**, etc.

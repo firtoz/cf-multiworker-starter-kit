@@ -6,7 +6,7 @@ import { defaultD1DeployOptions } from "alchemy-utils/d1-deploy-options";
 import { resolveStageFromEnv } from "alchemy-utils/deployment-stage";
 import {
 	ALCHEMY_APP_IDS,
-	DEFAULT_D1_DATABASE_RESOURCE_ID,
+	DEFAULT_AUTH_D1_DATABASE_RESOURCE_ID,
 } from "alchemy-utils/worker-peer-scripts";
 
 const stage = resolveStageFromEnv();
@@ -16,7 +16,7 @@ const app = await alchemy(ALCHEMY_APP_IDS.authDatabase, {
 });
 requireAlchemyPassword(app);
 
-export const authDb = await D1Database(`${DEFAULT_D1_DATABASE_RESOURCE_ID}-auth`, {
+export const authDb = await D1Database(DEFAULT_AUTH_D1_DATABASE_RESOURCE_ID, {
 	adopt: true,
 	...defaultD1DeployOptions,
 	migrationsDir: new URL("./drizzle", import.meta.url).pathname,
