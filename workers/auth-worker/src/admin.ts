@@ -10,10 +10,12 @@ import {
 } from "@internal/auth-db/api-schemas";
 import { AUTH_ADMIN_SECRET_HEADER } from "@internal/auth-db/constants";
 import { parseAuthRole } from "@internal/auth-db/roles";
+import { bootstrapAdminEmails } from "alchemy-utils/bootstrap-admin-emails";
 import { eq } from "drizzle-orm";
 import { Hono } from "hono";
 import { createMiddleware } from "hono/factory";
 import type { AuthWorkerAppEnv } from "./app-env";
+import { promoteAllMatchingBootstrapAdmins } from "./bootstrap-admin";
 import { jsonValidator } from "./hono-zod";
 import {
 	appendTrustedOrigin,
@@ -95,6 +97,12 @@ export const admin = new Hono<AuthWorkerAppEnv>()
 		const origin = decodeURIComponent(c.req.param("origin"));
 		const origins = await removeTrustedOrigin(c.env.AUTH_KV, origin);
 		return c.json({ origins });
+	})
+	.post("/bootstrap-sync", async (c) => {
+		const bootstrap = bootstrapAdminEmails(c.env.AUTH_BOOTSTRAP_ADMIN_EMAILS);
+		const db = getAuthDb(c.env.DB);
+		const promoted = await promoteAllMatchingBootstrapAdmins(db, bootstrap);
+		return c.json({ ok: true as const, promoted });
 	})
 	.get("/users", async (c) => {
 		const db = getAuthDb(c.env.DB);

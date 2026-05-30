@@ -26,11 +26,12 @@ export const AUTH_WORKER_ENV_REQUIREMENTS: readonly EnvRequirement[] = [
 		key: "AUTH_BOOTSTRAP_ADMIN_EMAILS",
 		setupCategory: "core-secrets",
 		kind: "variable",
-		requiredIn: ["local", "staging", "prod"],
+		requiredIn: [],
+		optionalSetupModes: ["local", "staging", "prod"],
 		githubSync: "optional",
 		title: "Bootstrap admin emails",
 		description:
-			"Comma-separated emails granted admin on first login · set in each stage dotfile and sync with github:sync:* (GitHub Environment variable)",
+			"Comma-separated emails auto-promoted to admin (on sign-up; existing users via `bun run auth:sync-bootstrap-admins` after deploy) · optional in setup; sync with github:sync:* when set",
 		plaintextInSetup: true,
 	},
 	{

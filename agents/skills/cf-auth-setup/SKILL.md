@@ -17,7 +17,7 @@ Use when configuring authentication for a fork of this starter kit: env secrets,
 2. Configure repo-root **`.env.local`** (and staging/production dotfiles):
    - `BETTER_AUTH_SECRET` — `openssl rand -base64 32`
    - `AUTH_ADMIN_SECRET` — machine admin API (origins automation)
-   - `AUTH_BOOTSTRAP_ADMIN_EMAILS` — your operator email(s); required in each stage dotfile; sync with `github:sync:*` (Environment **variable**, not secret)
+   - `AUTH_BOOTSTRAP_ADMIN_EMAILS` — optional operator email(s); auto-promote on sign-up; existing users via **`bun run auth:sync-bootstrap-admins`** after deploy (CI step); sync with `github:sync:*` when set (Environment **variable**, not secret)
    - **`AUTH_DOMAINS`** (optional) — dedicated auth host, e.g. `auth.example.com`
    - **`WEB_DOMAINS`** (optional) — when auth is proxied on the web worker (`/api/auth/*`), first hostname becomes the auth public URL
    - **Local dev** defaults to the web Portless URL (`https://<PRODUCT_PREFIX>-web.localhost`)
@@ -105,6 +105,7 @@ Trusted origins seed from the resolved auth URL, `WEB_DOMAINS`, `AUTH_SEED_ORIGI
 
 ```bash
 bun run db:generate:auth   # after editing packages/auth-db/src/schema.ts
+bun run auth:sync-bootstrap-admins   # after deploy or local auth-worker dev (promotes existing users)
 bun run typegen            # after routes or alchemy binding changes
 bun run typecheck
 ```

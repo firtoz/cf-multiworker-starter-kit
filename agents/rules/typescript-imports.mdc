@@ -1,0 +1,27 @@
+---
+alwaysApply: true
+---
+# TypeScript imports — no re-exports
+
+Do **not** re-export symbols from another module in application or worker source files.
+
+## Forbidden
+
+```typescript
+// ❌ Hides the real source; callers should import from the defining module
+export { bootstrapAdminEmails } from "alchemy-utils/bootstrap-admin-emails";
+export { something } from "@internal/other-package";
+```
+
+## Required
+
+Import at each call site from the module that **defines** the symbol:
+
+```typescript
+import { bootstrapAdminEmails } from "alchemy-utils/bootstrap-admin-emails";
+import { ensureBootstrapAdminRole } from "./bootstrap-admin";
+```
+
+## Allowed exception
+
+**Package public API entrypoints** only — files meant as the single import surface for a workspace package (`package.json` `exports`, e.g. `@internal/auth-client` root `index.ts`). Do not add passthrough re-exports in random route modules, workers, or helpers.

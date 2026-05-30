@@ -89,11 +89,6 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
       - name: Seed .env.local (required secrets; not committed)
-        env:
-          # Cannot be auto-generated; placeholder satisfies `setup --yes` for CI build only (not used in deploy).
-          AUTH_BOOTSTRAP_ADMIN_EMAILS: ci-bootstrap@users.noreply.github.com
-        run: |
-          printf '%s\n' "AUTH_BOOTSTRAP_ADMIN_EMAILS=${AUTH_BOOTSTRAP_ADMIN_EMAILS}" > .env.local
-          bun run setup -- --yes
+        run: bun run setup -- --yes
       - name: Build all packages
         run: bun run build

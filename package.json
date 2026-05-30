@@ -54,6 +54,7 @@
 		"deploy:preflight:prod": "bun run --cwd packages/scripts deploy:preflight:prod",
 		"deploy:preflight:staging": "bun run --cwd packages/scripts deploy:preflight:staging",
 		"deploy:preflight:preview": "bun run --cwd packages/scripts deploy:preflight:preview",
+		"auth:sync-bootstrap-admins": "bun run --cwd packages/scripts sync-bootstrap-admins",
 		"dev": "turbo run dev --filter=@internal/web --filter=@internal/db --filter=@internal/auth-db --filter=auth-worker --filter=chatroom-do --filter=ping-do --filter=other-worker --filter=posthog-proxy",
 		"db:generate:auth": "turbo run db:generate --filter=@internal/auth-db",
 		"deploy:prod": "turbo run deploy:prod",

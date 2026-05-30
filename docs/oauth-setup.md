@@ -500,7 +500,7 @@ The login and guest-upgrade pages show a short notice when passthrough OAuth is 
 | OAuth overview: “no OAuth clients yet” | Only finished Getting started / branding | **Overview → Create OAuth client** or **Clients → Create client** (Web application) — see [§3](#3-create-the-oauth-client-required--fixes-no-oauth-clients-on-overview) |
 | Google: “Invalid origin” for `*.localhost` / `*.test` | Google only allows loopback or real public domains | **`LOCAL_PORTLESS=off`** + `http://127.0.0.1:5173/...`, tunnel, or staging — see [§2](#2-google--local-dev--what-actually-works) |
 | Created client but no button on `/login` | Env keys missing or dev not restarted | Set **both** `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` in `.env.local`, then `bun run dev` |
-| Signed in but not admin | Email not in bootstrap list | Add email to `AUTH_BOOTSTRAP_ADMIN_EMAILS` **before** first login, or promote via admin UI / DB |
+| Signed in but not admin | Email not in bootstrap list | Add email to `AUTH_BOOTSTRAP_ADMIN_EMAILS`, redeploy, then `bun run auth:sync-bootstrap-admins` (CI runs this after deploy) — or promote via admin UI / DB |
 
 ---
 

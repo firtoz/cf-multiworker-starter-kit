@@ -125,6 +125,21 @@ function canAutoGenerateKey(key: string): boolean {
 	return REQ_BY_KEY.get(key)?.canAutoGenerate === true;
 }
 
+const BOOTSTRAP_ADMIN_EMAILS_KEY = "AUTH_BOOTSTRAP_ADMIN_EMAILS";
+
+function warnBootstrapAdminsUnset(envText: string, mode: EnvSetupMode): void {
+	const req = REQ_BY_KEY.get(BOOTSTRAP_ADMIN_EMAILS_KEY);
+	if (!req || !isOptionalInSetupMode(req, mode)) {
+		return;
+	}
+	if (hasValue(envText, BOOTSTRAP_ADMIN_EMAILS_KEY)) {
+		return;
+	}
+	console.warn(
+		"[setup] AUTH_BOOTSTRAP_ADMIN_EMAILS is unset — no bootstrap admin. Add it in the stage dotfile (or GitHub Environment variable), then run `bun run auth:sync-bootstrap-admins` after deploy (or restart local auth worker + that command locally).",
+	);
+}
+
 function isMaskedKey(key: string): boolean {
 	return !REQ_BY_KEY.get(key)?.plaintextInSetup;
 }
@@ -1111,6 +1126,7 @@ async function main(): Promise<void> {
 		if (missing.length > 0) {
 			if (forceNonInteractive) {
 				maybeProvisionNoninteractive(missing, body, file);
+				warnBootstrapAdminsUnset(existsSync(file) ? readFileSync(file, "utf8") : "", mode);
 				return;
 			}
 			console.error(
@@ -1153,6 +1169,7 @@ async function main(): Promise<void> {
 		for (const line of lines) {
 			console.log(line);
 		}
+		warnBootstrapAdminsUnset(body, mode);
 		return;
 	}
 

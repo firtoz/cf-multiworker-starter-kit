@@ -15,12 +15,14 @@ import { parseAuthRole } from "@internal/auth-db/roles";
 import type { AuthRole } from "@internal/auth-db/schema";
 import * as authSchema from "@internal/auth-db/schema";
 import { isLoopbackOAuthProxyProductionUrl } from "alchemy-utils/auth-oauth-proxy-url";
+import { bootstrapAdminEmails } from "alchemy-utils/bootstrap-admin-emails";
 import { PRODUCT_PREFIX } from "alchemy-utils/worker-peer-scripts";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { APIError } from "better-auth/api";
 import { anonymous, oAuthProxy } from "better-auth/plugins";
 import { eq } from "drizzle-orm";
+import { ensureBootstrapAdminRole } from "./bootstrap-admin";
 import { generateAnonymousGuestName } from "./guest-display-name";
 import { graduateAnonymousUserFromOAuthAccount } from "./guest-graduate";
 import { configureLocalGoogleOAuthProxy } from "./local-oauth-proxy-patch";
@@ -41,15 +43,6 @@ export type AuthWorkerEnv = {
 	/** When set, Better Auth `oAuthProxy` uses this as the OAuth redirect host (loopback or staging). */
 	AUTH_OAUTH_PROXY_PRODUCTION_URL?: string;
 };
-
-function bootstrapAdminEmails(raw: string): Set<string> {
-	return new Set(
-		raw
-			.split(",")
-			.map((e) => e.trim().toLowerCase())
-			.filter((e) => e.length > 0),
-	);
-}
 
 async function rejectEmailOwnedByOtherAccount(
 	db: ReturnType<typeof getAuthDb>,
@@ -242,6 +235,7 @@ export function createAuth(env: AuthWorkerEnv, trustedOrigins: string[]) {
 								error,
 							});
 						}
+						await ensureBootstrapAdminRole(db, userId, bootstrap);
 					},
 				},
 			},

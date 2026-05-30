@@ -21,6 +21,7 @@
 		"deploy:preflight:prod": "bunx dotenv-cli -v STAGE=prod -- bun ./src/deploy-preflight.ts prod",
 		"deploy:preflight:staging": "bunx dotenv-cli -v STAGE=staging -- bun ./src/deploy-preflight.ts staging",
 		"deploy:preflight:preview": "bun ./src/deploy-preflight.ts preview",
+		"sync-bootstrap-admins": "bun ./src/sync-bootstrap-admins.ts",
 		"verify:deploy-env:preview": "bun ./src/verify-deploy-env.ts",
 		"lint": "biome check --write .",
 		"lint:format": "biome format --write ."
@@ -30,6 +31,7 @@
 		"@clack/prompts": "^1.3.0"
 	},
 	"dependencies": {
+		"@internal/auth-db": "workspace:*",
 		"alchemy-utils": "workspace:*",
 		"dotenv": "catalog:"
 	}

@@ -100,6 +100,14 @@ jobs:
           echo "web_url=$WEB_URL" >> "$GITHUB_OUTPUT"
           exit "$deploy_status"
 
+      - name: Sync bootstrap admins
+        if: steps.preflight.outputs.deploy_enabled == 'true' && steps.deploy.outcome == 'success'
+        env:
+          STAGE: prod
+          AUTH_ADMIN_SECRET: ${{ secrets.AUTH_ADMIN_SECRET }}
+          AUTH_BOOTSTRAP_ADMIN_EMAILS: ${{ vars.AUTH_BOOTSTRAP_ADMIN_EMAILS }}
+        run: bun run auth:sync-bootstrap-admins
+
       - name: Deploy summary
         if: always()
         env:

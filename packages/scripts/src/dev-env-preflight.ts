@@ -39,6 +39,13 @@ export function runLocalDevEnvPreflight(repoRoot: string): void {
 		console.warn("  See docs/oauth-setup.md (Portless + Google).");
 		console.warn("");
 	}
+	if (!env["AUTH_BOOTSTRAP_ADMIN_EMAILS"]?.trim()) {
+		console.warn("");
+		console.warn(
+			"[dev:preflight] AUTH_BOOTSTRAP_ADMIN_EMAILS is unset — no bootstrap admin. Add your email to .env.local, restart dev, then `bun run auth:sync-bootstrap-admins`.",
+		);
+		console.warn("");
+	}
 	if (missing.length === 0) {
 		return;
 	}

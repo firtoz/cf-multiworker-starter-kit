@@ -80,6 +80,13 @@ export const adminOkResponseSchema = z.object({
 
 export type AdminOkResponse = z.infer<typeof adminOkResponseSchema>;
 
+export const adminBootstrapSyncResponseSchema = z.object({
+	ok: z.literal(true),
+	promoted: z.number().int().nonnegative(),
+});
+
+export type AdminBootstrapSyncResponse = z.infer<typeof adminBootstrapSyncResponseSchema>;
+
 export const authRoleSchema = z.enum(AUTH_ROLES);
 
 export const adminSetRoleSchema = z.object({
