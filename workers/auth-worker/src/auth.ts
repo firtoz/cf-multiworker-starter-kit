@@ -3,7 +3,6 @@ import {
 	findOtherUserIdForEmail,
 	getAuthDb,
 	syncUserEmailsForUser,
-	upsertUserEmail,
 } from "@internal/auth-db";
 import { authRoleSchema } from "@internal/auth-db/api-schemas";
 import {
@@ -67,9 +66,6 @@ export function createAuth(env: AuthWorkerEnv, trustedOrigins: string[]) {
 		email: string;
 		emailVerified: boolean;
 	}) => {
-		if (input.providerId === "google" || input.providerId === "github") {
-			await upsertUserEmail(db, input.userId, input.email, input.providerId, input.emailVerified);
-		}
 		await syncUserEmailsForUser(db, input.userId);
 	};
 
@@ -111,6 +107,10 @@ export function createAuth(env: AuthWorkerEnv, trustedOrigins: string[]) {
 		session: {
 			expiresIn: GUEST_SESSION_SECONDS,
 			updateAge: 60 * 60 * 24,
+			cookieCache: {
+				enabled: true,
+				maxAge: 5 * 60,
+			},
 		},
 		emailAndPassword: {
 			enabled: true,

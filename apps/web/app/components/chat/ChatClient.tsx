@@ -17,6 +17,7 @@ import {
 	buildChatWsUrl,
 	isChatRoomIdInputValid,
 	normalizeChatRoomIdInput,
+	roomFromQueryParams,
 	sanitizeChatRoomId,
 } from "~/lib/chat-ws-url";
 
@@ -27,11 +28,6 @@ const CHAT_MESSAGE_LIST_MIN_H_CLASS = "min-h-[150px]" as const;
 
 /** Treat as pinned when within a few CSS px of the true bottom (avoids subpixel / rounding drift). */
 const BOTTOM_STICKY_PX = 4;
-
-function roomFromQueryParams(sp: { get: (key: "room") => string | null }): string {
-	const r = sp.get("room");
-	return r ? sanitizeChatRoomId(r) : "lobby";
-}
 
 function withYouLabel(
 	selfUserId: string,
@@ -56,6 +52,8 @@ type ChatClientProps = {
 	sessionExpiresAt: string;
 	guestRetentionDays: number;
 	pendingAuthCookies: boolean;
+	chatAttestToken: string;
+	chatAttestRoom: string;
 	saveNameError?: string;
 };
 
@@ -95,6 +93,8 @@ function ChatClientWithSocket({
 	sessionExpiresAt,
 	guestRetentionDays,
 	saveNameError,
+	chatAttestToken,
+	chatAttestRoom,
 }: Omit<ChatClientProps, "pendingAuthCookies">) {
 	const isAnonymousGuest = user.isAnonymous === true;
 	const usesAccountName = !isAnonymousGuest && hasAccountDisplayName(user);
@@ -122,7 +122,10 @@ function ChatClientWithSocket({
 	/** Revert name field on blur/Esc to what it was on last focus. */
 	const nameFieldSnap = useRef(nameDraft);
 
-	const wsUrl = useMemo(() => buildChatWsUrl(committedRoom), [committedRoom]);
+	const wsUrl = useMemo(() => {
+		const token = committedRoom === chatAttestRoom ? chatAttestToken : undefined;
+		return buildChatWsUrl(committedRoom, token);
+	}, [committedRoom, chatAttestRoom, chatAttestToken]);
 
 	const applyPresence = useCallback(
 		(nextId: string, users: { userId: string; displayName: string; isGuest: boolean }[]) => {

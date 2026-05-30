@@ -5,7 +5,6 @@ import {
 	type AccountSummary,
 	type AuthUser,
 	accountDisplayName,
-	createAuthClient,
 	type ProfileUserWire,
 } from "@internal/auth-client";
 import { accountFormSchema } from "@internal/auth-db/api-schemas";
@@ -18,6 +17,7 @@ import { AccountSignInMethods } from "~/components/account/AccountSignInMethods"
 import { BackToHomeLink } from "~/components/shared/BackToHomeLink";
 import { accountLinkErrorFromRequestUrl } from "~/lib/auth-link-error";
 import { googleOAuthPortlessWarningForWebEnv } from "~/lib/google-oauth-portless-warning";
+import { createRouteAuthClient } from "~/lib/route-auth-client";
 import type { Route } from "./+types/account";
 
 export const route: RoutePath<"/account"> = "/account";
@@ -45,8 +45,8 @@ export function meta(_args: Route.MetaArgs) {
 	return [{ title: "Account" }, { name: "description", content: "Your account" }];
 }
 
-export async function loader({ request }: Route.LoaderArgs) {
-	const auth = createAuthClient(env.AUTH, request);
+export async function loader({ request, context }: Route.LoaderArgs) {
+	const auth = createRouteAuthClient(request, context);
 	const accountPath = href("/account");
 	const session = await auth.session.get();
 	if (!session) {
@@ -78,8 +78,8 @@ export async function loader({ request }: Route.LoaderArgs) {
 
 export const action = formAction({
 	schema: accountFormSchema,
-	handler: async ({ request }, body): Promise<MaybeError<AccountActionSuccess>> => {
-		const auth = createAuthClient(env.AUTH, request);
+	handler: async ({ request, context }, body): Promise<MaybeError<AccountActionSuccess>> => {
+		const auth = createRouteAuthClient(request, context);
 		const session = await auth.session.get();
 		if (!session) {
 			return fail("Not signed in");

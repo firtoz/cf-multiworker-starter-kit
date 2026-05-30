@@ -1,4 +1,5 @@
 import { WorkerEntrypoint } from "cloudflare:workers";
+import type { AuthSession } from "@internal/auth-client";
 import { createRequestHandler } from "react-router";
 import type { CloudflareEnv } from "../types/env.d.ts";
 import { createWebWorkerApp } from "./hono-app";
@@ -13,6 +14,8 @@ declare module "react-router" {
 			env: CloudflareEnv;
 			ctx: ExecutionContext;
 		};
+		/** Resolved once per document request in {@link createWebWorkerApp}. */
+		authSession: AuthSession | null;
 	}
 }
 

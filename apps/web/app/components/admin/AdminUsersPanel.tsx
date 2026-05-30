@@ -1,7 +1,7 @@
 import type { AdminUserRow } from "@internal/auth-client";
 import { PROFILE_NAME_MAX_CHARS } from "@internal/auth-db/constants";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useFetcher } from "react-router";
+import { Link, useFetcher } from "react-router";
 import type { Route } from "../../routes/+types/admin.users";
 import {
 	AdminUserSessionExpiryCell,
@@ -13,6 +13,10 @@ type AdminUsersPanelProps = {
 	users: AdminUserRow[];
 	currentUserId: string;
 	guestRetentionDays: number;
+	page: number;
+	pageSize: number;
+	total: number;
+	hasMore: boolean;
 	actionError?: string | undefined;
 };
 
@@ -29,6 +33,10 @@ export function AdminUsersPanel({
 	users,
 	currentUserId,
 	guestRetentionDays,
+	page,
+	pageSize,
+	total,
+	hasMore,
 	actionError,
 }: AdminUsersPanelProps) {
 	const fetcher = useFetcher<Route.ComponentProps["actionData"]>();
@@ -102,6 +110,16 @@ export function AdminUsersPanel({
 
 	const bulkBusy = fetcher.state !== "idle";
 	const bulkError = fetcher.data && !fetcher.data.success ? fetcher.data.error : undefined;
+	const pageCount = Math.max(1, Math.ceil(total / pageSize));
+	const rangeStart = total === 0 ? 0 : (page - 1) * pageSize + 1;
+	const rangeEnd = Math.min(page * pageSize, total);
+	const paginationSearch = useMemo(() => {
+		const params = new URLSearchParams();
+		if (pageSize !== 50) {
+			params.set("pageSize", String(pageSize));
+		}
+		return params;
+	}, [pageSize]);
 
 	return (
 		<div className="w-full min-w-0">
@@ -111,6 +129,11 @@ export function AdminUsersPanel({
 				{guestRetentionDays}-day sliding session — expiry extends when they open chat; after{" "}
 				{guestRetentionDays} days idle the session and guest identity are dropped.
 			</p>
+			{total > 0 ? (
+				<p className="text-xs text-gray-600 dark:text-gray-400 mb-4">
+					Showing {rangeStart}–{rangeEnd} of {total} users (page {page} of {pageCount}).
+				</p>
+			) : null}
 			{actionError ? <p className="text-sm text-red-600 mb-4">{actionError}</p> : null}
 			{bulkError ? <p className="text-sm text-red-600 mb-4">{bulkError}</p> : null}
 			{selectedCount > 0 ? (
@@ -331,6 +354,30 @@ export function AdminUsersPanel({
 					</tbody>
 				</table>
 			</div>
+			{pageCount > 1 ? (
+				<div className="flex flex-wrap items-center gap-3 mt-4">
+					{page > 1 ? (
+						<Link
+							to={`?${new URLSearchParams({ ...Object.fromEntries(paginationSearch), page: String(page - 1) }).toString()}`}
+							className="text-sm underline"
+						>
+							Previous
+						</Link>
+					) : (
+						<span className="text-sm text-gray-400">Previous</span>
+					)}
+					{hasMore ? (
+						<Link
+							to={`?${new URLSearchParams({ ...Object.fromEntries(paginationSearch), page: String(page + 1) }).toString()}`}
+							className="text-sm underline"
+						>
+							Next
+						</Link>
+					) : (
+						<span className="text-sm text-gray-400">Next</span>
+					)}
+				</div>
+			) : null}
 		</div>
 	);
 }

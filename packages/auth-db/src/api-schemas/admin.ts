@@ -62,8 +62,19 @@ export function toAdminUserRowWire(
 	});
 }
 
+export const adminUsersListQuerySchema = z.object({
+	page: z.coerce.number().int().min(1).default(1),
+	pageSize: z.coerce.number().int().min(1).max(100).default(50),
+});
+
+export type AdminUsersListQuery = z.infer<typeof adminUsersListQuerySchema>;
+
 export const adminUsersResponseSchema = z.object({
 	users: z.array(adminUserRowSchema),
+	total: z.number().int().nonnegative(),
+	page: z.number().int().min(1),
+	pageSize: z.number().int().min(1),
+	hasMore: z.boolean(),
 });
 
 export type AdminUsersResponse = z.infer<typeof adminUsersResponseSchema>;

@@ -5,13 +5,14 @@ import {
 	adminSetOriginsSchema,
 	adminSetRoleSchema,
 	adminSetUserNameSchema,
+	adminUsersListQuerySchema,
 	parseTimestampOrNull,
 	toAdminUserRowWire,
 } from "@internal/auth-db/api-schemas";
 import { AUTH_ADMIN_SECRET_HEADER } from "@internal/auth-db/constants";
 import { parseAuthRole } from "@internal/auth-db/roles";
 import { bootstrapAdminEmails } from "alchemy-utils/bootstrap-admin-emails";
-import { eq } from "drizzle-orm";
+import { count, desc, eq, inArray } from "drizzle-orm";
 import { Hono } from "hono";
 import { createMiddleware } from "hono/factory";
 import type { AuthWorkerAppEnv } from "./app-env";
@@ -23,6 +24,7 @@ import {
 	removeTrustedOrigin,
 	setTrustedOrigins,
 } from "./origins";
+import { loadAuthSession } from "./session-context";
 
 export const adminPath = "/admin" as const;
 
@@ -61,7 +63,7 @@ export async function assertAdminAccess(c: {
 	if (secretHeader && secretHeader === c.env.AUTH_ADMIN_SECRET) {
 		return null;
 	}
-	const session = await c.var.auth.api.getSession({ headers: c.req.raw.headers });
+	const session = c.var.authSession;
 	const role = session?.user ? parseAuthRole(session.user.role) : "user";
 	if (!session?.user || role !== "admin") {
 		return c.json({ error: "Forbidden" }, 403);
@@ -78,6 +80,7 @@ const requireAdmin = createMiddleware<AuthWorkerAppEnv>(async (c, next) => {
 });
 
 export const admin = new Hono<AuthWorkerAppEnv>()
+	.use("*", loadAuthSession)
 	.use("*", requireAdmin)
 	.get("/origins", async (c) => {
 		const origins = await getTrustedOrigins(c.env.AUTH_KV);
@@ -105,21 +108,42 @@ export const admin = new Hono<AuthWorkerAppEnv>()
 		return c.json({ ok: true as const, promoted });
 	})
 	.get("/users", async (c) => {
+		const query = adminUsersListQuerySchema.parse({
+			page: c.req.query("page"),
+			pageSize: c.req.query("pageSize"),
+		});
+		const offset = (query.page - 1) * query.pageSize;
 		const db = getAuthDb(c.env.DB);
 		const nowMs = Date.now();
-		const [rows, sessions] = await Promise.all([
-			db.select().from(userTable),
+		const [countRow, rows] = await Promise.all([
+			db.select({ total: count() }).from(userTable),
 			db
-				.select({
-					userId: sessionTable.userId,
-					updatedAt: sessionTable.updatedAt,
-					expiresAt: sessionTable.expiresAt,
-				})
-				.from(sessionTable),
+				.select()
+				.from(userTable)
+				.orderBy(desc(userTable.createdAt))
+				.limit(query.pageSize)
+				.offset(offset),
 		]);
+		const userIds = rows.map((r) => r.id);
+		const sessions =
+			userIds.length > 0
+				? await db
+						.select({
+							userId: sessionTable.userId,
+							updatedAt: sessionTable.updatedAt,
+							expiresAt: sessionTable.expiresAt,
+						})
+						.from(sessionTable)
+						.where(inArray(sessionTable.userId, userIds))
+				: [];
 		const activityByUser = aggregateSessionActivity(sessions, nowMs);
+		const total = countRow[0]?.total ?? 0;
 		return c.json({
 			users: rows.map((r) => toAdminUserRowWire(r, activityByUser.get(r.id))),
+			total,
+			page: query.page,
+			pageSize: query.pageSize,
+			hasMore: offset + rows.length < total,
 		});
 	})
 	.post("/users/:id/role", jsonValidator(adminSetRoleSchema), async (c) => {
@@ -142,7 +166,7 @@ export const admin = new Hono<AuthWorkerAppEnv>()
 		const userId = c.req.param("id");
 		const db = getAuthDb(c.env.DB);
 
-		const session = await c.var.auth.api.getSession({ headers: c.req.raw.headers });
+		const session = c.var.authSession;
 		if (session?.user?.id === userId) {
 			return c.json({ error: "Cannot delete your own account" }, 400);
 		}

@@ -1,15 +1,19 @@
 import {
 	AUTH_INTERNAL_ORIGIN,
 	authApiPrefix,
+	getSession,
 	guestApiPrefix,
 	machineAdminBootstrapSyncPath,
 } from "@internal/auth-client";
 import { AUTH_ADMIN_SECRET_HEADER } from "@internal/auth-db/constants";
+import { INTERNAL_BINDING_SESSION_HEADER } from "@internal/auth-db/internal-binding-session";
 import {
 	applyChatIdentityHeaders,
 	buildWebSocketForwardRequest,
+	CHAT_ATTEST_QUERY_PARAM,
 	CHATROOM_INTERNAL_SECRET_HEADER,
 	stripClientChatIdentityHeaders,
+	verifyChatAttestToken,
 } from "@internal/chat-contract";
 import {
 	POSTHOG_BROWSER_API_PATH,
@@ -17,8 +21,10 @@ import {
 } from "alchemy-utils/posthog-host";
 import { adminPath } from "auth-worker/admin";
 import { Hono } from "hono";
+import type { AppLoadContext } from "react-router";
 import type { CloudflareEnv } from "../types/env.d.ts";
 import { resolveChatIdentityFromAuth } from "./resolve-chat-identity";
+import { shouldPreloadAuthSession } from "./should-preload-auth-session";
 
 const CHAT_WS_PREFIX = "/api/ws/";
 
@@ -30,13 +36,14 @@ function sanitizeChatRoomId(raw: string): string {
 	return t;
 }
 
+function stripInternalBindingSessionHeader(request: Request): Request {
+	const headers = new Headers(request.headers);
+	headers.delete(INTERNAL_BINDING_SESSION_HEADER);
+	return new Request(request, { headers });
+}
+
 export function createWebWorkerApp(
-	requestHandler: (
-		request: Request,
-		loadContext: {
-			cloudflare: { env: CloudflareEnv; ctx: ExecutionContext };
-		},
-	) => Response | Promise<Response>,
+	requestHandler: (request: Request, loadContext: AppLoadContext) => Response | Promise<Response>,
 ) {
 	return new Hono<{ Bindings: CloudflareEnv }>()
 		.get("/api/worker-services", async (c) => {
@@ -69,8 +76,10 @@ export function createWebWorkerApp(
 				note: "Demo probe: chatroomAck confirms AUTH service binding from chatroom worker.",
 			});
 		})
-		.all(`${authApiPrefix}*`, (c) => c.env.AUTH.fetch(c.req.raw))
-		.all(`${guestApiPrefix}*`, (c) => c.env.AUTH.fetch(c.req.raw))
+		.all(`${authApiPrefix}*`, (c) => c.env.AUTH.fetch(stripInternalBindingSessionHeader(c.req.raw)))
+		.all(`${guestApiPrefix}*`, (c) =>
+			c.env.AUTH.fetch(stripInternalBindingSessionHeader(c.req.raw)),
+		)
 		.post(machineAdminBootstrapSyncPath, async (c) => {
 			const secret = c.req.header(AUTH_ADMIN_SECRET_HEADER);
 			if (!secret || secret !== c.env.AUTH_ADMIN_SECRET) {
@@ -96,9 +105,16 @@ export function createWebWorkerApp(
 			const room = sanitizeChatRoomId(decodeURIComponent(rest));
 			const forward = new URL(c.req.url);
 			forward.pathname = "/websocket";
+			const attest = forward.searchParams.get(CHAT_ATTEST_QUERY_PARAM);
 			forward.search = `?${new URLSearchParams({ room }).toString()}`;
 
-			const identity = await resolveChatIdentityFromAuth(c.env.AUTH, c.req.raw);
+			let identity =
+				attest == null
+					? null
+					: await verifyChatAttestToken(attest, room, c.env.CHATROOM_INTERNAL_SECRET);
+			if (!identity) {
+				identity = await resolveChatIdentityFromAuth(c.env.AUTH, c.req.raw);
+			}
 			if (!identity) {
 				return c.text("Chat requires an auth session", 401);
 			}
@@ -110,11 +126,16 @@ export function createWebWorkerApp(
 
 			return c.env.CHATROOM.fetch(buildWebSocketForwardRequest(forward, c.req.raw, headers));
 		})
-		.all("*", (c) =>
-			requestHandler(c.req.raw, {
+		.all("*", async (c) => {
+			const pathname = new URL(c.req.url).pathname;
+			const authSession = shouldPreloadAuthSession(pathname)
+				? await getSession(c.env.AUTH, c.req.raw)
+				: null;
+			return requestHandler(c.req.raw, {
 				cloudflare: { env: c.env, ctx: c.executionCtx },
-			}),
-		);
+				authSession,
+			});
+		});
 }
 
 export type WebWorkerApp = ReturnType<typeof createWebWorkerApp>;

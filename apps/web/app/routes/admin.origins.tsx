@@ -1,9 +1,8 @@
-import { env } from "cloudflare:workers";
 import { fail, type MaybeError, success } from "@firtoz/maybe-error";
 import type { RoutePath } from "@firtoz/router-toolkit";
-import { createAuthClient } from "@internal/auth-client";
 import { useState } from "react";
 import { Form, useFetcher } from "react-router";
+import { createRouteAuthClient } from "~/lib/route-auth-client";
 import type { Route } from "./+types/admin.origins";
 
 export const route: RoutePath<"/admin/origins"> = "/admin/origins";
@@ -14,8 +13,9 @@ export function meta(_args: Route.MetaArgs) {
 
 export async function loader({
 	request,
+	context,
 }: Route.LoaderArgs): Promise<MaybeError<{ origins: string[] }>> {
-	const auth = createAuthClient(env.AUTH, request);
+	const auth = createRouteAuthClient(request, context);
 	if (!(await auth.session.requireAdmin())) {
 		return fail("Forbidden");
 	}
@@ -28,10 +28,11 @@ export async function loader({
 
 export async function action({
 	request,
+	context,
 }: Route.ActionArgs): Promise<MaybeError<{ origins: string[] }>> {
 	const form = await request.formData();
 	const intent = String(form.get("intent") ?? "addOrigin");
-	const auth = createAuthClient(env.AUTH, request);
+	const auth = createRouteAuthClient(request, context);
 	if (!(await auth.session.requireAdmin())) {
 		return fail("Forbidden");
 	}

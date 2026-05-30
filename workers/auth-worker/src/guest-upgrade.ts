@@ -5,15 +5,15 @@ import type { AuthWorkerAppEnv } from "./app-env";
 import { mapUserWithRole } from "./auth";
 import { graduateAnonymousUser } from "./guest-graduate";
 import { jsonValidator } from "./hono-zod";
+import { loadAuthSession } from "./session-context";
 
 export const guestApiPath = "/api/guest" as const;
 export const guestUpgradePath = `${guestApiPath}/upgrade` as const;
 
-export const guestUpgrade = new Hono<AuthWorkerAppEnv>().post(
-	"/email",
-	jsonValidator(guestUpgradeEmailSchema),
-	async (c) => {
-		const session = await c.var.auth.api.getSession({ headers: c.req.raw.headers });
+export const guestUpgrade = new Hono<AuthWorkerAppEnv>()
+	.use("*", loadAuthSession)
+	.post("/email", jsonValidator(guestUpgradeEmailSchema), async (c) => {
+		const session = c.var.authSession;
 		if (!session?.user) {
 			return c.json({ error: "Sign in as a guest first (open chat to get a guest session)" }, 401);
 		}
@@ -51,7 +51,6 @@ export const guestUpgrade = new Hono<AuthWorkerAppEnv>().post(
 		return c.json({
 			user: mapUserWithRole(refreshed.user),
 		});
-	},
-);
+	});
 
 export type GuestUpgradeApp = typeof guestUpgrade;

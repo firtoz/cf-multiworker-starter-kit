@@ -1,4 +1,4 @@
-import { and, eq, ne } from "drizzle-orm";
+import { and, eq, inArray, ne } from "drizzle-orm";
 import type { AuthDb } from "./index";
 import { account, userEmail, user as userTable } from "./schema";
 
@@ -6,6 +6,44 @@ export type UserEmailSource = "email" | "google" | "github" | "manual" | "profil
 
 function normalizeEmail(email: string): string {
 	return email.trim().toLowerCase();
+}
+
+type EmailUpsertTarget = {
+	email: string;
+	source: UserEmailSource;
+	verified: boolean;
+};
+
+/** Emails owned by a different user (sign-in address or stored notification email). */
+async function findConflictEmailsForUser(
+	db: AuthDb,
+	rawEmails: readonly string[],
+	excludeUserId: string,
+): Promise<Set<string>> {
+	const emails = [...new Set(rawEmails.map(normalizeEmail).filter((e) => e.includes("@")))];
+	if (emails.length === 0) {
+		return new Set();
+	}
+
+	const [userConflicts, emailConflicts] = await Promise.all([
+		db
+			.select({ email: userTable.email })
+			.from(userTable)
+			.where(and(inArray(userTable.email, emails), ne(userTable.id, excludeUserId))),
+		db
+			.select({ email: userEmail.email })
+			.from(userEmail)
+			.where(and(inArray(userEmail.email, emails), ne(userEmail.userId, excludeUserId))),
+	]);
+
+	const conflicts = new Set<string>();
+	for (const row of userConflicts) {
+		conflicts.add(normalizeEmail(row.email));
+	}
+	for (const row of emailConflicts) {
+		conflicts.add(normalizeEmail(row.email));
+	}
+	return conflicts;
 }
 
 /** Another account already owns this address (sign-in email or any stored notification email). */
@@ -80,11 +118,15 @@ export async function upsertUserEmail(
 		.limit(1);
 
 	if (existing) {
+		const nextVerified = existing.verified || verified;
+		if (existing.email === email && nextVerified === existing.verified) {
+			return existing.id;
+		}
 		await db
 			.update(userEmail)
 			.set({
 				email,
-				verified: existing.verified || verified,
+				verified: nextVerified,
 				updatedAt: new Date(),
 			})
 			.where(eq(userEmail.id, existing.id));
@@ -125,23 +167,20 @@ function oauthProviderEmailFromAccount(
 	return null;
 }
 
-export async function syncUserEmailsForUser(db: AuthDb, userId: string) {
-	const [row] = await db.select().from(userTable).where(eq(userTable.id, userId)).limit(1);
-	if (!row) {
-		return;
-	}
-
-	const accounts = await db.select().from(account).where(eq(account.userId, userId));
+function buildSyncTargets(
+	row: typeof userTable.$inferSelect,
+	accounts: (typeof account.$inferSelect)[],
+): EmailUpsertTarget[] {
 	const profileEmail = normalizeEmail(row.email);
 	const anonymous = row.isAnonymous === true;
+	const targets: EmailUpsertTarget[] = [];
 
 	if (!anonymous) {
-		await upsertUserEmail(db, userId, profileEmail, "profile", row.emailVerified);
+		targets.push({ email: profileEmail, source: "profile", verified: row.emailVerified });
 	}
 
-	const hasCredential = accounts.some((a) => a.providerId === "credential");
-	if (hasCredential) {
-		await upsertUserEmail(db, userId, profileEmail, "email", row.emailVerified);
+	if (accounts.some((a) => a.providerId === "credential")) {
+		targets.push({ email: profileEmail, source: "email", verified: row.emailVerified });
 	}
 
 	for (const acc of accounts) {
@@ -150,8 +189,91 @@ export async function syncUserEmailsForUser(db: AuthDb, userId: string) {
 		}
 		const oauthEmail = oauthProviderEmailFromAccount(acc, profileEmail, anonymous);
 		if (oauthEmail) {
-			await upsertUserEmail(db, userId, oauthEmail, acc.providerId, true);
+			targets.push({
+				email: oauthEmail,
+				source: acc.providerId as "google" | "github",
+				verified: true,
+			});
 		}
+	}
+
+	return targets;
+}
+
+export async function syncUserEmailsForUser(db: AuthDb, userId: string) {
+	const [[row], accounts] = await Promise.all([
+		db.select().from(userTable).where(eq(userTable.id, userId)).limit(1),
+		db.select().from(account).where(eq(account.userId, userId)),
+	]);
+	if (!row) {
+		return;
+	}
+
+	const targets = buildSyncTargets(row, accounts);
+	if (targets.length === 0) {
+		return;
+	}
+
+	const conflictEmails = await findConflictEmailsForUser(
+		db,
+		targets.map((t) => t.email),
+		userId,
+	);
+	const existingRows = await db.select().from(userEmail).where(eq(userEmail.userId, userId));
+	const existingBySource = new Map(existingRows.map((r) => [r.source, r]));
+	let hasPreferred = existingRows.some((r) => r.isNotificationPreferred);
+
+	for (const target of targets) {
+		if (conflictEmails.has(target.email)) {
+			continue;
+		}
+
+		const existing = existingBySource.get(target.source);
+		if (existing) {
+			const nextVerified = existing.verified || target.verified;
+			if (existing.email === target.email && nextVerified === existing.verified) {
+				continue;
+			}
+			await db
+				.update(userEmail)
+				.set({
+					email: target.email,
+					verified: nextVerified,
+					updatedAt: new Date(),
+				})
+				.where(eq(userEmail.id, existing.id));
+			existingBySource.set(target.source, {
+				...existing,
+				email: target.email,
+				verified: nextVerified,
+			});
+			continue;
+		}
+
+		const id = crypto.randomUUID();
+		const isNotificationPreferred = !hasPreferred;
+		if (isNotificationPreferred) {
+			hasPreferred = true;
+		}
+
+		await db.insert(userEmail).values({
+			id,
+			userId,
+			email: target.email,
+			source: target.source,
+			verified: target.verified,
+			isNotificationPreferred,
+		});
+		existingBySource.set(target.source, {
+			id,
+			userId,
+			email: target.email,
+			source: target.source,
+			verified: target.verified,
+			isNotificationPreferred,
+			createdAt: new Date(),
+			updatedAt: new Date(),
+		});
 	}
 }
 

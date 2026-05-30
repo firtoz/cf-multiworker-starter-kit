@@ -1,7 +1,7 @@
 import { env } from "cloudflare:workers";
 import { type MaybeError, success } from "@firtoz/maybe-error";
 import type { RoutePath } from "@firtoz/router-toolkit";
-import { type AuthProviders, getAuthProviders, getSession } from "@internal/auth-client";
+import { type AuthProviders, getAuthProviders, resolveAuthSession } from "@internal/auth-client";
 import { href, redirect } from "react-router";
 import { LoginPanel } from "~/components/auth/LoginPanel";
 import { ClientOnly } from "~/components/client/ClientOnly";
@@ -16,7 +16,7 @@ export function meta(_args: Route.MetaArgs) {
 	return [{ title: "Sign in" }, { name: "description", content: "Sign in to the app" }];
 }
 
-export async function loader({ request }: Route.LoaderArgs): Promise<
+export async function loader({ request, context }: Route.LoaderArgs): Promise<
 	MaybeError<{
 		redirectTo: string;
 		providers: AuthProviders;
@@ -24,7 +24,7 @@ export async function loader({ request }: Route.LoaderArgs): Promise<
 		oauthErrorMessage?: string;
 	}>
 > {
-	const session = await getSession(env.AUTH, request);
+	const session = await resolveAuthSession(context, env.AUTH, request);
 	const url = new URL(request.url);
 	const redirectTo = url.searchParams.get("redirectTo")?.trim() || href("/");
 	if (session && session.user.isAnonymous === true) {

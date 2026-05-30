@@ -1,13 +1,14 @@
 import { env } from "cloudflare:workers";
 import { fail, success } from "@firtoz/maybe-error";
 import type { RoutePath } from "@firtoz/router-toolkit";
-import { accountDisplayName, createAuthClient, getAuthProviders } from "@internal/auth-client";
+import { accountDisplayName, getAuthProviders } from "@internal/auth-client";
 import { data, href, redirect } from "react-router";
 import { ClientOnly } from "~/components/client/ClientOnly";
 import { GuestUpgradePanel } from "~/components/guest/GuestUpgradePanel";
 import { BackToHomeLink } from "~/components/shared/BackToHomeLink";
 import { accountLinkErrorFromRequestUrl } from "~/lib/auth-link-error";
 import { googleOAuthPortlessWarningForWebEnv } from "~/lib/google-oauth-portless-warning";
+import { createRouteAuthClient } from "~/lib/route-auth-client";
 import type { Route } from "./+types/guest.upgrade";
 
 export const route: RoutePath<"/guest/upgrade"> = "/guest/upgrade";
@@ -22,10 +23,10 @@ export function meta(_args: Route.MetaArgs) {
 	];
 }
 
-export async function loader({ request }: Route.LoaderArgs) {
+export async function loader({ request, context }: Route.LoaderArgs) {
 	const url = new URL(request.url);
 	const redirectTo = url.searchParams.get("redirectTo")?.trim() || href("/chat");
-	const auth = createAuthClient(env.AUTH, request);
+	const auth = createRouteAuthClient(request, context);
 	const ensured = await auth.session.ensureChat();
 	if (!ensured) {
 		return fail("Could not start a guest session. Open chat first, then try again.");

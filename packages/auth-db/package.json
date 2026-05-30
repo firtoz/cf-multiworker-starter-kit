@@ -26,6 +26,10 @@
 			"types": "./src/roles.ts",
 			"default": "./src/roles.ts"
 		},
+		"./internal-binding-session": {
+			"types": "./src/internal-binding-session.ts",
+			"default": "./src/internal-binding-session.ts"
+		},
 		"./alchemy": "./alchemy.run.ts"
 	},
 	"scripts": {

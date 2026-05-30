@@ -18,9 +18,17 @@ type AdminAppClient = HonoClientApp<AdminApp>;
 
 export function createAdminApi(api: TypedHonoFetcher<AdminAppClient>) {
 	return {
-		listUsers(): Promise<MaybeError<AdminUsersResponse>> {
+		listUsers(query?: { page?: number; pageSize?: number }): Promise<MaybeError<AdminUsersResponse>> {
+			const params = new URLSearchParams();
+			if (query?.page != null) {
+				params.set("page", String(query.page));
+			}
+			if (query?.pageSize != null) {
+				params.set("pageSize", String(query.pageSize));
+			}
+			const qs = params.toString();
 			return parseBindingJson(
-				api.get({ url: "/users" }),
+				api.get({ url: (qs ? `/users?${qs}` : "/users") as "/users" }),
 				"Failed to load users",
 				adminUsersResponseSchema,
 			);

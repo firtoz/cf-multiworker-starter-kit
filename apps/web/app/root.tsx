@@ -1,6 +1,6 @@
 import { env } from "cloudflare:workers";
 import { type MaybeError, success } from "@firtoz/maybe-error";
-import { type AuthUser, getSession } from "@internal/auth-client";
+import { type AuthUser, resolveAuthSession } from "@internal/auth-client";
 import type { Route } from "./+types/root";
 import "./app.css";
 
@@ -96,8 +96,11 @@ export const links: Route.LinksFunction = () => [
 	},
 ];
 
-export async function loader({ request }: Route.LoaderArgs): Promise<MaybeError<RootLoaderData>> {
-	const session = await getSession(env.AUTH, request);
+export async function loader({
+	request,
+	context,
+}: Route.LoaderArgs): Promise<MaybeError<RootLoaderData>> {
+	const session = await resolveAuthSession(context, env.AUTH, request);
 	return success({
 		analytics: {
 			...getPostHogClientConfig(env),

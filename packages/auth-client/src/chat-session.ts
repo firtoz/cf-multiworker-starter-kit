@@ -24,8 +24,10 @@ function requestWithCookieHeader(pageRequest: Request, cookie: string | null): R
 export async function ensureChatSession(
 	auth: Fetcher,
 	request: Request,
+	preloadedSession?: AuthSession | null,
 ): Promise<EnsureChatSessionResult | null> {
-	const existing = await getSession(auth, request);
+	const existing =
+		preloadedSession === undefined ? await getSession(auth, request) : preloadedSession;
 
 	if (existing) {
 		return { session: existing, setCookieHeaders: [] };

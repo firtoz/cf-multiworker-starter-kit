@@ -6,6 +6,7 @@ import type { ChatAttestedIdentity } from "./attested-identity";
 import { CHAT_MESSAGE_TEXT_MAX_CHARS } from "./limits";
 
 export * from "./attested-identity";
+export * from "./chat-attest-token";
 export { CHAT_MESSAGE_TEXT_MAX_CHARS } from "./limits";
 
 export const CHATROOM_INTERNAL_SECRET_HEADER = `x-${PRODUCT_PREFIX}-chatroom-secret`;

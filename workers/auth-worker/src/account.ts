@@ -18,6 +18,7 @@ import type { AuthWorkerAppEnv } from "./app-env";
 import { mapUserWithRole } from "./auth";
 import { authProviderFlags } from "./auth-provider-flags";
 import { jsonValidator } from "./hono-zod";
+import { loadAuthSession } from "./session-context";
 
 type EmailRow = { email: string; source: string };
 
@@ -46,8 +47,9 @@ function oauthProviderEmail(
 export const accountPath = "/api/account" as const;
 
 export const account = new Hono<AuthWorkerAppEnv>()
+	.use("*", loadAuthSession)
 	.get("/", async (c) => {
-		const session = await c.var.auth.api.getSession({ headers: c.req.raw.headers });
+		const session = c.var.authSession;
 		if (!session?.user) {
 			return c.json({ error: "Unauthorized" }, 401);
 		}
@@ -55,12 +57,11 @@ export const account = new Hono<AuthWorkerAppEnv>()
 		const sessionUser = session.user;
 
 		const db = getAuthDb(c.env.DB);
-		await syncUserEmailsForUser(db, sessionUser.id);
 
-		const accounts = await db
-			.select()
-			.from(accountTable)
-			.where(eq(accountTable.userId, sessionUser.id));
+		const [accounts, emailRows] = await Promise.all([
+			db.select().from(accountTable).where(eq(accountTable.userId, sessionUser.id)),
+			db.select().from(userEmail).where(eq(userEmail.userId, sessionUser.id)),
+		]);
 
 		const hasPassword = accounts.some(
 			(a) => a.providerId === "credential" && a.password != null && a.password.length > 0,
@@ -75,8 +76,6 @@ export const account = new Hono<AuthWorkerAppEnv>()
 
 		const signInEmail = sessionUser.email.toLowerCase();
 		const profileIsAnonymous = sessionUser.isAnonymous === true;
-
-		const emailRows = await db.select().from(userEmail).where(eq(userEmail.userId, sessionUser.id));
 
 		const emailRowsForLookup = emailRows.map((r) => ({ email: r.email, source: r.source }));
 
@@ -166,7 +165,7 @@ export const account = new Hono<AuthWorkerAppEnv>()
 		return c.json(summary);
 	})
 	.patch("/", jsonValidator(accountPatchBodySchema), async (c) => {
-		const session = await c.var.auth.api.getSession({ headers: c.req.raw.headers });
+		const session = c.var.authSession;
 		if (!session?.user) {
 			return c.json({ error: "Unauthorized" }, 401);
 		}
@@ -194,10 +193,11 @@ export const account = new Hono<AuthWorkerAppEnv>()
 		if (!result.ok) {
 			return c.json({ error: result.error }, 400);
 		}
+		await syncUserEmailsForUser(db, session.user.id);
 		return c.json({ ok: true as const });
 	})
 	.post("/password", jsonValidator(accountPasswordBodySchema), async (c) => {
-		const session = await c.var.auth.api.getSession({ headers: c.req.raw.headers });
+		const session = c.var.authSession;
 		if (!session?.user) {
 			return c.json({ error: "Unauthorized" }, 401);
 		}

@@ -5,14 +5,14 @@ import { Hono } from "hono";
 import type { AuthWorkerAppEnv } from "./app-env";
 import { mapUserWithRole } from "./auth";
 import { jsonValidator } from "./hono-zod";
+import { loadAuthSession } from "./session-context";
 
 export const profilePath = "/api/profile" as const;
 
-export const profile = new Hono<AuthWorkerAppEnv>().patch(
-	"/",
-	jsonValidator(profileUpdateSchema),
-	async (c) => {
-		const session = await c.var.auth.api.getSession({ headers: c.req.raw.headers });
+export const profile = new Hono<AuthWorkerAppEnv>()
+	.use("*", loadAuthSession)
+	.patch("/", jsonValidator(profileUpdateSchema), async (c) => {
+		const session = c.var.authSession;
 		if (!session?.user) {
 			return c.json({ error: "Unauthorized" }, 401);
 		}
@@ -35,7 +35,6 @@ export const profile = new Hono<AuthWorkerAppEnv>().patch(
 		});
 
 		return c.json(response);
-	},
-);
+	});
 
 export type ProfileApp = typeof profile;
