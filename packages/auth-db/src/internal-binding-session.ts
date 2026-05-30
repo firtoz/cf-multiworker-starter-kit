@@ -11,6 +11,7 @@ type InternalBindingSessionPayload = {
 	email: string;
 	role: string;
 	isAnonymous: boolean;
+	name?: string;
 	exp: number;
 };
 
@@ -19,6 +20,7 @@ export type InternalBindingSessionInput = {
 		id: string;
 		email: string;
 		role: string;
+		name?: string | null;
 		isAnonymous?: boolean;
 	};
 	session: {
@@ -58,12 +60,14 @@ async function hmacSha256Base64Url(secret: string, message: string): Promise<str
 }
 
 function sessionToPayload(session: InternalBindingSessionInput): InternalBindingSessionPayload {
+	const name = session.user.name?.trim();
 	return {
 		userId: session.user.id,
 		sessionId: session.session.id,
 		email: session.user.email,
 		role: session.user.role,
 		isAnonymous: session.user.isAnonymous === true,
+		...(name ? { name } : {}),
 		exp: Date.now() + TOKEN_TTL_MS,
 	};
 }
@@ -146,7 +150,7 @@ export function internalBindingPayloadToAuthSession(payload: InternalBindingSess
 		user: {
 			id: payload.userId,
 			email: payload.email,
-			name: "",
+			name: payload.name?.trim() ?? "",
 			image: null,
 			role: payload.role,
 			isAnonymous: payload.isAnonymous ? true : null,

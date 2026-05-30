@@ -11,7 +11,7 @@ import {
 	accountPatchBodySchema,
 	accountSummarySchema,
 } from "@internal/auth-db/api-schemas";
-import { account as accountTable, userEmail } from "@internal/auth-db/schema";
+import { account as accountTable, userEmail, user as userTable } from "@internal/auth-db/schema";
 import { eq } from "drizzle-orm";
 import { Hono } from "hono";
 import type { AuthWorkerAppEnv } from "./app-env";
@@ -58,10 +58,14 @@ export const account = new Hono<AuthWorkerAppEnv>()
 
 		const db = getAuthDb(c.env.DB);
 
-		const [accounts, emailRows] = await Promise.all([
+		const [[userRow], accounts, emailRows] = await Promise.all([
+			db.select().from(userTable).where(eq(userTable.id, sessionUser.id)).limit(1),
 			db.select().from(accountTable).where(eq(accountTable.userId, sessionUser.id)),
 			db.select().from(userEmail).where(eq(userEmail.userId, sessionUser.id)),
 		]);
+		if (!userRow) {
+			return c.json({ error: "User not found" }, 404);
+		}
 
 		const hasPassword = accounts.some(
 			(a) => a.providerId === "credential" && a.password != null && a.password.length > 0,
@@ -74,8 +78,8 @@ export const account = new Hono<AuthWorkerAppEnv>()
 		const googleAccount = accounts.find((a) => a.providerId === "google");
 		const githubAccount = accounts.find((a) => a.providerId === "github");
 
-		const signInEmail = sessionUser.email.toLowerCase();
-		const profileIsAnonymous = sessionUser.isAnonymous === true;
+		const signInEmail = userRow.email.toLowerCase();
+		const profileIsAnonymous = userRow.isAnonymous === true;
 
 		const emailRowsForLookup = emailRows.map((r) => ({ email: r.email, source: r.source }));
 
@@ -149,12 +153,12 @@ export const account = new Hono<AuthWorkerAppEnv>()
 
 		const summary = accountSummarySchema.parse({
 			user: mapUserWithRole({
-				id: sessionUser.id,
-				email: sessionUser.email,
-				name: sessionUser.name,
-				image: sessionUser.image ?? null,
-				role: sessionUser.role,
-				isAnonymous: sessionUser.isAnonymous ?? null,
+				id: userRow.id,
+				email: userRow.email,
+				name: userRow.name,
+				image: userRow.image ?? null,
+				role: userRow.role,
+				isAnonymous: userRow.isAnonymous ?? null,
 			}),
 			signInMethods,
 			emails,
