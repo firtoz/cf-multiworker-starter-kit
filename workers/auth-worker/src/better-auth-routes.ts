@@ -12,17 +12,34 @@ import { jsonValidator } from "./hono-zod";
 
 export const betterAuthPath = "/api/auth" as const;
 
+function getSessionQueryFromRequest(url: string) {
+	const params = new URL(url).searchParams;
+	const query: {
+		disableCookieCache?: boolean;
+		disableRefresh?: boolean;
+	} = {};
+	if (params.has("disableCookieCache")) {
+		query.disableCookieCache = params.get("disableCookieCache") === "true";
+	}
+	if (params.has("disableRefresh")) {
+		query.disableRefresh = params.get("disableRefresh") === "true";
+	}
+	return query;
+}
+
 /** Better Auth HTTP API + app-specific `/api/auth/providers`. */
 export const betterAuth = new Hono<AuthWorkerAppEnv>()
 	.get("/providers", (c) => c.json(authProviderFlags(c.env)))
-	.get("/get-session", (c) =>
-		callAuthApi(c, (api) =>
+	.get("/get-session", (c) => {
+		const query = getSessionQueryFromRequest(c.req.url);
+		return callAuthApi(c, (api) =>
 			api.getSession({
 				headers: c.req.raw.headers,
+				...(Object.keys(query).length > 0 ? { query } : {}),
 				asResponse: true,
 			}),
-		),
-	)
+		);
+	})
 	.post("/sign-in/anonymous", (c) =>
 		callAuthApi(c, (api) =>
 			api.signInAnonymous({
