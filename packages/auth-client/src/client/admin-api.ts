@@ -78,5 +78,22 @@ export function createAdminApi(api: TypedHonoFetcher<AdminAppClient>) {
 				adminOkResponseSchema,
 			);
 		},
+		bulkDeleteUsers(userIds: string[]): Promise<MaybeError<AdminOkResponse>> {
+			return parseBindingJson(
+				api.post({ url: "/users/bulk-delete", body: { userIds } }),
+				"Bulk delete failed",
+				adminOkResponseSchema,
+			);
+		},
+		bulkSetUserRole(
+			userIds: string[],
+			role: "user" | "admin",
+		): Promise<MaybeError<AdminOkResponse>> {
+			return parseBindingJson(
+				api.post({ url: "/users/bulk-role", body: { userIds, role } }),
+				"Bulk update failed",
+				adminOkResponseSchema,
+			);
+		},
 	};
 }

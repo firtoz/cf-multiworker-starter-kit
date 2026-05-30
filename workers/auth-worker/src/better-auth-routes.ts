@@ -92,7 +92,13 @@ export const betterAuth = new Hono<AuthWorkerAppEnv>()
 		);
 	})
 	.get("/oauth-proxy-callback", (c) => {
-		const { oAuthProxy } = c.var.auth.api;
+		type OAuthProxyHandler = (input: {
+			query: { callbackURL: string; profile?: string };
+			headers: Headers;
+			request: Request;
+			asResponse: true;
+		}) => Promise<Response>;
+		const oAuthProxy = (c.var.auth.api as { oAuthProxy?: OAuthProxyHandler }).oAuthProxy;
 		if (typeof oAuthProxy !== "function") {
 			return c.notFound();
 		}
@@ -101,10 +107,13 @@ export const betterAuth = new Hono<AuthWorkerAppEnv>()
 		if (!callbackURL) {
 			return c.text("Missing callbackURL", 400);
 		}
-		const profile = url.searchParams.get("profile") ?? undefined;
+		const profileParam = url.searchParams.get("profile");
 		return callAuthApi(c, () =>
 			oAuthProxy({
-				query: { callbackURL, profile },
+				query: {
+					callbackURL,
+					...(profileParam ? { profile: profileParam } : {}),
+				},
 				headers: c.req.raw.headers,
 				request: c.req.raw,
 				asResponse: true,

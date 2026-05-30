@@ -19,7 +19,7 @@ import {
 	userEmail,
 	user as userTable,
 } from "@internal/auth-db/schema";
-import { and, desc, eq, ne } from "drizzle-orm";
+import { and, desc, eq, gt, ne } from "drizzle-orm";
 import { Hono } from "hono";
 import type { AuthWorkerAppEnv } from "./app-env";
 import { mapUserWithRole } from "./auth";
@@ -214,6 +214,7 @@ export const account = new Hono<AuthWorkerAppEnv>()
 		}
 
 		const db = getAuthDb(c.env.DB);
+		const now = new Date();
 		const rows = await db
 			.select({
 				id: sessionTable.id,
@@ -224,7 +225,7 @@ export const account = new Hono<AuthWorkerAppEnv>()
 				userAgent: sessionTable.userAgent,
 			})
 			.from(sessionTable)
-			.where(eq(sessionTable.userId, session.user.id))
+			.where(and(eq(sessionTable.userId, session.user.id), gt(sessionTable.expiresAt, now)))
 			.orderBy(desc(sessionTable.updatedAt));
 
 		const currentId = session.session.id;
@@ -248,6 +249,9 @@ export const account = new Hono<AuthWorkerAppEnv>()
 		}
 
 		const sessionId = c.req.param("id");
+		if (sessionId === session.session.id) {
+			return c.json({ error: "Cannot revoke the current session" }, 400);
+		}
 		const db = getAuthDb(c.env.DB);
 		const [target] = await db
 			.select({ id: sessionTable.id })

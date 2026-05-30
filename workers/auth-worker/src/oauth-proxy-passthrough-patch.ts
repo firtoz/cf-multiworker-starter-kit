@@ -1,11 +1,12 @@
 /**
- * Patches Better Auth `oAuthProxy` for PR preview → staging passthrough:
+ * Better Auth `oAuthProxy` extension for PR preview → staging passthrough:
  * - `/link-social` uses staging redirect URIs (stock plugin only hooks sign-in)
  * - Account linking completes on the preview D1 via encrypted proxy payload
  */
 import type { BetterAuthPlugin } from "better-auth";
 import { createAuthMiddleware } from "better-auth/api";
 import { symmetricDecrypt, symmetricEncrypt } from "better-auth/crypto";
+import { oAuthProxy } from "better-auth/plugins";
 import {
 	type AuthMiddlewareCtx,
 	applyProductionOAuthBaseUrl,
@@ -20,6 +21,11 @@ import {
 	resolveOAuthReturnUrl,
 	stripTrailingSlash,
 } from "./oauth-proxy-link-shared";
+import {
+	mergeOAuthProxyPlugin,
+	type OAuthProxyPluginHooks,
+	withMatcher,
+} from "./oauth-proxy-plugin-merge";
 
 export type PassthroughOAuthProxyOptions = {
 	/** Staging auth public URL registered in GitHub/Google consoles. */
@@ -58,52 +64,56 @@ function oauthProxyCallbackMatcher(ctx: { path?: string }): boolean {
 
 type OAuthLinkCompletionProvider = Parameters<typeof completeOAuthAccountLink>[1]["provider"];
 
-/**
- * PR previews (and any deploy where `productionURL` ≠ `AUTH_BASE_URL`): proxy social sign-in
- * and `/link-social` through staging callbacks; finish linking on the preview worker DB.
- */
-export function configurePassthroughOAuthProxy(
-	plugin: BetterAuthPlugin,
+/** PR previews: proxy social sign-in and `/link-social` through staging; finish on preview D1. */
+export function createPassthroughOAuthProxyPlugin(
 	options: PassthroughOAuthProxyOptions,
-): void {
-	const hooks = plugin.hooks;
-	if (!hooks?.before) {
-		return;
-	}
+): BetterAuthPlugin {
+	const base = oAuthProxy({
+		productionURL: options.productionURL,
+		currentURL: options.browserBaseUrl,
+	});
+	return mergeOAuthProxyPlugin(base, buildPassthroughOAuthProxyHooks(base, options));
+}
 
+function buildPassthroughOAuthProxyHooks(
+	base: BetterAuthPlugin,
+	options: PassthroughOAuthProxyOptions,
+): OAuthProxyPluginHooks {
 	const { productionURL, browserBaseUrl, afterOAuthLink, isEmailOwnedByOtherAccount } = options;
 	const maxAge = options.maxAge ?? 60;
 	const productionOrigin = new URL(productionURL).origin;
 	const isClientPassthrough =
 		stripTrailingSlash(productionURL) !== stripTrailingSlash(browserBaseUrl);
 
-	if (isClientPassthrough) {
-		if (hooks.before[0]) {
-			hooks.before[0].matcher = isPassthroughOAuthProxyStart;
-		}
-		if (hooks.after?.[0]) {
-			hooks.after[0].matcher = isPassthroughOAuthProxyStart;
-		}
+	let before = [...(base.hooks?.before ?? [])];
+	const after = [...(base.hooks?.after ?? [])];
 
-		hooks.before.push({
-			matcher: oauthProxyCallbackMatcher,
-			handler: createAuthMiddleware(async (ctx: AuthMiddlewareCtx) => {
-				const handled = await tryCompleteProxyLinkFromQuery(ctx, {
-					browserBaseUrl,
-					maxAge,
-					afterOAuthLink,
-					isEmailOwnedByOtherAccount,
-				});
-				if (handled) {
-					return;
-				}
-			}),
-		});
+	if (isClientPassthrough) {
+		before = before.map((hook, index) =>
+			index === 0 ? withMatcher(hook, isPassthroughOAuthProxyStart) : hook,
+		);
+		before = [
+			...before,
+			{
+				matcher: oauthProxyCallbackMatcher,
+				handler: createAuthMiddleware(async (ctx: AuthMiddlewareCtx) => {
+					const handled = await tryCompleteProxyLinkFromQuery(ctx, {
+						browserBaseUrl,
+						maxAge,
+						afterOAuthLink,
+						isEmailOwnedByOtherAccount,
+					});
+					if (handled) {
+						return;
+					}
+				}),
+			},
+		];
 	}
 
-	// Staging callback: proxied `/link-social` from previews exchanges here, then redirects to preview.
-	hooks.before.splice(1, 0, {
-		matcher: (ctx) => productionCallbackMatcher(ctx, productionOrigin),
+	const stagingCallbackHook = {
+		matcher: (ctx: { path?: string; request?: Request }) =>
+			productionCallbackMatcher(ctx, productionOrigin),
 		handler: createAuthMiddleware(async (ctx: AuthMiddlewareCtx) => {
 			const callbackParams = {
 				...(ctx.query as Record<string, unknown>),
@@ -208,7 +218,23 @@ export function configurePassthroughOAuthProxy(
 			proxyCallbackURL.searchParams.set("profile", encryptedPayload);
 			throw ctx.redirect(proxyCallbackURL.toString());
 		}),
-	});
+	};
+
+	const beforeWithStaging =
+		before.length > 0
+			? [before[0]!, stagingCallbackHook, ...before.slice(1)]
+			: [stagingCallbackHook];
+
+	const updatedAfter = isClientPassthrough
+		? after.map((hook, index) =>
+				index === 0 ? withMatcher(hook, isPassthroughOAuthProxyStart) : hook,
+			)
+		: after;
+
+	return {
+		before: beforeWithStaging,
+		after: updatedAfter,
+	};
 }
 
 async function tryCompleteProxyLinkFromQuery(

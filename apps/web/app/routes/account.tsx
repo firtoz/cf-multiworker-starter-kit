@@ -64,7 +64,10 @@ export async function loader({ request, context }: Route.LoaderArgs) {
 	}
 
 	const sessionsResult = await auth.account.listSessions();
-	const sessions = sessionsResult.success ? sessionsResult.result.sessions : [];
+	if (!sessionsResult.success) {
+		return fail(sessionsResult.error);
+	}
+	const sessions = sessionsResult.result.sessions;
 
 	const googlePortlessWarning =
 		summaryResult.result.providers.google &&

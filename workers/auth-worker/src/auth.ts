@@ -22,13 +22,13 @@ import { PRODUCT_PREFIX } from "alchemy-utils/worker-peer-scripts";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { APIError } from "better-auth/api";
-import { anonymous, oAuthProxy } from "better-auth/plugins";
+import { anonymous } from "better-auth/plugins";
 import { eq } from "drizzle-orm";
 import { ensureBootstrapAdminRole } from "./bootstrap-admin";
 import { generateAnonymousGuestName } from "./guest-display-name";
 import { graduateAnonymousUserFromOAuthLink, type OAuthLinkCompleted } from "./guest-graduate";
-import { configureLocalGoogleOAuthProxy } from "./local-oauth-proxy-patch";
-import { configurePassthroughOAuthProxy } from "./oauth-proxy-passthrough-patch";
+import { createLocalGoogleOAuthProxyPlugin } from "./local-oauth-proxy-patch";
+import { createPassthroughOAuthProxyPlugin } from "./oauth-proxy-passthrough-patch";
 
 async function isAnonymousUserId(
 	db: ReturnType<typeof getAuthDb>,
@@ -211,24 +211,14 @@ export function createAuth(env: AuthWorkerEnv, trustedOrigins: string[]) {
 				? [
 						(() => {
 							const productionURL = env.AUTH_OAUTH_PROXY_PRODUCTION_URL.trim();
-							const plugin = oAuthProxy({
+							const pluginOptions = {
 								productionURL,
-								currentURL: env.AUTH_BASE_URL,
-							});
-							if (isLoopbackOAuthProxyProductionUrl(productionURL)) {
-								configureLocalGoogleOAuthProxy(plugin, {
-									productionURL,
-									browserBaseUrl: env.AUTH_BASE_URL,
-									...oauthProxyLinkOptions,
-								});
-							} else {
-								configurePassthroughOAuthProxy(plugin, {
-									productionURL,
-									browserBaseUrl: env.AUTH_BASE_URL,
-									...oauthProxyLinkOptions,
-								});
-							}
-							return plugin;
+								browserBaseUrl: env.AUTH_BASE_URL,
+								...oauthProxyLinkOptions,
+							};
+							return isLoopbackOAuthProxyProductionUrl(productionURL)
+								? createLocalGoogleOAuthProxyPlugin(pluginOptions)
+								: createPassthroughOAuthProxyPlugin(pluginOptions);
 						})(),
 					]
 				: []),

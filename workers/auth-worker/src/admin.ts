@@ -2,6 +2,8 @@ import { getAuthDb, session as sessionTable, user as userTable } from "@internal
 import {
 	type AdminUserSessionActivity,
 	adminAddOriginSchema,
+	adminBulkSetRoleSchema,
+	adminBulkUserIdsSchema,
 	adminSetOriginsSchema,
 	adminSetRoleSchema,
 	adminSetUserNameSchema,
@@ -15,6 +17,12 @@ import { bootstrapAdminEmails } from "alchemy-utils/bootstrap-admin-emails";
 import { count, desc, eq, inArray } from "drizzle-orm";
 import { Hono } from "hono";
 import { createMiddleware } from "hono/factory";
+import {
+	bulkDeleteUsers,
+	bulkSetUserRoles,
+	validateBulkDeleteUsers,
+	validateBulkSetUserRoles,
+} from "./admin-bulk-users";
 import type { AuthWorkerAppEnv } from "./app-env";
 import { promoteAllMatchingBootstrapAdmins } from "./bootstrap-admin";
 import { jsonValidator } from "./hono-zod";
@@ -145,6 +153,31 @@ export const admin = new Hono<AuthWorkerAppEnv>()
 			pageSize: query.pageSize,
 			hasMore: offset + rows.length < total,
 		});
+	})
+	.post("/users/bulk-delete", jsonValidator(adminBulkUserIdsSchema), async (c) => {
+		const { userIds } = c.req.valid("json");
+		const db = getAuthDb(c.env.DB);
+		const session = c.var.authSession;
+		const actorUserId = session?.user?.id;
+		if (!actorUserId) {
+			return c.json({ error: "Forbidden" }, 403);
+		}
+		const validation = await validateBulkDeleteUsers(db, actorUserId, userIds);
+		if (!validation.ok) {
+			return c.json({ error: validation.error }, 400);
+		}
+		await bulkDeleteUsers(db, userIds);
+		return c.json({ ok: true as const });
+	})
+	.post("/users/bulk-role", jsonValidator(adminBulkSetRoleSchema), async (c) => {
+		const { userIds, role } = c.req.valid("json");
+		const db = getAuthDb(c.env.DB);
+		const validation = await validateBulkSetUserRoles(db, userIds, role);
+		if (!validation.ok) {
+			return c.json({ error: validation.error }, 400);
+		}
+		await bulkSetUserRoles(db, userIds, role);
+		return c.json({ ok: true as const });
 	})
 	.post("/users/:id/role", jsonValidator(adminSetRoleSchema), async (c) => {
 		const { role } = c.req.valid("json");

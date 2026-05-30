@@ -136,8 +136,20 @@ export const adminAddOriginSchema = z.object({
 export type AdminAddOriginInput = z.infer<typeof adminAddOriginSchema>;
 
 export const adminSetOriginsSchema = z.object({
-	origins: z.array(z.string()),
+	origins: z.array(trustedOriginSchema),
 });
+
+export const adminBulkUserIdsSchema = z.object({
+	userIds: z.array(z.string().min(1)).min(1).max(100),
+});
+
+export type AdminBulkUserIdsInput = z.infer<typeof adminBulkUserIdsSchema>;
+
+export const adminBulkSetRoleSchema = adminBulkUserIdsSchema.extend({
+	role: z.enum(AUTH_ROLES),
+});
+
+export type AdminBulkSetRoleInput = z.infer<typeof adminBulkSetRoleSchema>;
 
 export type AdminSetOriginsInput = z.infer<typeof adminSetOriginsSchema>;
 

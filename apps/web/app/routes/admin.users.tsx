@@ -1,6 +1,5 @@
 import { fail, type MaybeError, success } from "@firtoz/maybe-error";
 import type { RoutePath } from "@firtoz/router-toolkit";
-import type { AuthClient } from "@internal/auth-client";
 import type { AdminUserRow } from "@internal/auth-db/api-schemas";
 import { GUEST_SESSION_RETENTION_DAYS } from "@internal/auth-db/constants";
 import { AdminUsersPanel } from "~/components/admin/AdminUsersPanel";
@@ -50,27 +49,6 @@ export async function loader({ request, context }: Route.LoaderArgs): Promise<
 	});
 }
 
-async function runBulkUserAction(
-	_auth: AuthClient,
-	sessionUserId: string,
-	userIds: string[],
-	run: (userId: string) => Promise<MaybeError<{ ok: true }>>,
-): Promise<MaybeError<{ ok: true }>> {
-	if (userIds.length === 0) {
-		return fail("No users selected");
-	}
-	if (userIds.includes(sessionUserId)) {
-		return fail("Cannot include your own account");
-	}
-	for (const id of userIds) {
-		const result = await run(id);
-		if (!result.success) {
-			return fail(result.error);
-		}
-	}
-	return success({ ok: true });
-}
-
 export async function action({
 	request,
 	context,
@@ -86,13 +64,25 @@ export async function action({
 
 	if (intent === "bulkDelete" || intent === "bulkPromote" || intent === "bulkDemote") {
 		const userIds = form.getAll("userIds").map(String).filter(Boolean);
+		if (userIds.length === 0) {
+			return fail("No users selected");
+		}
+		if (userIds.includes(session.user.id)) {
+			return fail("Cannot include your own account");
+		}
 		if (intent === "bulkDelete") {
-			return runBulkUserAction(auth, session.user.id, userIds, (id) => auth.admin.deleteUser(id));
+			const result = await auth.admin.bulkDeleteUsers(userIds);
+			if (!result.success) {
+				return fail(result.error);
+			}
+			return success({ ok: true });
 		}
 		const role = intent === "bulkPromote" ? "admin" : "user";
-		return runBulkUserAction(auth, session.user.id, userIds, (id) =>
-			auth.admin.setUserRole(id, role),
-		);
+		const result = await auth.admin.bulkSetUserRole(userIds, role);
+		if (!result.success) {
+			return fail(result.error);
+		}
+		return success({ ok: true });
 	}
 
 	const userId = String(form.get("userId") ?? "");

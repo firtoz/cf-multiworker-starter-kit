@@ -54,7 +54,8 @@ OAuth redirect URIs must match the resolved URL: `https://<host>/api/auth/callba
 - Better Auth **`anonymous()`** plugin on `auth-worker` (`user.isAnonymous`, synthetic email `*@<PRODUCT_PREFIX>.guest`).
 - Display names: **`unique-names-generator`** (adjective + animal, e.g. `Coastal-Falcon`) via `workers/auth-worker/src/guest-display-name.ts` — not a shared `"Guest"` label.
 - **`/chat` loader** calls `ensureChatSession` → `POST /api/auth/sign-in/anonymous` when logged out; sets session cookie on the document response.
-- Session **`expiresIn` 7 days** with **`updateAge` 1 day** — each visit extends expiry; no visit for a week and the guest identity is gone.
+- **Guest** sessions: capped at **7 days** (`GUEST_SESSION_SECONDS`, enforced in `databaseHooks.session`) with **`updateAge` 1 day** — each visit extends expiry; no visit for a week and the guest identity is gone.
+- **Signed-in** accounts: default **30 days** (`SIGNED_IN_SESSION_SECONDS` in `createAuth()`); guest upgrade / OAuth graduation extends active sessions to this duration.
 - **Guest upgrade** at **`/guest/upgrade`**: email (`POST /api/guest/upgrade/email`) or OAuth **`link-social`** promotes the **same** `user.id` (`isAnonymous: false`); chat history in DO SQLite stays attached without migration.
 - Nav shows **Create account** for guests; `/login` redirects anonymous sessions to `/guest/upgrade`.
 

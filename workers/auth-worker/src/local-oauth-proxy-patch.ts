@@ -1,5 +1,5 @@
 /**
- * Patches Better Auth `oAuthProxy` for local Portless + Google:
+ * Better Auth `oAuthProxy` extension for local Portless + Google:
  * - Google-only loopback redirect (GitHub keeps `https://*.localhost/...`)
  * - `/link-social` + loopback link completion (upstream #9390)
  * - OAuth errors use the same `?error=` redirect as stock Better Auth (`errorCallbackURL`)
@@ -10,6 +10,12 @@ import type { BetterAuthPlugin } from "better-auth";
 import { createAuthMiddleware } from "better-auth/api";
 import { symmetricDecrypt } from "better-auth/crypto";
 import { setTokenUtil } from "better-auth/oauth2";
+import { oAuthProxy } from "better-auth/plugins";
+import {
+	mergeOAuthProxyPlugin,
+	type OAuthProxyPluginHooks,
+	withMatcher,
+} from "./oauth-proxy-plugin-merge";
 
 type OAuthLinkState = { userId: string; email: string };
 
@@ -31,6 +37,17 @@ export type LocalGoogleOAuthProxyOptions = {
 	afterOAuthLink?: (input: OAuthLinkCompleted) => Promise<void>;
 	isEmailOwnedByOtherAccount?: (userId: string, email: string) => Promise<boolean>;
 };
+
+/** Stock `oAuthProxy` plus Portless Google link-social and loopback callback handling. */
+export function createLocalGoogleOAuthProxyPlugin(
+	options: LocalGoogleOAuthProxyOptions,
+): BetterAuthPlugin {
+	const base = oAuthProxy({
+		productionURL: options.productionURL,
+		currentURL: options.browserBaseUrl,
+	});
+	return mergeOAuthProxyPlugin(base, buildLocalGoogleOAuthProxyHooks(base, options));
+}
 
 function isOAuthProxySocialStartPath(path: string | undefined): boolean {
 	return !!(
@@ -116,34 +133,29 @@ function isOAuthLinkState(value: unknown): value is OAuthLinkState {
 	return typeof o["userId"] === "string" && typeof o["email"] === "string";
 }
 
-/**
- * Patch Better Auth's stock `oAuthProxy` for Portless + Google: loopback redirect to Google,
- * link-social + sign-in on Portless, account linking without session swap. GitHub is untouched.
- */
-export function configureLocalGoogleOAuthProxy(
-	plugin: BetterAuthPlugin,
+function buildLocalGoogleOAuthProxyHooks(
+	base: BetterAuthPlugin,
 	options: LocalGoogleOAuthProxyOptions,
-): void {
-	const hooks = plugin.hooks;
-	if (!hooks?.before) {
-		return;
-	}
-
+): OAuthProxyPluginHooks {
 	const { productionURL, browserBaseUrl } = options;
 	const productionOrigin = new URL(productionURL).origin;
 	const loopbackHost = new URL(productionURL).host;
 	const browser = new URL(browserBaseUrl);
 
-	// Stock plugin only hooks `/sign-in/social`; include `/link-social` and Google-only starts.
-	if (hooks.before[0]) {
-		hooks.before[0].matcher = isGoogleOAuthProxyStart;
-	}
-	if (hooks.after?.[0]) {
-		hooks.after[0].matcher = isGoogleOAuthProxyStart;
-	}
+	const stockBefore = base.hooks?.before ?? [];
+	const stockAfter = base.hooks?.after ?? [];
 
-	// Loopback callback: use production `redirect_uri` for Google's code exchange.
-	hooks.before.unshift({
+	const updatedStockBefore = stockBefore.map((hook, index) => {
+		if (index === 0) {
+			return withMatcher(hook, isGoogleOAuthProxyStart);
+		}
+		if (index === stockBefore.length - 1) {
+			return withMatcher(hook, googleCallbackMatcher);
+		}
+		return hook;
+	});
+
+	const loopbackBaseUrlHook = {
 		matcher: googleCallbackMatcher,
 		handler: createAuthMiddleware(async (ctx) => {
 			const requestUrl = ctx.request?.url;
@@ -153,10 +165,9 @@ export function configureLocalGoogleOAuthProxy(
 			const basePath = ctx.context.options.basePath || "/api/auth";
 			ctx.context.baseURL = `${stripTrailingSlash(productionURL)}${basePath}`;
 		}),
-	});
+	};
 
-	// `/link-social`: finish on loopback without `/oauth-proxy-callback` creating a new session.
-	hooks.before.splice(1, 0, {
+	const linkSocialCompletionHook = {
 		matcher: googleCallbackMatcher,
 		handler: createAuthMiddleware(async (ctx: AuthMiddlewareCtx) => {
 			const requestUrl = ctx.request?.url as string | undefined;
@@ -303,19 +314,9 @@ export function configureLocalGoogleOAuthProxy(
 			}
 			throw ctx.redirect(returnUrl);
 		}),
-	});
+	};
 
-	// Stock callback hook runs for every provider; keep loopback exchange Google-only.
-	const stockCallbackHook = hooks.before[hooks.before.length - 1];
-	if (stockCallbackHook) {
-		stockCallbackHook.matcher = googleCallbackMatcher;
-	}
-
-	// Sign-in: rewrite loopback `Location` to Portless for `/oauth-proxy-callback`.
-	if (!hooks.after) {
-		hooks.after = [];
-	}
-	hooks.after.push({
+	const locationRewriteHook = {
 		matcher: googleCallbackMatcher,
 		handler: createAuthMiddleware(async (ctx) => {
 			const location = ctx.context.responseHeaders?.get("location");
@@ -335,5 +336,14 @@ export function configureLocalGoogleOAuthProxy(
 			url.host = browser.host;
 			ctx.setHeader("location", url.toString());
 		}),
-	});
+	};
+
+	const updatedStockAfter = stockAfter.map((hook, index) =>
+		index === 0 ? withMatcher(hook, isGoogleOAuthProxyStart) : hook,
+	);
+
+	return {
+		before: [loopbackBaseUrlHook, linkSocialCompletionHook, ...updatedStockBefore],
+		after: [...updatedStockAfter, locationRewriteHook],
+	};
 }
