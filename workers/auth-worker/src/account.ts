@@ -25,6 +25,7 @@ import type { AuthWorkerAppEnv } from "./app-env";
 import { mapUserWithRole } from "./auth";
 import { authProviderFlags } from "./auth-provider-flags";
 import { jsonValidator } from "./hono-zod";
+import { resolveRequestSessionId } from "./resolve-request-session-id";
 import { loadAuthSession } from "./session-context";
 
 type EmailRow = { email: string; source: string };
@@ -228,7 +229,7 @@ export const account = new Hono<AuthWorkerAppEnv>()
 			.where(and(eq(sessionTable.userId, session.user.id), gt(sessionTable.expiresAt, now)))
 			.orderBy(desc(sessionTable.updatedAt));
 
-		const currentId = session.session.id;
+		const currentId = await resolveRequestSessionId(c, session);
 		const payload = accountSessionsResponseSchema.parse({
 			sessions: rows.map((row) => ({
 				id: row.id,
@@ -249,7 +250,8 @@ export const account = new Hono<AuthWorkerAppEnv>()
 		}
 
 		const sessionId = c.req.param("id");
-		if (sessionId === session.session.id) {
+		const currentId = await resolveRequestSessionId(c, session);
+		if (sessionId === currentId) {
 			return c.json({ error: "Cannot revoke the current session" }, 400);
 		}
 		const db = getAuthDb(c.env.DB);
@@ -272,11 +274,10 @@ export const account = new Hono<AuthWorkerAppEnv>()
 		}
 
 		const db = getAuthDb(c.env.DB);
+		const currentId = await resolveRequestSessionId(c, session);
 		await db
 			.delete(sessionTable)
-			.where(
-				and(eq(sessionTable.userId, session.user.id), ne(sessionTable.id, session.session.id)),
-			);
+			.where(and(eq(sessionTable.userId, session.user.id), ne(sessionTable.id, currentId)));
 		return c.json({ ok: true as const });
 	})
 	.post("/password", jsonValidator(accountPasswordBodySchema), async (c) => {

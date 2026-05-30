@@ -79,6 +79,7 @@ export async function loader({ request, context }: Route.LoaderArgs) {
 	return success({
 		summary: summaryResult.result,
 		sessions,
+		currentSessionId: sessions.find((s) => s.isCurrent)?.id ?? session.session.id,
 		accountPath,
 		...(googlePortlessWarning ? { googlePortlessWarning } : {}),
 		...(linkErrorMessage ? { linkErrorMessage } : {}),
@@ -201,21 +202,22 @@ export const action = formAction({
 });
 
 export default function AccountRoute({ loaderData }: Route.ComponentProps) {
-	const summary = loaderData.success ? loaderData.result.summary : null;
-	const sessions = loaderData.success ? loaderData.result.sessions : [];
-	const accountPath = loaderData.success ? loaderData.result.accountPath : href("/account");
-	const googlePortlessWarning = loaderData.success
-		? loaderData.result.googlePortlessWarning
-		: undefined;
-	const linkErrorMessage = loaderData.success ? loaderData.result.linkErrorMessage : undefined;
-
-	if (!summary) {
+	if (!loaderData.success) {
 		return (
 			<div className="container mx-auto px-4 py-8">
-				<p className="text-red-600">{loaderData.success ? "Unexpected error" : loaderData.error}</p>
+				<p className="text-red-600">{loaderData.error}</p>
 			</div>
 		);
 	}
+
+	const {
+		summary,
+		sessions,
+		currentSessionId,
+		accountPath,
+		googlePortlessWarning,
+		linkErrorMessage,
+	} = loaderData.result;
 
 	const displayName = accountDisplayName(summaryUserToAuthUser(summary.user));
 	return (
@@ -239,7 +241,7 @@ export default function AccountRoute({ loaderData }: Route.ComponentProps) {
 			/>
 			<AccountEmailsSection summary={summary} />
 			<AccountPasswordForm hasPassword={summary.hasPassword} />
-			<AccountSessionsSection sessions={sessions} />
+			<AccountSessionsSection sessions={sessions} currentSessionId={currentSessionId} />
 		</div>
 	);
 }
