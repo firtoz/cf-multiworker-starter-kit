@@ -23,7 +23,7 @@ import { anonymous, oAuthProxy } from "better-auth/plugins";
 import { eq } from "drizzle-orm";
 import { ensureBootstrapAdminRole } from "./bootstrap-admin";
 import { generateAnonymousGuestName } from "./guest-display-name";
-import { graduateAnonymousUserFromOAuthAccount } from "./guest-graduate";
+import { graduateAnonymousUserFromOAuthLink, type OAuthLinkCompleted } from "./guest-graduate";
 import { configureLocalGoogleOAuthProxy } from "./local-oauth-proxy-patch";
 import { configurePassthroughOAuthProxy } from "./oauth-proxy-passthrough-patch";
 
@@ -60,17 +60,69 @@ export function createAuth(env: AuthWorkerEnv, trustedOrigins: string[]) {
 	const db = getAuthDb(env.DB);
 	const bootstrap = bootstrapAdminEmails(env.AUTH_BOOTSTRAP_ADMIN_EMAILS);
 
-	const afterOAuthLink = async (input: {
-		userId: string;
-		providerId: string;
-		email: string;
-		emailVerified: boolean;
-	}) => {
+	const afterOAuthLink = async (input: OAuthLinkCompleted) => {
+		await graduateAnonymousUserFromOAuthLink(db, {
+			userId: input.userId,
+			providerId: input.providerId,
+			providerEmail: input.email,
+			emailVerified: input.emailVerified,
+			authSecret: env.BETTER_AUTH_SECRET,
+		});
 		await syncUserEmailsForUser(db, input.userId);
+		await ensureBootstrapAdminRole(db, input.userId, bootstrap);
 	};
 
 	const isEmailOwnedByOtherAccount = async (userId: string, email: string) =>
 		(await findOtherUserIdForEmail(db, email, userId)) !== null;
+
+	type LinkedOAuthAccount = {
+		id?: string;
+		userId?: string | null;
+		providerId: string;
+		idToken?: string | null;
+		accessToken?: string | null;
+	};
+
+	const promoteGuestAfterLinkedOAuthAccount = async (
+		linkedAccount: LinkedOAuthAccount,
+		options: { rollbackAccountIdOnFailure?: boolean },
+	) => {
+		if (linkedAccount.providerId === "credential" || !linkedAccount.userId) {
+			return;
+		}
+		const userId = linkedAccount.userId;
+		try {
+			await graduateAnonymousUserFromOAuthLink(db, {
+				userId,
+				providerId: linkedAccount.providerId,
+				idToken: linkedAccount.idToken,
+				accessToken: linkedAccount.accessToken,
+				authSecret: env.BETTER_AUTH_SECRET,
+			});
+		} catch (error) {
+			if (options.rollbackAccountIdOnFailure && linkedAccount.id) {
+				await db.delete(authSchema.account).where(eq(authSchema.account.id, linkedAccount.id));
+			}
+			const message = error instanceof Error ? error.message : String(error);
+			if (message.toLowerCase().includes("already registered")) {
+				throw APIError.from("BAD_REQUEST", {
+					message: AUTH_OAUTH_EMAIL_ALREADY_IN_USE_MESSAGE,
+					code: AUTH_OAUTH_EMAIL_ALREADY_IN_USE_CODE,
+				});
+			}
+			throw error;
+		}
+		try {
+			await syncUserEmailsForUser(db, userId);
+		} catch (error) {
+			console.error("Failed to sync provider emails after OAuth link", {
+				userId,
+				providerId: linkedAccount.providerId,
+				error,
+			});
+		}
+		await ensureBootstrapAdminRole(db, userId, bootstrap);
+	};
 
 	const oauthProxyLinkOptions = {
 		afterOAuthLink,
@@ -197,45 +249,16 @@ export function createAuth(env: AuthWorkerEnv, trustedOrigins: string[]) {
 						return { data: createdAccount };
 					},
 					after: async (createdAccount) => {
-						if (createdAccount.providerId === "credential") {
-							return;
-						}
-						const userId = createdAccount.userId;
-						if (!userId) {
-							return;
-						}
-						try {
-							await graduateAnonymousUserFromOAuthAccount(
-								db,
-								userId,
-								createdAccount.providerId,
-								createdAccount.idToken,
-							);
-						} catch (error) {
-							if (createdAccount.id) {
-								await db
-									.delete(authSchema.account)
-									.where(eq(authSchema.account.id, createdAccount.id));
-							}
-							const message = error instanceof Error ? error.message : String(error);
-							if (message.toLowerCase().includes("already registered")) {
-								throw APIError.from("BAD_REQUEST", {
-									message: AUTH_OAUTH_EMAIL_ALREADY_IN_USE_MESSAGE,
-									code: AUTH_OAUTH_EMAIL_ALREADY_IN_USE_CODE,
-								});
-							}
-							throw error;
-						}
-						try {
-							await syncUserEmailsForUser(db, userId);
-						} catch (error) {
-							console.error("Failed to sync provider emails after OAuth link", {
-								userId,
-								providerId: createdAccount.providerId,
-								error,
-							});
-						}
-						await ensureBootstrapAdminRole(db, userId, bootstrap);
+						await promoteGuestAfterLinkedOAuthAccount(createdAccount, {
+							rollbackAccountIdOnFailure: true,
+						});
+					},
+				},
+				update: {
+					after: async (updatedAccount) => {
+						await promoteGuestAfterLinkedOAuthAccount(updatedAccount, {
+							rollbackAccountIdOnFailure: false,
+						});
 					},
 				},
 			},
