@@ -16,7 +16,7 @@ description: Wire @internal/web to durable-objects workers—workspace dep, alch
 
 2. **Import** — [apps/web/alchemy.run.ts](apps/web/alchemy.run.ts): `import { … } from "<package-name>/alchemy"`.
 
-3. **Bindings** — Pass each binding into `ReactRouter("…", { bindings: { …, MyDo: myWorker.bindings.MyDo, … } })` using the names your [workers/app.ts](apps/web/workers/app.ts) reads from `this.env` (e.g. `this.env.PingDo`). **D1:** import `mainDb` from `@internal/db/alchemy` and set `DB: mainDb` (D1 is defined in [packages/db/alchemy.run.ts](../../packages/db/alchemy.run.ts), not inlined in web).
+3. **Bindings** — Pass each binding into `ReactRouter("…", { bindings: { …, CHATROOM: chatroomWorker, … } })` using the names your [workers/app.ts](apps/web/workers/app.ts) reads from `this.env` (e.g. `this.env.CHATROOM`). **D1:** import `mainDb` from `@internal/db/alchemy` and set `DB: mainDb` (D1 is defined in [packages/db/alchemy.run.ts](../../packages/db/alchemy.run.ts), not inlined in web).
 
 4. **In route code** — Prefer `import { env } from "cloudflare:workers"` for bindings, not React Router `context` ([multiworker-gotchas](../multiworker-gotchas/SKILL.md), [cf-workers-patterns.mdc](../../rules/cf-workers-patterns.mdc)).
 
@@ -24,7 +24,11 @@ description: Wire @internal/web to durable-objects workers—workspace dep, alch
 
 6. **Verify** — `bun run typegen` and `bun run typecheck` from root.
 
+7. **Typed HTTP from web** — Add `WorkerBindingRegistry.HonoClients` row + `bindingHonoClient(env.YOUR_BINDING)` — [cf-binding-hono-client](../cf-binding-hono-client/SKILL.md).
+
 ## See also
+
+- [cf-binding-hono-client](../cf-binding-hono-client/SKILL.md) — `bindingHonoClient`, `WorkerBindingRegistry`, worker `clientApp` RPC.
 
 - [cf-durable-object-package](../cf-durable-object-package/SKILL.md) — worker package layout.
 - [cf-worker-rpc-turbo](../cf-worker-rpc-turbo/SKILL.md) — `workers/rpc.ts`, Turbo `dev` / `destroy`, cross-worker types.

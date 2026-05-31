@@ -11,8 +11,8 @@ import type { KeyboardEvent as ReactKeyboardEvent } from "react";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { href, Link, useFetcher, useSearchParams } from "react-router";
 import { ChatGuestRetentionNotice } from "~/components/chat/ChatGuestRetentionNotice";
+import { ChatMessageItem } from "~/components/chat/ChatMessageItem";
 import { ChatRoomToolbar } from "~/components/chat/ChatRoomToolbar";
-import { chatAuthorNameClassName } from "~/components/chat/chat-display-name-styles";
 import {
 	buildChatWsUrl,
 	isChatRoomIdInputValid,
@@ -54,6 +54,7 @@ type ChatClientProps = {
 	pendingAuthCookies: boolean;
 	chatAttestToken: string;
 	chatAttestRoom: string;
+	canModerate: boolean;
 	saveNameError?: string;
 };
 
@@ -95,6 +96,7 @@ function ChatClientWithSocket({
 	saveNameError,
 	chatAttestToken,
 	chatAttestRoom,
+	canModerate,
 }: Omit<ChatClientProps, "pendingAuthCookies">) {
 	const isAnonymousGuest = user.isAnonymous === true;
 	const usesAccountName = !isAnonymousGuest && hasAccountDisplayName(user);
@@ -102,6 +104,9 @@ function ChatClientWithSocket({
 		| { success: true; result: { displayName: string } }
 		| { success: false; error: string }
 		| undefined
+	>();
+	const deleteMessageFetcher = useFetcher<
+		{ success: true; result: true } | { success: false; error: string } | undefined
 	>();
 	const pendingSockaDisplayName = useRef<string | null>(null);
 	const [searchParams, setSearchParams] = useSearchParams();
@@ -159,6 +164,9 @@ function ChatClientWithSocket({
 			},
 			historyCleared: () => {
 				setMessages([]);
+			},
+			messageDeleted: ({ id }: { id: string }) => {
+				setMessages((prev) => prev.filter((m) => m.id !== id));
 			},
 		}),
 		[],
@@ -267,6 +275,27 @@ function ChatClientWithSocket({
 		setNameDraft(nameFieldSnap.current);
 	}, []);
 
+	const requestDeleteMessage = useCallback(
+		(messageId: string) => {
+			if (!window.confirm("Delete this message for everyone in the room? This cannot be undone.")) {
+				return;
+			}
+			deleteMessageFetcher.submit(
+				{ intent: "deleteMessage", messageId, room: committedRoom },
+				{ method: "post" },
+			);
+		},
+		[committedRoom, deleteMessageFetcher],
+	);
+
+	const deleteBusy = deleteMessageFetcher.state !== "idle";
+	const deleteError =
+		deleteMessageFetcher.state === "idle" &&
+		deleteMessageFetcher.data &&
+		!deleteMessageFetcher.data.success
+			? deleteMessageFetcher.data.error
+			: undefined;
+
 	const onRoomChange = useCallback((value: string) => {
 		setRoomInput(normalizeChatRoomIdInput(value));
 	}, []);
@@ -348,6 +377,14 @@ function ChatClientWithSocket({
 				{saveNameError ? (
 					<p className="text-sm text-red-700 dark:text-red-300">{saveNameError}</p>
 				) : null}
+				{canModerate ? (
+					<p className="text-sm text-amber-800 dark:text-amber-200 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-lg px-3 py-2">
+						Admin moderation: use Delete on any message (you will be asked to confirm).
+					</p>
+				) : null}
+				{deleteError ? (
+					<p className="text-sm text-red-700 dark:text-red-300">{deleteError}</p>
+				) : null}
 			</header>
 
 			<div className="sticky top-0 z-10 shrink-0 -mx-4 border-b border-gray-200 bg-white/95 px-4 py-2 backdrop-blur-sm dark:border-gray-800 dark:bg-gray-950/95">
@@ -384,13 +421,13 @@ function ChatClientWithSocket({
 					onScroll={updateStuckToBottom}
 				>
 					{messages.map((m) => (
-						<li key={m.id} className="text-sm wrap-break-word">
-							<span className={chatAuthorNameClassName(m.isGuest)}>{m.displayName}</span>
-							<span className="text-gray-500 text-xs ml-2">
-								{new Date(m.ts).toLocaleTimeString()}
-							</span>
-							<p className="text-gray-700 dark:text-gray-300 mt-0.5">{m.text}</p>
-						</li>
+						<ChatMessageItem
+							key={m.id}
+							message={m}
+							canModerate={canModerate}
+							deleteBusy={deleteBusy}
+							onDelete={requestDeleteMessage}
+						/>
 					))}
 				</ul>
 			</div>

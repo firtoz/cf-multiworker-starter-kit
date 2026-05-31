@@ -1,4 +1,7 @@
-/** Typed surface for `WorkerRef<ChatroomWorkerRpc>` (web forwards `/api/ws/*` here). */
-export type ChatroomWorkerRpc = {
-	fetch(request: Request | string, init?: RequestInit): Promise<Response>;
-};
+export type { ChatroomDoRpc } from "./do-rpc";
+export type { ChatroomWorkerRpc } from "../src/hono-app";
+export type {
+	AnyHonoInstance,
+	WorkerRpcWithHonoApp,
+	WorkerRpcWithHonoClient,
+} from "./worker-rpc-types";

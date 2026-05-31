@@ -1,25 +1,25 @@
+import { honoDoFetcherWithName } from "@firtoz/hono-fetcher";
 import { getAuthProviders } from "@internal/auth-client";
 import {
 	applyChatIdentityHeaders,
 	buildWebSocketForwardRequest,
 	CHATROOM_INTERNAL_SECRET_HEADER,
 	readChatIdentityHeaders,
+	sanitizeChatRoomId,
 	stripClientChatIdentityHeaders,
 } from "@internal/chat-contract";
-import { Hono } from "hono";
-import type { CloudflareEnv } from "../env";
+import {
+	type ChatroomAdminDeleteResult,
+	chatroomAdminDeleteHttpStatus,
+	checkChatroomAdminAllowed,
+} from "@internal/chat-contract/admin-http";
+import { Hono, type TypedResponse } from "hono";
+import type { ChatroomWorkerBindingEnv } from "./worker-binding-env";
+import type { HonoClientApp } from "./hono-client-app";
 
-function sanitizeRoomId(raw: string | null | undefined): string {
-	const roomRaw = raw?.trim() || "lobby";
-	return (
-		roomRaw
-			.toLowerCase()
-			.slice(0, 64)
-			.replace(/[^a-z0-9_-]/g, "") || "lobby"
-	);
-}
+type ChatroomHonoContext = { Bindings: ChatroomWorkerBindingEnv };
 
-export const chatroomWorkerApp = new Hono<{ Bindings: CloudflareEnv }>()
+export const chatroomWorkerApp = new Hono<ChatroomHonoContext>()
 	.get("/service-ack", async (c) => {
 		const providers = await getAuthProviders(c.env.AUTH);
 		return c.json({
@@ -30,6 +30,24 @@ export const chatroomWorkerApp = new Hono<{ Bindings: CloudflareEnv }>()
 		});
 	})
 	.get("/", (c) => c.text("starter-chatroom-do"))
+	.delete(
+		"/admin/messages/:messageId",
+		async (c): Promise<TypedResponse<ChatroomAdminDeleteResult>> => {
+			const allowed = checkChatroomAdminAllowed(c.req.raw.headers, c.env.CHATROOM_INTERNAL_SECRET);
+			if (!allowed.success) {
+				return c.json(allowed, allowed.error.status);
+			}
+			const room = sanitizeChatRoomId(c.req.query("room") ?? "lobby");
+			using api = honoDoFetcherWithName(c.env.ChatroomDo, room);
+			const res = await api.delete({
+				url: "/admin/messages/:messageId",
+				params: { messageId: c.req.param("messageId") },
+				init: { headers: c.req.raw.headers },
+			});
+			const body = await res.json();
+			return c.json(body, chatroomAdminDeleteHttpStatus(body));
+		},
+	)
 	.all("/websocket", async (c) => {
 		if (c.req.header(CHATROOM_INTERNAL_SECRET_HEADER) !== c.env.CHATROOM_INTERNAL_SECRET) {
 			return c.text("Unauthorized chatroom websocket", 401);
@@ -40,7 +58,7 @@ export const chatroomWorkerApp = new Hono<{ Bindings: CloudflareEnv }>()
 			return c.text("Missing attested chat identity", 401);
 		}
 
-		const stub = c.env.ChatroomDo.getByName(sanitizeRoomId(c.req.query("room")));
+		const stub = c.env.ChatroomDo.getByName(sanitizeChatRoomId(c.req.query("room") ?? "lobby"));
 
 		const forward = new URL(c.req.url);
 		forward.pathname = "/websocket";
@@ -52,3 +70,14 @@ export const chatroomWorkerApp = new Hono<{ Bindings: CloudflareEnv }>()
 	});
 
 export type ChatroomWorkerApp = typeof chatroomWorkerApp;
+
+export type { HonoClientApp } from "./hono-client-app";
+
+/** {@link chatroomWorkerApp} with server bindings stripped — for {@link honoFetcher} clients. */
+export type ChatroomWorkerHonoClientApp = HonoClientApp<ChatroomWorkerApp>;
+
+/** Web `CHATROOM` bindings and `WorkerRef<ChatroomWorkerRpc>`. */
+export type ChatroomWorkerRpc = Rpc.WorkerEntrypointBranded & {
+	readonly app: ChatroomWorkerApp;
+	readonly clientApp: ChatroomWorkerHonoClientApp;
+};

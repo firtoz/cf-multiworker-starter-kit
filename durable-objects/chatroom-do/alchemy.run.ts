@@ -10,6 +10,7 @@ import {
 	omitDefaultPhysicalWorkerScriptName,
 } from "alchemy-utils/worker-peer-scripts";
 import type { AuthWorkerRpc } from "../../workers/auth-worker/workers/rpc";
+import type { ChatroomDoRpc, ChatroomWorkerRpc } from "./workers/rpc";
 
 const stage = resolveStageFromEnv();
 const app = await alchemy(ALCHEMY_APP_IDS.chatroom, {
@@ -31,7 +32,7 @@ await WorkerStub<AuthWorkerRpc>("auth-worker-service-stub", {
 	url: false,
 });
 
-export const ChatroomDo = await DurableObjectNamespace<Rpc.DurableObjectBranded>(
+export const ChatroomDo = await DurableObjectNamespace<ChatroomDoRpc>(
 	"chatroom-do-ChatroomDo-class",
 	{
 		className: "ChatroomDo",
@@ -39,21 +40,26 @@ export const ChatroomDo = await DurableObjectNamespace<Rpc.DurableObjectBranded>
 	},
 );
 
-export const chatroomWorker = await Worker(DEFAULT_WORKER_RESOURCE_ID, {
+const chatroomWorkerBindings = {
+	CHATROOM_INTERNAL_SECRET: chatroomInternalSecret,
+	ChatroomDo,
+	AUTH: WorkerRef<AuthWorkerRpc>({ service: PEER_AUTH_SCRIPT_NAME }),
+};
+
+export const chatroomWorker = await Worker<
+	typeof chatroomWorkerBindings,
+	ChatroomWorkerRpc
+>(DEFAULT_WORKER_RESOURCE_ID, {
 	entrypoint: new URL("./workers/app.ts", import.meta.url).pathname,
 	compatibility: "node",
 	placement: { mode: "smart" },
 	observability: workerObservabilityWithTraces,
 	dev: { port: 8783 },
 	adopt: true,
-	bindings: {
-		CHATROOM_INTERNAL_SECRET: chatroomInternalSecret,
-		ChatroomDo,
-		AUTH: WorkerRef<AuthWorkerRpc>({ service: PEER_AUTH_SCRIPT_NAME }),
-	},
+	bindings: chatroomWorkerBindings,
 });
 
-export type { ChatroomWorkerRpc } from "./workers/rpc";
+export type { ChatroomWorkerRpc, WorkerRpcWithHonoApp, WorkerRpcWithHonoClient } from "./workers/rpc";
 
 console.log({ worker: "chatroom-do", scriptName: chatroomWorker.name });
 

@@ -40,21 +40,20 @@ Ask the user (or infer from context):
 
 ### Where **`PRODUCT_PREFIX`** drives ids
 
-- **[**`ALCHEMY_APP_IDS`** + **`PRODUCT_PREFIX`**](../../packages/alchemy-utils/src/worker-peer-scripts.ts)** — Canonical Alchemy **`appId`** strings. **`package.json` → `alchemy.app`** uses those keys (**`frontend`**, **`chatroom`**, **`ping`**, **`other`**, **`database`**, **`stateHub`**, **`admin`**) plus arbitrary **suffix** segments for **`${PRODUCT_PREFIX}-<suffix>`** (generator-created DO packages). Forks change **`PRODUCT_PREFIX`** once.
+- **[**`ALCHEMY_APP_IDS`** + **`PRODUCT_PREFIX`**](../../packages/alchemy-utils/src/worker-peer-scripts.ts)** — Canonical Alchemy **`appId`** strings. **`package.json` → `alchemy.app`** uses those keys (**`frontend`**, **`chatroom`**, **`database`**, **`stateHub`**, **`admin`**, …) plus arbitrary **suffix** segments for **`${PRODUCT_PREFIX}-<suffix>`** (generator-created DO packages). Forks change **`PRODUCT_PREFIX`** once.
 
 | Package folder | Typical **`appId`** (**`PRODUCT_PREFIX = starter`**) | Turbo **`--filter`** uses workspace **`name`** (starter) |
 |----------------|----------------------------------------------------------|--------------------------------------------------------|
 | `apps/web` | **`starter-frontend`** (**`ALCHEMY_APP_IDS.frontend`**) | `@internal/web` |
 | `durable-objects/chatroom-do` | **`starter-chatroom`** | `chatroom-do` |
-| `durable-objects/ping-do` | **`starter-ping`** | `ping-do` |
-| `workers/other-worker` | **`starter-other`** | `other-worker` |
+| `workers/auth-worker` | **`starter-auth`** | `auth-worker` |
 | `packages/db` | **`starter-database`** | `@internal/db` |
 | `packages/state-hub` | **`${PRODUCT_PREFIX}-state-hub`** (**`ALCHEMY_APP_IDS.stateHub`**) | `state-hub` |
 
 - **Resource ids (short):** **`Worker(DEFAULT_WORKER_RESOURCE_ID)`** with **`DEFAULT_WORKER_RESOURCE_ID = "worker"`**; **`ReactRouter`** uses **`DEFAULT_REACT_ROUTER_WEB_RESOURCE_ID` (`"web"`)**; D1 **`D1Database(DEFAULT_D1_DATABASE_RESOURCE_ID)`** with **`db`**. Omit explicit **`name:`** so Cloudflare script names derive from **`${alchemyAppId}-${resource}-${stage}`**.
-- **Cyclic stubs** (`ping-do` ↔ `other-worker`): **`omitDefaultPhysicalWorkerScriptName(<peer-alchemy-app>, app.stage)`** feeds **`WorkerRef.service`** / **`WorkerStub.name`**, matching omit-default **`Worker("worker")`** physical names — see [cf-worker-rpc-turbo](../cf-worker-rpc-turbo/SKILL.md).
+- **Peer stubs** (e.g. **`chatroom-do` → `auth-worker`**): **`omitDefaultPhysicalWorkerScriptName(<peer-alchemy-app>, app.stage)`** feeds **`WorkerRef.service`** / **`WorkerStub.name`**, matching omit-default **`Worker("worker")`** physical names — see [cf-worker-rpc-turbo](../cf-worker-rpc-turbo/SKILL.md).
 
-Cross-package consumers still **`import`** provider **`./alchemy`** exports (**hub** bindings from web). **`className`** on **`DurableObjectNamespace`** must match your TS exported class (**`PingDo`**…).
+Cross-package consumers still **`import`** provider **`./alchemy`** exports (**hub** bindings from web). **`className`** on **`DurableObjectNamespace`** must match your TS exported class (**`ChatroomDo`**…).
 
 After edits: **`bun run typegen`** from the repo root. **`env.d.ts`** reflects exported **`./alchemy`**.
 
@@ -87,7 +86,7 @@ Rewrite [`README.md`](../../README.md) for the **product**:
 
 ## 7. Optional: grep / nested docs
 
-Search for **`cloudflare-multiworker-template`**, **`your-org/cloudflare-multiworker-template`**, old **`alchemy("web")`** / **`alchemy("ping-do")`** if any remain. Nested READMEs under **`apps/web`**, **`durable-objects/*`**.
+Search for **`cloudflare-multiworker-template`**, **`your-org/cloudflare-multiworker-template`**, old **`alchemy("web")`** if any remain. Nested READMEs under **`apps/web`**, **`durable-objects/*`**.
 
 ## 8. Verification
 

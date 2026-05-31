@@ -1,23 +1,29 @@
-import { SockaDoSession, type SockaDoSessionConfig, SockaWebSocketDO } from "@firtoz/socka/do";
+import { fail, success } from "@firtoz/maybe-error";
+import { type SockaDoSessionConfigInput, SockaWebSocketDO } from "@firtoz/socka/do";
 import { PROFILE_NAME_MAX_CHARS } from "@internal/auth-db/constants";
 import {
-	CHAT_MESSAGE_TEXT_MAX_CHARS,
 	CHATROOM_AUTH_DISPLAY_NAME_HEADER,
 	CHATROOM_AUTH_IS_GUEST_HEADER,
 	CHATROOM_AUTH_USER_ID_HEADER,
 	CHATROOM_INTERNAL_SECRET_HEADER,
-	type ChatMessageRow,
 	chatContract,
 } from "@internal/chat-contract";
-import type { InferSelectModel } from "drizzle-orm";
-import { desc } from "drizzle-orm";
+import {
+	type ChatroomAdminApiError,
+	type ChatroomAdminDeleteResult,
+	chatroomAdminDeleteHttpStatus,
+	checkChatroomAdminAllowed,
+} from "@internal/chat-contract/admin-http";
+import { desc, eq } from "drizzle-orm";
 import { type DrizzleSqliteDODatabase, drizzle } from "drizzle-orm/durable-sqlite";
 import { migrate } from "drizzle-orm/durable-sqlite/migrator";
+import type { Context, TypedResponse } from "hono";
 import migrationConfig from "../drizzle/migrations.js";
 import * as schema from "../src/schema";
-import { chatMessagesTable } from "../src/schema";
+import { type ChatMessageInsert, chatMessagesTable } from "../src/schema";
 
 type SessionData = { userId: string; displayName: string; isGuest: boolean };
+type ChatroomDb = DrizzleSqliteDODatabase<typeof schema>;
 
 const TTL_MS = 15 * 60 * 1000;
 
@@ -27,30 +33,9 @@ function sortPresence(users: { userId: string; displayName: string; isGuest: boo
 	);
 }
 
-type ChatroomDb = DrizzleSqliteDODatabase<typeof schema>;
-type ChatroomSession = SockaDoSession<typeof chatContract, SessionData, Env>;
-
-/** Clamp display name input to contract max. */
 function clampChatDisplayName(raw: string | null): string {
 	const base = raw?.trim() || "anon";
 	return base.length <= PROFILE_NAME_MAX_CHARS ? base : base.slice(0, PROFILE_NAME_MAX_CHARS);
-}
-
-function chatMessageRowFromDb(r: InferSelectModel<typeof chatMessagesTable>): ChatMessageRow {
-	return {
-		id: r.id,
-		ts: r.ts,
-		userId: r.userId,
-		displayName:
-			r.displayName.length <= PROFILE_NAME_MAX_CHARS
-				? r.displayName
-				: r.displayName.slice(0, PROFILE_NAME_MAX_CHARS),
-		isGuest: r.isGuest,
-		text:
-			r.text.length <= CHAT_MESSAGE_TEXT_MAX_CHARS
-				? r.text
-				: r.text.slice(0, CHAT_MESSAGE_TEXT_MAX_CHARS),
-	};
 }
 
 function presenceFromSession(data: SessionData) {
@@ -65,14 +50,41 @@ function isGuestFromAttestedHeader(raw: string | null | undefined): boolean {
 	return raw?.trim().toLowerCase() === "true";
 }
 
-export class ChatroomDo extends SockaWebSocketDO<ChatroomSession, Env> {
-	readonly app = this.getBaseApp();
+function attestedWebSocketDenied(headers: Headers, internalSecret: string): Response | undefined {
+	const secretOk = headers.get(CHATROOM_INTERNAL_SECRET_HEADER) === internalSecret;
+	if (!secretOk) {
+		return new Response("Unauthorized chatroom websocket", { status: 401 });
+	}
+	const userId = headers.get(CHATROOM_AUTH_USER_ID_HEADER)?.trim();
+	const displayName = headers.get(CHATROOM_AUTH_DISPLAY_NAME_HEADER)?.trim();
+	if (!userId || !displayName) {
+		return new Response("Missing attested chat identity", { status: 401 });
+	}
+	return undefined;
+}
+
+export class ChatroomDo extends SockaWebSocketDO<typeof chatContract, SessionData, Env> {
+	protected readonly contract = chatContract;
+
+	readonly app = this.getBaseApp().delete(
+		"/admin/messages/:messageId",
+		async (c): Promise<TypedResponse<ChatroomAdminDeleteResult>> => {
+			const allowed = checkChatroomAdminAllowed(
+				c.req.raw.headers,
+				this.env.CHATROOM_INTERNAL_SECRET,
+			);
+			if (!allowed.success) {
+				return c.json(allowed, allowed.error.status);
+			}
+			const result = await this.deleteMessageForAdmin(c.req.param("messageId"));
+			return c.json(result, chatroomAdminDeleteHttpStatus(result));
+		},
+	);
+
 	private db: ChatroomDb | null = null;
 
 	constructor(ctx: DurableObjectState, env: Env) {
-		super(ctx, env, {
-			createSockaSession: (_c, ws) => new SockaDoSession(ws, this.sessions, this.buildConfig()),
-		});
+		super(ctx, env);
 		void ctx.blockConcurrencyWhile(async () => {
 			const db = drizzle(ctx.storage, { schema });
 			await migrate(db, migrationConfig);
@@ -87,27 +99,33 @@ export class ChatroomDo extends SockaWebSocketDO<ChatroomSession, Env> {
 		return this.db;
 	}
 
-	override fetch(request: Request): Response | Promise<Response> {
-		const url = new URL(request.url);
-		if (url.pathname === "/websocket") {
-			const secretOk =
-				request.headers.get(CHATROOM_INTERNAL_SECRET_HEADER) ===
-				this.env["CHATROOM_INTERNAL_SECRET"];
-			const userId = request.headers.get(CHATROOM_AUTH_USER_ID_HEADER)?.trim();
-			const displayName = request.headers.get(CHATROOM_AUTH_DISPLAY_NAME_HEADER)?.trim();
-			if (!secretOk) {
-				return new Response("Unauthorized chatroom websocket", { status: 401 });
-			}
-			if (!userId || !displayName) {
-				return new Response("Missing attested chat identity", { status: 401 });
-			}
+	async deleteMessageForAdmin(messageId: string): Promise<ChatroomAdminDeleteResult> {
+		const id = messageId.trim();
+		if (!id) {
+			return fail<ChatroomAdminApiError>({ message: "Message id required", status: 400 });
 		}
-		return super.fetch(request);
+		const deleted = await this.getDb()
+			.delete(chatMessagesTable)
+			.where(eq(chatMessagesTable.id, id))
+			.returning({ id: chatMessagesTable.id });
+		if (deleted.length === 0) {
+			return fail<ChatroomAdminApiError>({ message: "Not found", status: 404 });
+		}
+		this.touchActivityTtl();
+		await this.broadcastPushToAll("messageDeleted", { id });
+		return success(true);
 	}
 
-	private buildConfig(): SockaDoSessionConfig<typeof chatContract, SessionData, Env> {
+	protected beforeWebSocket(ctx: Context<{ Bindings: Env }>): Response | undefined {
+		return attestedWebSocketDenied(ctx.req.raw.headers, this.env.CHATROOM_INTERNAL_SECRET);
+	}
+
+	protected buildSockaSessionConfig(): SockaDoSessionConfigInput<
+		typeof chatContract,
+		SessionData,
+		Env
+	> {
 		return {
-			contract: chatContract,
 			wireFormat: "json",
 			createData: (ctx) => {
 				const userId = ctx.req.header(CHATROOM_AUTH_USER_ID_HEADER)?.trim();
@@ -138,7 +156,7 @@ export class ChatroomDo extends SockaWebSocketDO<ChatroomSession, Env> {
 						.from(chatMessagesTable)
 						.orderBy(desc(chatMessagesTable.ts))
 						.limit(lim);
-					const messages: ChatMessageRow[] = rows.reverse().map((r) => chatMessageRowFromDb(r));
+					const messages = rows.reverse();
 					return { messages };
 				},
 				listPresence: async (_input, session) => {
@@ -151,6 +169,7 @@ export class ChatroomDo extends SockaWebSocketDO<ChatroomSession, Env> {
 					const { displayName } = input as { displayName: string };
 					const t = clampChatDisplayName(displayName);
 					session.data.displayName = t;
+					await session.update();
 					const users = sortPresence(session.listPeers().map((d) => presenceFromSession(d)));
 					await session.broadcastPush("presenceUpdated", { users }, false);
 					return { ok: true as const };
@@ -158,22 +177,15 @@ export class ChatroomDo extends SockaWebSocketDO<ChatroomSession, Env> {
 				sendMessage: async (input, session) => {
 					this.touchActivityTtl();
 					const { text } = input as { text: string };
-					const row: ChatMessageRow = {
+					const row = {
 						id: crypto.randomUUID(),
 						ts: Date.now(),
 						userId: session.data.userId,
 						displayName: session.data.displayName,
 						isGuest: session.data.isGuest,
 						text,
-					};
-					await this.getDb().insert(chatMessagesTable).values({
-						id: row.id,
-						ts: row.ts,
-						userId: row.userId,
-						displayName: row.displayName,
-						isGuest: row.isGuest,
-						text: row.text,
-					});
+					} satisfies ChatMessageInsert;
+					await this.getDb().insert(chatMessagesTable).values(row);
 					await session.broadcastPush("roomMessage", row);
 					return { ok: true as const };
 				},
@@ -201,7 +213,6 @@ export class ChatroomDo extends SockaWebSocketDO<ChatroomSession, Env> {
 		};
 	}
 
-	/** Resets the 15m DO TTL. Not called from the constructor. */
 	private touchActivityTtl(): void {
 		void this.ctx.storage.setAlarm(Date.now() + TTL_MS);
 	}

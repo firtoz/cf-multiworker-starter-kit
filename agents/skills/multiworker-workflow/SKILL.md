@@ -71,7 +71,7 @@ bun add <package>@latest --filter apps/web
 bun add <package>@latest --cwd apps/web
 ```
 
-For versions shared across workspaces, **`package.json` → `workspaces.catalog`** is the single source of truth (`alchemy`, **`drizzle-orm`**, TypeScript-related pins, **`@cloudflare/workers-types`**, etc.). Add with the catalog protocol, e.g. **`bun add hono@catalog --cwd durable-objects/ping-do`** or **`bun add -d drizzle-orm@catalog --cwd packages/db`**.
+For versions shared across workspaces, **`package.json` → `workspaces.catalog`** is the single source of truth (`alchemy`, **`drizzle-orm`**, TypeScript-related pins, **`@cloudflare/workers-types`**, etc.). Add with the catalog protocol, e.g. **`bun add hono@catalog --cwd durable-objects/chatroom-do`** or **`bun add -d drizzle-orm@catalog --cwd packages/db`**.
 
 ## Turborepo (short)
 
@@ -104,7 +104,7 @@ If local dev still reports `no such table`:
 
 ## Adding another Durable Object (quick path)
 
-1. `bunx turbo gen durable-object` (or copy `durable-objects/ping-do/`).
+1. `bunx turbo gen durable-object` (or copy `durable-objects/chatroom-do/`).
 2. Export DO/worker from `./alchemy`; wire [apps/web/alchemy.run.ts](../../../apps/web/alchemy.run.ts) and root `dev` / `destroy:*` (see [multiworker-gotchas](../multiworker-gotchas/SKILL.md) #15, [cf-worker-rpc-turbo/SKILL.md](../cf-worker-rpc-turbo/SKILL.md)).
 3. `bun run dev`, exercise bindings, confirm existing DOs still work.
 
@@ -127,8 +127,8 @@ Access in app code: `import { env } from "cloudflare:workers"` only.
 - **Interactive setup** — **`bun run quickstart`** (local) and **`bun run onboard:staging`** / **`onboard:prod`** (CI bootstrap — README *Quick start*). **`bun run github:setup`** prints an Actions overview. **`bun run setup`** / **`setup:local`** opens the variable browser; **`bun run setup -- --yes`** (or **`bun packages/scripts/src/setup-env.ts --yes`**) is for automation and only auto-fills regeneratable keys.
 - **Further reading** — [Alchemy encryption password](https://alchemy.run/concepts/secret/#encryption-password), [GitHubSecret](https://alchemy.run/providers/github/secret/), [Getting started](https://alchemy.run/getting-started/) — **`CLOUDFLARE_API_TOKEN`**.
 
-- **Local dev** — `bun run dev` runs a filtered `turbo run dev` (`@internal/web`, `@internal/db`, `@internal/auth-db`, `auth-worker`, `chatroom-do`, `ping-do`, `other-worker`), each via **`alchemy-cli --stage local dev`** ([Alchemy monorepo](https://alchemy.run/guides/turborepo/)).
-   - **Smoke:** hit `/`, `/visitors`, `/ping-do`, `/chat`, `/login`, `/account` once (SSR, D1, auth proxy, cross-worker bindings, chat WebSockets).
+- **Local dev** — `bun run dev` runs a filtered `turbo run dev` (`@internal/web`, `@internal/db`, `@internal/auth-db`, `auth-worker`, `chatroom-do`, `posthog-proxy`), each via **`alchemy-cli --stage local dev`** ([Alchemy monorepo](https://alchemy.run/guides/turborepo/)).
+   - **Smoke:** hit `/`, `/visitors`, `/chat`, `/login`, `/account` once (SSR, D1, auth proxy, chat WebSockets).
    - **Stale web / dead port:** if the log shows `webUrl` for **5173** but the port is dead after a crash, delete the **`.alchemy/pids/`** pid file for the web package and ensure its **`.alchemy/logs/`** log file exists (empty is fine) before restart—Alchemy’s log follower expects it.
 
 ## Completion checklist (before you stop)

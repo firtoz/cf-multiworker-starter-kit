@@ -8,6 +8,10 @@ import { CHAT_MESSAGE_TEXT_MAX_CHARS } from "./limits";
 export * from "./attested-identity";
 export * from "./chat-attest-token";
 export { CHAT_MESSAGE_TEXT_MAX_CHARS } from "./limits";
+export * from "./room-id";
+
+/** Set by the web worker after verifying an admin session (not client-controlled). */
+export const CHATROOM_ADMIN_USER_ID_HEADER = `x-${PRODUCT_PREFIX}-chat-admin-user-id`;
 
 export const CHATROOM_INTERNAL_SECRET_HEADER = `x-${PRODUCT_PREFIX}-chatroom-secret`;
 
@@ -127,6 +131,7 @@ export const chatContract = defineSocka({
 			isGuest: z.boolean(),
 		}),
 		roomMessage: messageRow,
+		messageDeleted: z.object({ id: z.string() }),
 		historyCleared: z.object({
 			ts: z.number(),
 			clearedByUserId: z.string(),

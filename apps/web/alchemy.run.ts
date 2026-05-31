@@ -29,8 +29,6 @@ import {
 } from "alchemy-utils/worker-peer-scripts";
 import { authWorker } from "auth-worker/alchemy";
 import { chatroomWorker } from "chatroom-do/alchemy";
-import { otherWorker } from "other-worker/alchemy";
-import { pingWorker } from "ping-do/alchemy";
 import { posthogProxyWorker } from "posthog-proxy/alchemy";
 import { logPosthogSourcemapsAlchemyPlan } from "./posthog/log-sourcemaps-plan";
 import { defaultPosthogReleaseName, resolvePosthogReleaseBuild } from "./posthog/release-names";
@@ -63,7 +61,6 @@ const authAdminSecretRaw = requireEnv(
 );
 const chatroomInternalSecret = alchemy.secret(chatroomInternalSecretRaw);
 const authAdminSecret = alchemy.secret(authAdminSecretRaw);
-const PingDo = pingWorker.bindings.PingDo;
 
 const skipWebCustomHostnames = isPrStage(stage);
 const webDomains = skipWebCustomHostnames ? [] : [...reactRouterDomainsFromProcessEnv()];
@@ -124,9 +121,6 @@ export const web = await ReactRouter(DEFAULT_REACT_ROUTER_WEB_RESOURCE_ID, {
 		AUTH_ADMIN_SECRET: authAdminSecret,
 		AUTH: authWorker,
 		CHATROOM: chatroomWorker,
-		PingDo,
-		PING: pingWorker,
-		OTHER: otherWorker,
 		STAGE: stage,
 		LOCAL_PORTLESS: readProcessEnvTrimmed("LOCAL_PORTLESS"),
 		POSTHOG: posthogProxyWorker,

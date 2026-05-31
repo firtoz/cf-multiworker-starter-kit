@@ -16,7 +16,7 @@ description: Add or change a Durable Object worker package under durable-objects
 
    Minimum files: **`alchemy.run.ts`**, **`env.d.ts`**, **`workers/app.ts`**, **`package.json`** (**`exports`**: **`"./alchemy": "./alchemy.run.ts"`**), **`tsconfig.json`**.
 
-   Examples: [ping-do](../../../durable-objects/ping-do) (Hono + DO + WorkerEntrypoint), [chatroom-do](../../../durable-objects/chatroom-do) (Socka + DO SQLite + [chat-contract](../../../packages/chat-contract)).
+   Examples: [chatroom-do](../../../durable-objects/chatroom-do) (Socka + DO SQLite + [chat-contract](../../../packages/chat-contract)).
 
    For **WebSocket RPC + server push**, prefer **Socka + contract** over ad hoc **`WebSocket`** JSON — [cf-socka-realtime](../cf-socka-realtime/SKILL.md).
 
@@ -35,9 +35,9 @@ description: Add or change a Durable Object worker package under durable-objects
    - **`drizzle/sql.d.ts`**: **`declare module "*.sql"`**; **`tsconfig`** includes **`drizzle/**/*.d.ts`** for SQL imports.
    - **Never** hand-edit Drizzle SQL or meta; commit only generator output.
 
-4. **`env.d.ts`** — `export type CloudflareEnv = (typeof <yourExportedWorker>)["Env"]`. `declare global { type Env = CloudflareEnv }` and `declare module "cloudflare:workers"` `Env` merge (match [ping-do/env.d.ts](../../../durable-objects/ping-do/env.d.ts)).
+4. **`env.d.ts`** — `export type CloudflareEnv = (typeof <yourExportedWorker>)["Env"]`. `declare global { type Env = CloudflareEnv }` and `declare module "cloudflare:workers"` `Env` merge (match [chatroom-do/env.d.ts](../../../durable-objects/chatroom-do/env.d.ts)).
 
-5. **Hono** — In `workers/app.ts`: `import type { CloudflareEnv } from "../env"`, `const app = new Hono<{ Bindings: CloudflareEnv }>()` (same as [other-worker/workers/app.ts](../../../workers/other-worker/workers/app.ts)).
+5. **Hono** — In `workers/app.ts`: `import type { CloudflareEnv } from "../env"`, `const app = new Hono<{ Bindings: CloudflareEnv }>()` (same as [auth-worker/workers/app.ts](../../../workers/auth-worker/workers/app.ts)).
 
 6. **Scripts**
 
@@ -52,6 +52,7 @@ description: Add or change a Durable Object worker package under durable-objects
 ## Next (outside this skill)
 
 - Wire the web app: [cf-web-alchemy-bindings](../cf-web-alchemy-bindings/SKILL.md).
+- Typed HTTP from web over a worker binding: [cf-binding-hono-client](../cf-binding-hono-client/SKILL.md).
 - `workers/rpc.ts`, `WorkerRef`, root `dev` / `destroy:*`: [cf-worker-rpc-turbo](../cf-worker-rpc-turbo/SKILL.md).
 
 ## Optional web / WebSocket checklist

@@ -64,10 +64,10 @@ These trip up new contributors and agents most often. For commands and checklist
    - **`WorkerRef` / cross-worker:** one direction uses **`workspace:*`**; the other uses a relative **`../<pkg>/workers/rpc`** import to avoid Turbo cycles.
    - **New Alchemy app:** root [package.json](../../../package.json) **`dev`** filter.
    - **Destroy graph:** [turbo.json](../../../turbo.json) **`<pkg>#destroy:*`** with **`dependsOn`** **→** matching **`@internal/web#destroy:*`**.
-   - **Wire web:** **`apps/web`** workspace dep; [apps/web/alchemy.run.ts](../../../apps/web/alchemy.run.ts) binding; [apps/web/workers/app.ts](../../../apps/web/workers/app.ts) forwarder if WebSockets.
+   - **Wire web:** **`apps/web`** workspace dep; [apps/web/alchemy.run.ts](../../../apps/web/alchemy.run.ts) binding; [apps/web/workers/app.ts](../../../apps/web/workers/app.ts) forwarder if WebSockets. Typed HTTP over the binding: [cf-binding-hono-client](../cf-binding-hono-client/SKILL.md) (`bindingHonoClient`, `BindingClientApp` map).
    - **DO SQLite:** `src/schema.ts`, **`drizzle.config.ts`** with **`driver: "durable-sqlite"`**, package **`db:generate`**; never hand-edit generated migrations.
    - **Do not** add another package’s **`workers/app.ts`** to [tsconfig.cloudflare.json](../../../apps/web/tsconfig.cloudflare.json) **`include`**—it can break web **`Env`**.
-   - Step-by-step: [cf-durable-object-package](../cf-durable-object-package/SKILL.md), [cf-web-alchemy-bindings](../cf-web-alchemy-bindings/SKILL.md), [cf-worker-rpc-turbo](../cf-worker-rpc-turbo/SKILL.md).
+   - Step-by-step: [cf-durable-object-package](../cf-durable-object-package/SKILL.md), [cf-web-alchemy-bindings](../cf-web-alchemy-bindings/SKILL.md), [cf-worker-rpc-turbo](../cf-worker-rpc-turbo/SKILL.md), [cf-binding-hono-client](../cf-binding-hono-client/SKILL.md) (service-binding HTTP).
 
 16. **WebSocket forwarding**
    - Handle Worker **upgrade** paths **before** React Router.

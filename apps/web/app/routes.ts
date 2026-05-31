@@ -9,8 +9,8 @@ export default [
 	route("admin", "routes/admin.tsx", [
 		route("origins", "routes/admin.origins.tsx"),
 		route("users", "routes/admin.users.tsx"),
+		route("chat-rooms", "routes/admin.chat-rooms.tsx"),
 	]),
 	route("visitors", "routes/visitors.tsx"),
 	route("chat", "routes/chat.tsx"),
-	route("ping-do", "routes/ping-do.tsx"),
 ] satisfies RouteConfig;

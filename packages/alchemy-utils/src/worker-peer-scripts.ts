@@ -51,7 +51,7 @@ export const DEFAULT_D1_DATABASE_RESOURCE_ID = "main-db" as const;
 export const DEFAULT_AUTH_D1_DATABASE_RESOURCE_ID = "auth-db" as const;
 
 /**
- * Leading segment for Alchemy **`await alchemy("…")`** ids — default **`starter`** yields **`starter-frontend`**, **`starter-ping`**, etc.
+ * Leading segment for Alchemy **`await alchemy("…")`** ids — default **`starter`** yields **`starter-frontend`**, **`starter-chatroom`**, etc.
  *
  * Forks set **`PRODUCT_PREFIX`** once to your slug (**`skybook`**, **`hotel`**, …) so **`ALCHEMY_APP_IDS`** and **`--app`** scripts stay aligned ([physical names](https://alchemy.run/concepts/resource/#physical-name)).
  */
@@ -65,8 +65,6 @@ export const PRODUCT_PREFIX = "starter" as const;
 export const ALCHEMY_APP_IDS = {
 	frontend: `${PRODUCT_PREFIX}-frontend`,
 	chatroom: `${PRODUCT_PREFIX}-chatroom`,
-	ping: `${PRODUCT_PREFIX}-ping`,
-	other: `${PRODUCT_PREFIX}-other`,
 	database: `${PRODUCT_PREFIX}-database`,
 	auth: `${PRODUCT_PREFIX}-auth`,
 	/** Self-hosted PostHog reverse proxy (`workers/posthog-proxy`). */

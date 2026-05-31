@@ -69,16 +69,6 @@
 			"cache": false,
 			"outputLogs": "new-only"
 		},
-		"ping-do#destroy:prod": {
-			"dependsOn": ["@internal/web#destroy:prod"],
-			"cache": false,
-			"outputLogs": "new-only"
-		},
-		"other-worker#destroy:prod": {
-			"dependsOn": ["@internal/web#destroy:prod"],
-			"cache": false,
-			"outputLogs": "new-only"
-		},
 		"@internal/db#destroy:prod": {
 			"dependsOn": ["@internal/web#destroy:prod"],
 			"cache": false,
@@ -94,16 +84,6 @@
 			"cache": false,
 			"outputLogs": "new-only"
 		},
-		"ping-do#destroy:staging": {
-			"dependsOn": ["@internal/web#destroy:staging"],
-			"cache": false,
-			"outputLogs": "new-only"
-		},
-		"other-worker#destroy:staging": {
-			"dependsOn": ["@internal/web#destroy:staging"],
-			"cache": false,
-			"outputLogs": "new-only"
-		},
 		"@internal/db#destroy:staging": {
 			"dependsOn": ["@internal/web#destroy:staging"],
 			"cache": false,
@@ -115,16 +95,6 @@
 			"outputLogs": "new-only"
 		},
 		"chatroom-do#destroy:preview": {
-			"dependsOn": ["@internal/web#destroy:preview"],
-			"cache": false,
-			"outputLogs": "new-only"
-		},
-		"ping-do#destroy:preview": {
-			"dependsOn": ["@internal/web#destroy:preview"],
-			"cache": false,
-			"outputLogs": "new-only"
-		},
-		"other-worker#destroy:preview": {
 			"dependsOn": ["@internal/web#destroy:preview"],
 			"cache": false,
 			"outputLogs": "new-only"

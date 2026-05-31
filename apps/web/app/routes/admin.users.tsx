@@ -49,10 +49,7 @@ export async function loader({ request, context }: Route.LoaderArgs): Promise<
 	});
 }
 
-export async function action({
-	request,
-	context,
-}: Route.ActionArgs): Promise<MaybeError<{ ok: true }>> {
+export async function action({ request, context }: Route.ActionArgs): Promise<MaybeError> {
 	const form = await request.formData();
 	const intent = String(form.get("intent") ?? "");
 
@@ -75,14 +72,14 @@ export async function action({
 			if (!result.success) {
 				return fail(result.error);
 			}
-			return success({ ok: true });
+			return success();
 		}
 		const role = intent === "bulkPromote" ? "admin" : "user";
 		const result = await auth.admin.bulkSetUserRole(userIds, role);
 		if (!result.success) {
 			return fail(result.error);
 		}
-		return success({ ok: true });
+		return success();
 	}
 
 	const userId = String(form.get("userId") ?? "");
@@ -99,7 +96,7 @@ export async function action({
 		if (!result.success) {
 			return fail(result.error);
 		}
-		return success({ ok: true });
+		return success();
 	}
 
 	if (intent === "deleteUser") {
@@ -110,7 +107,7 @@ export async function action({
 		if (!result.success) {
 			return fail(result.error);
 		}
-		return success({ ok: true });
+		return success();
 	}
 
 	const role = String(form.get("role") ?? "");
@@ -121,7 +118,7 @@ export async function action({
 	if (!result.success) {
 		return fail(result.error);
 	}
-	return success({ ok: true });
+	return success();
 }
 
 export default function AdminUsersRoute({ loaderData, actionData }: Route.ComponentProps) {

@@ -12,9 +12,11 @@ import {
 	buildWebSocketForwardRequest,
 	CHAT_ATTEST_QUERY_PARAM,
 	CHATROOM_INTERNAL_SECRET_HEADER,
+	sanitizeChatRoomId,
 	stripClientChatIdentityHeaders,
 	verifyChatAttestToken,
 } from "@internal/chat-contract";
+import { registerChatRoom } from "@internal/db";
 import {
 	POSTHOG_BROWSER_API_PATH,
 	rewritePosthogBrowserApiRequest,
@@ -28,14 +30,6 @@ import { shouldPreloadAuthSession } from "./should-preload-auth-session";
 
 const CHAT_WS_PREFIX = "/api/ws/";
 
-function sanitizeChatRoomId(raw: string): string {
-	const t = raw.trim().toLowerCase().slice(0, 64);
-	if (t.length === 0 || !/^[a-z0-9_-]+$/.test(t)) {
-		return "lobby";
-	}
-	return t;
-}
-
 function stripInternalBindingSessionHeader(request: Request): Request {
 	const headers = new Headers(request.headers);
 	headers.delete(INTERNAL_BINDING_SESSION_HEADER);
@@ -47,33 +41,19 @@ export function createWebWorkerApp(
 ) {
 	return new Hono<{ Bindings: CloudflareEnv }>()
 		.get("/api/worker-services", async (c) => {
-			const [pingAck, otherAck, chatroomAck] = await Promise.all([
-				(async () => {
-					const res = await c.env.PING.fetch("http://ping/ping-service-ack");
-					return { ok: res.ok, status: res.status };
-				})(),
-				(async () => {
-					const res = await c.env.OTHER.fetch("http://other/other-service-ack");
-					return { ok: res.ok, status: res.status };
-				})(),
-				(async () => {
-					const res = await c.env.CHATROOM.fetch("http://chatroom/service-ack");
-					if (!res.ok) {
-						return { ok: false, status: res.status };
-					}
-					return (await res.json()) as {
-						ok: boolean;
-						authBinding?: boolean;
-						emailAuthEnabled?: boolean;
-					};
-				})(),
-			]);
+			const res = await c.env.CHATROOM.fetch("http://chatroom/service-ack");
+			if (!res.ok) {
+				return c.json({ chatroomAck: { ok: false, status: res.status } });
+			}
+			const chatroomAck = (await res.json()) as {
+				ok: boolean;
+				authBinding?: boolean;
+				emailAuthEnabled?: boolean;
+			};
 
 			return c.json({
-				pingAck,
-				otherAck,
 				chatroomAck,
-				note: "Demo probe: chatroomAck confirms AUTH service binding from chatroom worker.",
+				note: "Probe confirms CHATROOM service binding and chatroom → AUTH wiring.",
 			});
 		})
 		.all(`${authApiPrefix}*`, (c) => c.env.AUTH.fetch(stripInternalBindingSessionHeader(c.req.raw)))
@@ -103,6 +83,7 @@ export function createWebWorkerApp(
 		.all(`${CHAT_WS_PREFIX}*`, async (c) => {
 			const rest = c.req.path.slice(CHAT_WS_PREFIX.length);
 			const room = sanitizeChatRoomId(decodeURIComponent(rest));
+			await registerChatRoom(c.env.DB, room);
 			const forward = new URL(c.req.url);
 			forward.pathname = "/websocket";
 			const attest = forward.searchParams.get(CHAT_ATTEST_QUERY_PARAM);

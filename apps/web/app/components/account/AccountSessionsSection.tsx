@@ -24,7 +24,10 @@ function formatSessionWhen(iso: string): string {
 	return d.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
 }
 
-export function AccountSessionsSection({ sessions, currentSessionId }: AccountSessionsSectionProps) {
+export function AccountSessionsSection({
+	sessions,
+	currentSessionId,
+}: AccountSessionsSectionProps) {
 	const submitter = useDynamicSubmitter<RouteMod>("/account", { keySuffix: "sessions" });
 	const { revalidate } = useRevalidator();
 	const submitSeq = useRef(0);

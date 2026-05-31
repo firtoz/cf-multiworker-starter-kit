@@ -35,6 +35,9 @@ export default function AdminLayout({ loaderData }: Route.ComponentProps) {
 				<Link to={href("/admin/users")} className="text-sm font-medium underline">
 					Users
 				</Link>
+				<Link to={href("/admin/chat-rooms")} className="text-sm font-medium underline">
+					Chat rooms
+				</Link>
 				<span className="text-sm text-gray-500 ml-auto">
 					{loaderData.result.user.email} (admin)
 				</span>

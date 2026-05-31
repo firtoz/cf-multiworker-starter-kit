@@ -15,13 +15,13 @@
 		"typecheck": "tsgo --noEmit -p ."
 	},
 	"dependencies": {
-		"@firtoz/hono-fetcher": "^2.7.2",
-		"@firtoz/maybe-error": "^1.6.1",
+		"@firtoz/hono-fetcher": "catalog:",
+		"@firtoz/maybe-error": "catalog:",
 		"@internal/auth-db": "workspace:*",
 		"alchemy-utils": "workspace:*",
 		"auth-worker": "workspace:*",
 		"better-auth": "catalog:",
-		"hono": "^4.12.23",
+		"hono": "catalog:",
 		"zod": "catalog:"
 	},
 	"devDependencies": {

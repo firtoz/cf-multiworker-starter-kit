@@ -12,6 +12,7 @@ Short index for AI agents. **Details live in skills** under **[`agents/skills/`]
 | Auth worker, OAuth, admin UI, authenticated chat | [docs/oauth-setup.md](docs/oauth-setup.md) (Google/GitHub) · [agents/skills/cf-auth-setup/SKILL.md](agents/skills/cf-auth-setup/SKILL.md) |
 | Turbo tasks, `^`, cache, `inputs` | [agents/skills/turborepo/SKILL.md](agents/skills/turborepo/SKILL.md) |
 | Web ↔ worker bindings, `apps/web/alchemy.run.ts` | [agents/skills/cf-web-alchemy-bindings/SKILL.md](agents/skills/cf-web-alchemy-bindings/SKILL.md) |
+| Typed HTTP over service bindings (`bindingHonoClient`) | [agents/skills/cf-binding-hono-client/SKILL.md](agents/skills/cf-binding-hono-client/SKILL.md) |
 | Durable Object package layout, Hono, `workers/rpc` | [agents/skills/cf-durable-object-package/SKILL.md](agents/skills/cf-durable-object-package/SKILL.md) |
 | Socka WebSockets, DO realtime, SSR-safe `wss://`, whiteboard/canvas patterns | [agents/skills/cf-socka-realtime/SKILL.md](agents/skills/cf-socka-realtime/SKILL.md) |
 | `WorkerRef`, cross-worker types, root `dev`/`destroy` | [agents/skills/cf-worker-rpc-turbo/SKILL.md](agents/skills/cf-worker-rpc-turbo/SKILL.md) |

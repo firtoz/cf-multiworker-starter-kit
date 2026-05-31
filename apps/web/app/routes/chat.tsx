@@ -1,14 +1,20 @@
 import { env } from "cloudflare:workers";
 import { fail, type MaybeError, success } from "@firtoz/maybe-error";
 import type { RoutePath } from "@firtoz/router-toolkit";
-import { type AuthUser, accountDisplayName } from "@internal/auth-client";
+import { type AuthUser, accountDisplayName, isAdminUser } from "@internal/auth-client";
 import { GUEST_SESSION_RETENTION_DAYS } from "@internal/auth-db/constants";
-import { createChatAttestToken, resolveChatAttestedIdentity } from "@internal/chat-contract";
+import {
+	createChatAttestToken,
+	resolveChatAttestedIdentity,
+	sanitizeChatRoomId,
+} from "@internal/chat-contract";
+import { registerChatRoom } from "@internal/db";
 import { data } from "react-router";
 import { ChatClient } from "~/components/chat/ChatClient";
 import { ClientOnly } from "~/components/client/ClientOnly";
 import { BackToHomeLink } from "~/components/shared/BackToHomeLink";
 import { roomFromQueryParams } from "~/lib/chat-ws-url";
+import { deleteChatRoomMessageForAdmin } from "~/lib/chatroom-admin";
 import { createRouteAuthClient } from "~/lib/route-auth-client";
 import type { Route } from "./+types/chat";
 
@@ -33,6 +39,7 @@ export type ChatLoaderData = {
 	/** Room-scoped WS attest token — avoids AUTH `getSession` on WebSocket upgrade. */
 	chatAttestToken: string;
 	chatAttestRoom: string;
+	canModerate: boolean;
 };
 
 export async function loader({ request, context }: Route.LoaderArgs) {
@@ -45,6 +52,7 @@ export async function loader({ request, context }: Route.LoaderArgs) {
 	const { session, setCookieHeaders } = ensured;
 	const pendingAuthCookies = setCookieHeaders.length > 0;
 	const room = roomFromQueryParams(new URL(request.url).searchParams);
+	await registerChatRoom(env.DB, room);
 	const identity = resolveChatAttestedIdentity({
 		userId: session.user.id,
 		profileDisplayName: accountDisplayName(session.user),
@@ -58,6 +66,7 @@ export async function loader({ request, context }: Route.LoaderArgs) {
 		pendingAuthCookies,
 		chatAttestToken,
 		chatAttestRoom: room,
+		canModerate: isAdminUser(session.user),
 	} satisfies ChatLoaderData);
 
 	if (!pendingAuthCookies) {
@@ -74,7 +83,7 @@ export async function loader({ request, context }: Route.LoaderArgs) {
 export async function action({
 	request,
 	context,
-}: Route.ActionArgs): Promise<MaybeError<{ displayName: string }>> {
+}: Route.ActionArgs): Promise<MaybeError<{ displayName: string } | true>> {
 	const auth = createRouteAuthClient(request, context);
 	const session = await auth.session.get();
 	if (!session) {
@@ -82,7 +91,32 @@ export async function action({
 	}
 
 	const form = await request.formData();
-	if (form.get("intent") !== "saveDisplayName") {
+	const intent = String(form.get("intent") ?? "");
+
+	if (intent === "deleteMessage") {
+		const adminSession = await auth.session.requireAdmin();
+		if (!adminSession) {
+			return fail("Forbidden");
+		}
+		const roomId = sanitizeChatRoomId(String(form.get("room") ?? ""));
+		const messageId = String(form.get("messageId") ?? "").trim();
+		if (!messageId) {
+			return fail("Message id required");
+		}
+		const deleted = await deleteChatRoomMessageForAdmin(
+			env,
+			roomId,
+			messageId,
+			adminSession.user.id,
+		);
+		if (!deleted.success) {
+			return fail(deleted.error.message);
+		}
+		await registerChatRoom(env.DB, roomId);
+		return success(true);
+	}
+
+	if (intent !== "saveDisplayName") {
 		return fail("Unknown action");
 	}
 
@@ -128,6 +162,7 @@ export default function ChatRoute({ loaderData, actionData }: Route.ComponentPro
 				pendingAuthCookies={loaderData.result.pendingAuthCookies}
 				chatAttestToken={loaderData.result.chatAttestToken}
 				chatAttestRoom={loaderData.result.chatAttestRoom}
+				canModerate={loaderData.result.canModerate}
 				{...(saveNameError === undefined ? {} : { saveNameError })}
 			/>
 		</ClientOnly>

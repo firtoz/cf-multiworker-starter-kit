@@ -18,7 +18,7 @@ A production-minded starter for full-stack Cloudflare apps: React Router on Work
 ## What you get
 
 - **React Router 7 on Workers** — streaming SSR, Tailwind, typed loaders/actions, form actions.
-- **Durable Object examples** — Hono RPC-style access, service bindings, Socka WebSockets (`/chat`).
+- **Durable Object example** — Socka WebSockets + DO SQLite on `/chat` (`chatroom-do`), with auth session gating via service bindings.
 - **Better Auth (`auth-worker`)** — email/password + optional Google/GitHub, admin UI (`/admin`), account display names; anonymous guests on `/chat` (7-day sliding session, random names like `Coastal-Falcon`).
 - **D1 + Drizzle** — root app DB (`/visitors`) plus separate auth D1 (`@internal/auth-db`).
 - **Typed bindings** — package-local `alchemy.run.ts` → Worker `env` types.
@@ -68,7 +68,7 @@ bun alchemy login
 
 Then rerun **`bun run quickstart`** (or **`bun run dev`** if `.env.local` is already set).
 
-Open the URL Vite prints — with Portless (default), **`Local:`** is **`https://<PRODUCT_PREFIX>-web.localhost/`** (see [CONTRIBUTING — Portless](CONTRIBUTING.md#local-https-dev-portless)); otherwise often **`http://localhost:5173`**. Try **`/`**, **`/visitors`**, **`/ping-do`**, **`/chat`** (anonymous guest sign-in), **`/login`**, **`/account`**. Set **`AUTH_BOOTSTRAP_ADMIN_EMAILS`** in **`.env.local`** to access **`/admin`** after signing in with that email.
+Open the URL Vite prints — with Portless (default), **`Local:`** is **`https://<PRODUCT_PREFIX>-web.localhost/`** (see [CONTRIBUTING — Portless](CONTRIBUTING.md#local-https-dev-portless)); otherwise often **`http://localhost:5173`**. Try **`/`**, **`/visitors`**, **`/chat`** (anonymous guest sign-in), **`/login`**, **`/account`**. Set **`AUTH_BOOTSTRAP_ADMIN_EMAILS`** in **`.env.local`** to access **`/admin`** after signing in with that email.
 
 ### Deploy with GitHub Actions (optional)
 
@@ -130,6 +130,59 @@ Each command runs the **full** Turbo graph (shared Alchemy state, D1 + migration
 
 **Optional PostHog:** leave keys empty to stay dark; wiring/removal notes: [`apps/web/README.md`](apps/web/README.md#optional-posthog).
 
+## Architecture
+
+Only **`apps/web`** faces the internet. Every other worker is a **service binding** ([`apps/web/alchemy.run.ts`](apps/web/alchemy.run.ts)). **`chatroom-do`** also calls **`auth-worker`** for session checks.
+
+```mermaid
+---
+config:
+  layout: dagre
+  theme: neutral
+---
+flowchart TB
+  Browser["Browser"]
+  PostHog["PostHog ingest"]
+
+  subgraph webLayer["apps/web"]
+    AppDB[("App D1<br>site visit counter")]
+    Web["React Router"]
+  end
+
+  subgraph authLayer["auth-worker"]
+    AUTH["Better Auth API"]
+    AuthDB[("Auth D1<br>users · sessions · OAuth")]
+    AuthKV[("AUTH_KV<br>trusted origins")]
+  end
+
+  subgraph chatLayer["chatroom-do"]
+    CHAT["Chat Worker<br>WebSockets · Socka"]
+    ChatDO["ChatroomDo"]
+    ChatSQL[("SQLite<br>chat per room")]
+  end
+
+  PH["posthog-proxy"]
+
+  Web --> AppDB & AUTH & CHAT & PH
+  AUTH --> AuthDB & AuthKV
+  CHAT --> AUTH & ChatDO --> ChatSQL
+
+  Browser -- HTTPS --> Web
+  PH -- forward /d/* --> PostHog
+
+  classDef external fill:#f8fafc,stroke:#94a3b8,color:#334155
+  class Browser,PostHog external
+```
+
+**Common request paths** (detail in [`apps/web/README.md`](apps/web/README.md)):
+
+| Flow | Path |
+|------|------|
+| **Auth / sessions** | Browser → web `/api/auth/*` → `AUTH.fetch` → auth-worker (Better Auth + auth D1). Loaders use `env.AUTH` via `@internal/auth-client`. |
+| **Chat WebSocket** | Browser → web `/api/ws/*` → session or attest token check → `CHATROOM.fetch` with attestation headers → chatroom-do (may call `AUTH` again). |
+
+Bindings and route wiring: [`apps/web/alchemy.run.ts`](apps/web/alchemy.run.ts), [`apps/web/workers/hono-app.ts`](apps/web/workers/hono-app.ts). Adding a worker: [Adding workers](#adding-workers) below.
+
 ## Project layout
 
 ```text
@@ -137,10 +190,9 @@ Each command runs the **full** Turbo graph (shared Alchemy state, D1 + migration
 │   └── web/                    # React Router app + Worker entry
 ├── workers/
 │   ├── auth-worker/            # Better Auth API, admin routes, trusted origins KV
-│   └── other-worker/           # Service binding demo (ping ↔ other)
+│   └── posthog-proxy/          # Optional PostHog reverse proxy
 ├── durable-objects/
-│   ├── chatroom-do/
-│   └── ping-do/
+│   └── chatroom-do/
 ├── packages/
 │   ├── alchemy-utils/          # PRODUCT_PREFIX, app ids, alchemy-cli
 │   ├── auth-client/            # getSession, ensureChatSession, binding headers for AUTH.fetch

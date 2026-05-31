@@ -8,7 +8,9 @@ React Router 7 application deployed on Cloudflare Workers.
 
 ## Dependencies
 
-**Durable Objects / services:** `auth-worker` and `other-worker` (plain Workers under `workers/`), `chatroom-do` (WebSockets / Socka; `/chat` and `/api/ws/*`), `ping-do` (typed Hono DO example).
+**Worker topology diagram:** [README — Architecture](../../README.md#architecture) (service bindings, D1/DO stores, cross-worker calls).
+
+**Durable Objects / services:** `auth-worker` (plain Worker under `workers/`), `chatroom-do` (WebSockets / Socka; `/chat` and `/api/ws/*`), optional `posthog-proxy`.
 
 **Packages:** `@internal/db` (app D1 for `/visitors`), `@internal/auth-db` + `@internal/auth-client` (sessions, `ensureChatSession`, admin helpers), `@internal/chat-contract` (Socka types + WS attestation headers).
 
@@ -97,7 +99,7 @@ Do not duplicate the monorepo checklist here. After **`bunx turbo gen durable-ob
 - [agents/skills/cf-durable-object-package/SKILL.md](../../agents/skills/cf-durable-object-package/SKILL.md) — package layout and `alchemy.run.ts`
 - [agents/skills/cf-web-alchemy-bindings/SKILL.md](../../agents/skills/cf-web-alchemy-bindings/SKILL.md) — `apps/web/package.json` workspace dep, `alchemy.run.ts` bindings, `bun run typegen`
 
-Example: call a DO’s Hono surface with `honoDoFetcherWithName(env.PingDo, "demo")` (see existing routes such as `ping-do`).
+Example: call a DO’s Hono surface with `honoDoFetcherWithName(env.ChatroomDo, "lobby")` after binding the namespace in `apps/web/alchemy.run.ts`.
 
 ### 4. Add a WebSocket-backed route
 

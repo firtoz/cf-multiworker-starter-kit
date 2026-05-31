@@ -41,13 +41,9 @@ export default function Home({ loaderData }: Route.ComponentProps) {
 					</Link>{" "}
 					(SQL at the edge) and{" "}
 					<Link className="text-blue-600 dark:text-blue-400 underline" to={href("/chat")}>
-						authenticated multi-room chat
+						multi-room chat
 					</Link>{" "}
-					(sign in, Socka + chatroom worker session gate + DO SQLite), and a{" "}
-					<Link className="text-blue-600 dark:text-blue-400 underline" to={href("/ping-do")}>
-						second cross-script DO
-					</Link>{" "}
-					(smoke test for multi-auxiliary Vite dev).
+					(anonymous guests or sign-in, Socka + chatroom worker + DO SQLite).
 				</p>
 			</div>
 		</div>

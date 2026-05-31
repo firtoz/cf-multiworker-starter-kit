@@ -15,6 +15,13 @@
       "when": 1779919864102,
       "tag": "0001_outgoing_professor_monster",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1780228065432,
+      "tag": "0002_daffy_agent_brand",
+      "breakpoints": true
     }
   ]
 }
