@@ -14,8 +14,8 @@ import {
 	checkChatroomAdminAllowed,
 } from "@internal/chat-contract/admin-http";
 import { Hono, type TypedResponse } from "hono";
-import type { ChatroomWorkerBindingEnv } from "./worker-binding-env";
 import type { HonoClientApp } from "./hono-client-app";
+import type { ChatroomWorkerBindingEnv } from "./worker-binding-env";
 
 type ChatroomHonoContext = { Bindings: ChatroomWorkerBindingEnv };
 

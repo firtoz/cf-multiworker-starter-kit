@@ -46,20 +46,24 @@ const chatroomWorkerBindings = {
 	AUTH: WorkerRef<AuthWorkerRpc>({ service: PEER_AUTH_SCRIPT_NAME }),
 };
 
-export const chatroomWorker = await Worker<
-	typeof chatroomWorkerBindings,
-	ChatroomWorkerRpc
->(DEFAULT_WORKER_RESOURCE_ID, {
-	entrypoint: new URL("./workers/app.ts", import.meta.url).pathname,
-	compatibility: "node",
-	placement: { mode: "smart" },
-	observability: workerObservabilityWithTraces,
-	dev: { port: 8783 },
-	adopt: true,
-	bindings: chatroomWorkerBindings,
-});
+export const chatroomWorker = await Worker<typeof chatroomWorkerBindings, ChatroomWorkerRpc>(
+	DEFAULT_WORKER_RESOURCE_ID,
+	{
+		entrypoint: new URL("./workers/app.ts", import.meta.url).pathname,
+		compatibility: "node",
+		placement: { mode: "smart" },
+		observability: workerObservabilityWithTraces,
+		dev: { port: 8783 },
+		adopt: true,
+		bindings: chatroomWorkerBindings,
+	},
+);
 
-export type { ChatroomWorkerRpc, WorkerRpcWithHonoApp, WorkerRpcWithHonoClient } from "./workers/rpc";
+export type {
+	ChatroomWorkerRpc,
+	WorkerRpcWithHonoApp,
+	WorkerRpcWithHonoClient,
+} from "./workers/rpc";
 
 console.log({ worker: "chatroom-do", scriptName: chatroomWorker.name });
 

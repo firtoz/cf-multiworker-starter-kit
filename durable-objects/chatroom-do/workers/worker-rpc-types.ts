@@ -1,14 +1,8 @@
 import type { Hono } from "hono";
 
 /** Any Hono instance — bare `Hono` is not a supertype of `typeof app` in Hono v4. */
-export type AnyHonoInstance = Hono<
-	// biome-ignore lint/suspicious/noExplicitAny: env/schema vary per worker
-	any,
-	// biome-ignore lint/suspicious/noExplicitAny:
-	any,
-	// biome-ignore lint/suspicious/noExplicitAny:
-	any
->;
+// biome-ignore lint/suspicious/noExplicitAny: env/schema/basePath vary per worker; constraint only
+export type AnyHonoInstance = Hono<any, any, any>;
 
 /**
  * RPC for a worker entrypoint with a Hono `app` and a **pre-resolved** client schema.
