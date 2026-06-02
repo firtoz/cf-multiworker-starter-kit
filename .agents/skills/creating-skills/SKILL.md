@@ -42,7 +42,7 @@ A skill should cover **one coherent “kind of work”** — small enough that a
 
 **Ways to split:**
 
-1. **Sibling skill** — New `agents/skills/<narrow-name>/SKILL.md`; cross-link from the old one. Prefer **narrow names** (`cf-durable-object-package` vs `everything-about-workers`).
+1. **Sibling skill** — New `.agents/skills/<narrow-name>/SKILL.md`; cross-link from the old one. Prefer **narrow names** (`cf-durable-object-package` vs `everything-about-workers`).
 2. **`references/`** — Deep dives, long examples, version-specific notes; `SKILL.md` stays “when + essential steps + links”.
 3. **Hub + leaves** — Optional thin index skill that only points to 2–4 leaves (use sparingly; don’t replace `AGENTS.md`).
 
@@ -50,10 +50,10 @@ A skill should cover **one coherent “kind of work”** — small enough that a
 
 ## Skill Structure
 
-A skill is a directory under **`agents/skills/<skill-name>/`** containing at minimum a `SKILL.md` file:
+A skill is a directory under **`.agents/skills/<skill-name>/`** containing at minimum a `SKILL.md` file:
 
 ```
-agents/skills/
+.agents/skills/
 └── skill-name/
     ├── SKILL.md          # Required
     ├── scripts/          # Optional - executable code
@@ -311,7 +311,7 @@ Contains static resources:
 2. **Choose a name**: Use lowercase with hyphens (e.g., `api-integration`)
 3. **Write description**: Be specific, include triggers, use third person
 4. **Document the pattern**: Keep it concise, provide examples
-5. **Create the file**: Place in `agents/skills/skill-name/SKILL.md` (canonical; also visible as `.cursor/skills/…` in Cursor via symlink)
+5. **Create the file**: Place in `.agents/skills/skill-name/SKILL.md` (canonical; also visible as `.cursor/skills/…` in Cursor via symlink)
 6. **Test**: Verify the skill activates correctly for relevant tasks
 
 ## Example: Creating a Git Commit Skill

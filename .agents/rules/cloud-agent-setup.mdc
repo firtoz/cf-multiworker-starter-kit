@@ -43,7 +43,7 @@ See root `package.json` for the full script list.
 
 ## Self-improvement
 
-If setup or docs are wrong, update `agents/rules/` (canonical rules), `00-cloud-agent-mandatory.mdc`, or `.cursor/setup-agent.sh` and include fixes in the same PR as code when possible.
+If setup or docs are wrong, update `.agents/rules/` (canonical rules), `00-cloud-agent-mandatory.mdc`, or `.cursor/setup-agent.sh` and include fixes in the same PR as code when possible.
 
 ## Troubleshooting
 

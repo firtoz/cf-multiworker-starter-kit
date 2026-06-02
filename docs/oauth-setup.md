@@ -2,7 +2,7 @@
 
 This starter kit ships with **Better Auth** on the `auth-worker`. Email/password always works; **Google** and **GitHub** are optional — set credentials in env and the **Continue with Google / GitHub** buttons appear on `/login`.
 
-**Related:** [Auth worker checklist](../agents/skills/cf-auth-setup/SKILL.md) · [`.env.example`](../.env.example) (auth section) · [GitHub Environments sync](github-admin.md) · [Multi-environment (local / staging / prod)](#multi-environment-setup-local-staging-production)
+**Related:** [Auth worker checklist](../.agents/skills/cf-auth-setup/SKILL.md) · [`.env.example`](../.env.example) (auth section) · [GitHub Environments sync](github-admin.md) · [Multi-environment (local / staging / prod)](#multi-environment-setup-local-staging-production)
 
 ## Local dev: Portless + Google (loopback OAuth proxy)
 
@@ -424,7 +424,7 @@ Alchemy does **not** write the auth URL into GitHub. After the first successful 
 2. Register OAuth callbacks using that **exact** origin (see tables above).
 3. Smoke-test `https://<that-host>/login` — Google/GitHub buttons appear only if secrets are in that stage’s dotfile **and** synced to the matching GitHub Environment.
 
-Optional: set **`WEB_DOMAINS=app.example.com`** in `.env.production` (and staging if needed) **before** deploy so the URL is stable and known up front. See [cf-workers-env-local](../agents/skills/cf-workers-env-local/SKILL.md).
+Optional: set **`WEB_DOMAINS=app.example.com`** in `.env.production` (and staging if needed) **before** deploy so the URL is stable and known up front. See [cf-workers-env-local](../.agents/skills/cf-workers-env-local/SKILL.md).
 
 ### Google Audience vs redirect URIs
 
@@ -495,7 +495,7 @@ The login and guest-upgrade pages show a short notice when passthrough OAuth is 
 | --- | --- | --- |
 | No Google/GitHub button on `/login` | Missing or empty `*_CLIENT_ID` / `*_CLIENT_SECRET` | Set both keys; restart `bun run dev` |
 | Provider error: redirect URI mismatch | Callback URL in console ≠ resolved auth URL | Fix console URL; check `WEB_DOMAINS` / `AUTH_DOMAINS` / Portless hostname |
-| **403** on sign-in (especially anonymous → OAuth) | Untrusted `Origin` | Add origin in `/admin/origins` or `AUTH_SEED_ORIGINS`; see [cf-auth-setup](../agents/skills/cf-auth-setup/SKILL.md) |
+| **403** on sign-in (especially anonymous → OAuth) | Untrusted `Origin` | Add origin in `/admin/origins` or `AUTH_SEED_ORIGINS`; see [cf-auth-setup](../.agents/skills/cf-auth-setup/SKILL.md) |
 | Google “Access blocked” / app not verified | Consent screen still in **Testing** | **Audience → Test users** — add your Google account, or publish the app |
 | OAuth overview: “no OAuth clients yet” | Only finished Getting started / branding | **Overview → Create OAuth client** or **Clients → Create client** (Web application) — see [§3](#3-create-the-oauth-client-required--fixes-no-oauth-clients-on-overview) |
 | Google: “Invalid origin” for `*.localhost` / `*.test` | Google only allows loopback or real public domains | **`LOCAL_PORTLESS=off`** + `http://127.0.0.1:5173/...`, tunnel, or staging — see [§2](#2-google--local-dev--what-actually-works) |

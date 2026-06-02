@@ -86,7 +86,7 @@ After completing any task, if you encountered issues with:
 **You MUST update the relevant documentation:**
 - This file (`00-cloud-agent-mandatory.mdc`)
 - Setup script (`.cursor/setup-agent.sh`)
-- Other rule files in `agents/rules/` (canonical; `.cursor/rules` is a symlink)
+- Other rule files in `.agents/rules/` (canonical; `.cursor/rules` is a symlink)
 
 Add learnings so the next agent doesn't face the same issues.
 
