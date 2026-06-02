@@ -17,8 +17,11 @@ export type HonoWireFetch = (url: string, init?: RequestInit) => ReturnType<Hono
 
 function mountWireFetch(wireFetch: HonoWireFetch, mountPath: string): HonoWireFetch {
 	return (url, init) => {
-		const path = url === "/" || url === "" ? mountPath : `${mountPath}${url}`;
-		return wireFetch(path, init);
+		const [pathPart, queryPart] = url.split("?", 2);
+		const path =
+			pathPart === "/" || pathPart === "" ? mountPath : `${mountPath}${pathPart}`;
+		const fullPath = queryPart === undefined ? path : `${path}?${queryPart}`;
+		return wireFetch(fullPath, init);
 	};
 }
 
