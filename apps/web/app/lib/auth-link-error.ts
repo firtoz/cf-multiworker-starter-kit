@@ -56,8 +56,8 @@ export function messageForAccountLinkError(code: string | null | undefined): str
 	return LINK_ERROR_MESSAGES[key] ?? "Could not connect that sign-in method. Try again.";
 }
 
-/** Read Better Auth link errors from the account URL (`?error=…` from `errorCallbackURL`). */
-export function accountLinkErrorFromRequestUrl(requestUrl: string): string | undefined {
-	const code = new URL(requestUrl).searchParams.get(BETTER_AUTH_OAUTH_ERROR_QUERY);
+/** Read Better Auth link errors from the route URL (`?error=…` from `errorCallbackURL`). */
+export function accountLinkErrorFromUrl(url: URL): string | undefined {
+	const code = url.searchParams.get(BETTER_AUTH_OAUTH_ERROR_QUERY);
 	return messageForAccountLinkError(code);
 }

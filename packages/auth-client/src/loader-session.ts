@@ -1,7 +1,7 @@
 import type { AuthSession } from "./roles";
 import { getSession } from "./session";
 
-/** React Router `AppLoadContext` slice populated once per document request in the web worker. */
+/** React Router root middleware populates session once per document/data request on the web worker. */
 export type AuthLoaderContext = {
 	authSession?: AuthSession | null;
 };

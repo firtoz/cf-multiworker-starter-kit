@@ -2,8 +2,8 @@ import { fail, type MaybeError, success } from "@firtoz/maybe-error";
 import type { RoutePath } from "@firtoz/router-toolkit";
 import { useState } from "react";
 import { Form, useFetcher } from "react-router";
-import { createRouteAuthClient } from "~/lib/route-auth-client";
-import type { Route } from "./+types/admin.origins";
+import { routeAuthClientContext } from "~/lib/route-auth-client";
+import type { Route } from "./+types/origins";
 
 export const route: RoutePath<"/admin/origins"> = "/admin/origins";
 
@@ -12,13 +12,9 @@ export function meta(_args: Route.MetaArgs) {
 }
 
 export async function loader({
-	request,
 	context,
 }: Route.LoaderArgs): Promise<MaybeError<{ origins: string[] }>> {
-	const auth = createRouteAuthClient(request, context);
-	if (!(await auth.session.requireAdmin())) {
-		return fail("Forbidden");
-	}
+	const auth = context.get(routeAuthClientContext);
 	const result = await auth.admin.listOrigins();
 	if (!result.success) {
 		return fail(result.error);
@@ -32,10 +28,7 @@ export async function action({
 }: Route.ActionArgs): Promise<MaybeError<{ origins: string[] }>> {
 	const form = await request.formData();
 	const intent = String(form.get("intent") ?? "addOrigin");
-	const auth = createRouteAuthClient(request, context);
-	if (!(await auth.session.requireAdmin())) {
-		return fail("Forbidden");
-	}
+	const auth = context.get(routeAuthClientContext);
 
 	if (intent === "removeOrigin") {
 		const origin = String(form.get("origin") ?? "").trim();

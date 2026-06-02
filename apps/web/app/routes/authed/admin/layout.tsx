@@ -1,10 +1,10 @@
-import { env } from "cloudflare:workers";
 import { success } from "@firtoz/maybe-error";
 import type { RoutePath } from "@firtoz/router-toolkit";
-import { isAdminUser, resolveAuthSession } from "@internal/auth-client";
-import { href, Link, Outlet, redirect } from "react-router";
+import { href, Link, Outlet } from "react-router";
 import { BackToHomeLink } from "~/components/shared/BackToHomeLink";
-import type { Route } from "./+types/admin";
+import { requireAdminMiddleware } from "~/lib/admin-auth-middleware";
+import { adminAuthSessionContext } from "~/lib/route-context";
+import type { Route } from "./+types/layout";
 
 export const route: RoutePath<"/admin"> = "/admin";
 
@@ -12,11 +12,10 @@ export function meta(_args: Route.MetaArgs) {
 	return [{ title: "Admin" }];
 }
 
-export async function loader({ request, context }: Route.LoaderArgs) {
-	const session = await resolveAuthSession(context, env.AUTH, request);
-	if (!session || !isAdminUser(session.user)) {
-		throw redirect(href("/"));
-	}
+export const middleware: Route.MiddlewareFunction[] = [requireAdminMiddleware];
+
+export async function loader({ context }: Route.LoaderArgs) {
+	const session = context.get(adminAuthSessionContext);
 	return success({ user: session.user });
 }
 

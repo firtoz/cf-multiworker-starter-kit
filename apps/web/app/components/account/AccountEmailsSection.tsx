@@ -16,7 +16,7 @@ const SOURCE_LABELS: Record<UserEmailSource, string> = {
 	profile: "Profile",
 };
 
-type RouteMod = typeof import("~/routes/account");
+type RouteMod = typeof import("~/routes/authed/account");
 
 type AccountEmailsSectionProps = {
 	summary: AccountSummary;

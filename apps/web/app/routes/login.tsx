@@ -1,13 +1,14 @@
 import { env } from "cloudflare:workers";
 import { type MaybeError, success } from "@firtoz/maybe-error";
 import type { RoutePath } from "@firtoz/router-toolkit";
-import { type AuthProviders, getAuthProviders, resolveAuthSession } from "@internal/auth-client";
+import { type AuthProviders, getAuthProviders } from "@internal/auth-client";
 import { href, redirect } from "react-router";
 import { LoginPanel } from "~/components/auth/LoginPanel";
 import { ClientOnly } from "~/components/client/ClientOnly";
 import { BackToHomeLink } from "~/components/shared/BackToHomeLink";
-import { accountLinkErrorFromRequestUrl } from "~/lib/auth-link-error";
+import { accountLinkErrorFromUrl } from "~/lib/auth-link-error";
 import { googleOAuthPortlessWarningForWebEnv } from "~/lib/google-oauth-portless-warning";
+import { resolveAuthSession } from "~/lib/route-context";
 import { safeRedirectPath } from "~/lib/safe-redirect-path";
 import type { Route } from "./+types/login";
 
@@ -17,7 +18,7 @@ export function meta(_args: Route.MetaArgs) {
 	return [{ title: "Sign in" }, { name: "description", content: "Sign in to the app" }];
 }
 
-export async function loader({ request, context }: Route.LoaderArgs): Promise<
+export async function loader({ context, url }: Route.LoaderArgs): Promise<
 	MaybeError<{
 		redirectTo: string;
 		providers: AuthProviders;
@@ -25,8 +26,7 @@ export async function loader({ request, context }: Route.LoaderArgs): Promise<
 		oauthErrorMessage?: string;
 	}>
 > {
-	const session = await resolveAuthSession(context, env.AUTH, request);
-	const url = new URL(request.url);
+	const session = await resolveAuthSession(context);
 	const redirectTo = safeRedirectPath(url.searchParams.get("redirectTo"), href("/"));
 	if (session && session.user.isAnonymous === true) {
 		const upgradeUrl = `${href("/guest/upgrade")}?redirectTo=${encodeURIComponent(redirectTo)}`;
@@ -40,7 +40,7 @@ export async function loader({ request, context }: Route.LoaderArgs): Promise<
 		providers.google && !providers.googleLoopbackOAuthProxy && !providers.oauthProxy
 			? googleOAuthPortlessWarningForWebEnv(env, true)
 			: undefined;
-	const oauthErrorMessage = accountLinkErrorFromRequestUrl(request.url);
+	const oauthErrorMessage = accountLinkErrorFromUrl(url);
 	return success({
 		redirectTo,
 		providers,

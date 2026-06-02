@@ -1,6 +1,6 @@
 import type { SubmitterSettledData } from "@firtoz/router-toolkit";
 
-type AccountRouteMod = typeof import("~/routes/account");
+type AccountRouteMod = typeof import("~/routes/authed/account");
 
 export function accountFormErrorMessage(
 	data: Extract<SubmitterSettledData<AccountRouteMod>, { success: false }>,

@@ -9,7 +9,7 @@ import { useRevalidator } from "react-router";
 import { accountFormErrorMessage } from "~/lib/account-form-error";
 import { formatSessionDevice } from "~/lib/format-session-device";
 
-type RouteMod = typeof import("~/routes/account");
+type RouteMod = typeof import("~/routes/authed/account");
 
 type AccountSessionsSectionProps = {
 	sessions: AccountSessionRow[];

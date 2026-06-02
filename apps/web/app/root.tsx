@@ -1,6 +1,6 @@
 import { env } from "cloudflare:workers";
 import { type MaybeError, success } from "@firtoz/maybe-error";
-import { type AuthUser, resolveAuthSession } from "@internal/auth-client";
+import type { AuthUser } from "@internal/auth-client";
 import type { Route } from "./+types/root";
 import "./app.css";
 
@@ -23,6 +23,8 @@ import {
 } from "~/components/client/PostHogAnalytics";
 import { SiteNav } from "~/components/layout/SiteNav";
 import { getPostHogClientConfig, getPostHogRuntimeTags } from "~/lib/analytics-config.server";
+import { runAuthSessionMiddleware } from "~/lib/auth-session-middleware";
+import { resolveAuthSession } from "~/lib/route-context";
 
 type RootLoaderData = {
 	analytics: PostHogLoaderAnalytics;
@@ -96,11 +98,14 @@ export const links: Route.LinksFunction = () => [
 	},
 ];
 
-export async function loader({
-	request,
-	context,
-}: Route.LoaderArgs): Promise<MaybeError<RootLoaderData>> {
-	const session = await resolveAuthSession(context, env.AUTH, request);
+export const middleware: Route.MiddlewareFunction[] = [
+	({ request, context }, next) => {
+		return runAuthSessionMiddleware(request, context, next);
+	},
+];
+
+export async function loader({ context }: Route.LoaderArgs): Promise<MaybeError<RootLoaderData>> {
+	const session = await resolveAuthSession(context);
 	return success({
 		analytics: {
 			...getPostHogClientConfig(env),

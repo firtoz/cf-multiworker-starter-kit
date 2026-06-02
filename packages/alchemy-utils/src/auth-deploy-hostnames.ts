@@ -1,5 +1,5 @@
 /**
- * Optional Workers Custom Domains for the auth worker (see agents/skills/cf-auth-setup).
+ * Optional Workers Custom Domains for the auth worker (see .agents/skills/cf-auth-setup).
  */
 
 export const AUTH_DOMAINS_ENV_KEY = "AUTH_DOMAINS" as const;

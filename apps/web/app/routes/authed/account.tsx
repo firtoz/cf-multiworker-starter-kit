@@ -9,16 +9,18 @@ import {
 	type ProfileUserWire,
 } from "@internal/auth-db/api-schemas";
 import { parseAuthRole } from "@internal/auth-db/roles";
-import { href, redirect } from "react-router";
+import { href } from "react-router";
 import { AccountDisplayNameForm } from "~/components/account/AccountDisplayNameForm";
 import { AccountEmailsSection } from "~/components/account/AccountEmailsSection";
 import { AccountPasswordForm } from "~/components/account/AccountPasswordForm";
 import { AccountSessionsSection } from "~/components/account/AccountSessionsSection";
 import { AccountSignInMethods } from "~/components/account/AccountSignInMethods";
 import { BackToHomeLink } from "~/components/shared/BackToHomeLink";
-import { accountLinkErrorFromRequestUrl } from "~/lib/auth-link-error";
+import { requireSignedInMiddleware } from "~/lib/admin-auth-middleware";
+import { accountLinkErrorFromUrl } from "~/lib/auth-link-error";
 import { googleOAuthPortlessWarningForWebEnv } from "~/lib/google-oauth-portless-warning";
-import { createRouteAuthClient } from "~/lib/route-auth-client";
+import { routeAuthClientContext } from "~/lib/route-auth-client";
+import { signedInAuthSessionContext } from "~/lib/route-context";
 import type { Route } from "./+types/account";
 
 export const route: RoutePath<"/account"> = "/account";
@@ -47,16 +49,12 @@ export function meta(_args: Route.MetaArgs) {
 	return [{ title: "Account" }, { name: "description", content: "Your account" }];
 }
 
-export async function loader({ request, context }: Route.LoaderArgs) {
-	const auth = createRouteAuthClient(request, context);
+export const middleware: Route.MiddlewareFunction[] = [requireSignedInMiddleware];
+
+export async function loader({ context, url }: Route.LoaderArgs) {
+	const auth = context.get(routeAuthClientContext);
 	const accountPath = href("/account");
-	const session = await auth.session.get();
-	if (!session) {
-		throw redirect(`${href("/login")}?redirectTo=${encodeURIComponent(href("/account"))}`);
-	}
-	if (session.user.isAnonymous === true) {
-		throw redirect(`${href("/guest/upgrade")}?redirectTo=${encodeURIComponent(href("/account"))}`);
-	}
+	const session = context.get(signedInAuthSessionContext);
 
 	const summaryResult = await auth.account.getSummary();
 	if (!summaryResult.success) {
@@ -75,7 +73,7 @@ export async function loader({ request, context }: Route.LoaderArgs) {
 		!summaryResult.result.providers.oauthProxy
 			? googleOAuthPortlessWarningForWebEnv(env, true)
 			: undefined;
-	const linkErrorMessage = accountLinkErrorFromRequestUrl(request.url);
+	const linkErrorMessage = accountLinkErrorFromUrl(url);
 	return success({
 		summary: summaryResult.result,
 		sessions,
@@ -88,12 +86,8 @@ export async function loader({ request, context }: Route.LoaderArgs) {
 
 export const action = formAction({
 	schema: accountFormSchema,
-	handler: async ({ request, context }, body): Promise<MaybeError<AccountActionSuccess>> => {
-		const auth = createRouteAuthClient(request, context);
-		const session = await auth.session.get();
-		if (!session) {
-			return fail("Not signed in");
-		}
+	handler: async ({ context }, body): Promise<MaybeError<AccountActionSuccess>> => {
+		const auth = context.get(routeAuthClientContext);
 
 		switch (body.intent) {
 			case "saveDisplayName": {

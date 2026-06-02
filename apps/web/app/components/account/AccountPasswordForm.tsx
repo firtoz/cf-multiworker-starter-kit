@@ -7,7 +7,7 @@ import { type SubmitEvent, useCallback, useRef, useState } from "react";
 import { useRevalidator } from "react-router";
 import { accountFormErrorMessage } from "~/lib/account-form-error";
 
-type RouteMod = typeof import("~/routes/account");
+type RouteMod = typeof import("~/routes/authed/account");
 
 type AccountPasswordFormProps = {
 	hasPassword: boolean;

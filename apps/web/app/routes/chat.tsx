@@ -13,9 +13,10 @@ import { data } from "react-router";
 import { ChatClient } from "~/components/chat/ChatClient";
 import { ClientOnly } from "~/components/client/ClientOnly";
 import { BackToHomeLink } from "~/components/shared/BackToHomeLink";
+import { ensureChatSessionMiddleware, resolveRouteChatSession } from "~/lib/chat-session-context";
 import { roomFromQueryParams } from "~/lib/chat-ws-url";
 import { deleteChatRoomMessageForAdmin } from "~/lib/chatroom-admin";
-import { createRouteAuthClient } from "~/lib/route-auth-client";
+import { routeAuthClientContext } from "~/lib/route-auth-client";
 import type { Route } from "./+types/chat";
 
 export const route: RoutePath<"/chat"> = "/chat";
@@ -42,16 +43,17 @@ export type ChatLoaderData = {
 	canModerate: boolean;
 };
 
-export async function loader({ request, context }: Route.LoaderArgs) {
-	const auth = createRouteAuthClient(request, context);
-	const ensured = await auth.session.ensureChat();
+export const middleware: Route.MiddlewareFunction[] = [ensureChatSessionMiddleware];
+
+export async function loader({ request, context, url }: Route.LoaderArgs) {
+	const ensured = await resolveRouteChatSession({ request, context });
 	if (!ensured) {
 		return fail("Could not start a chat session. Try refreshing the page.");
 	}
 
 	const { session, setCookieHeaders } = ensured;
 	const pendingAuthCookies = setCookieHeaders.length > 0;
-	const room = roomFromQueryParams(new URL(request.url).searchParams);
+	const room = roomFromQueryParams(url.searchParams);
 	await registerChatRoom(env.DB, room);
 	const identity = resolveChatAttestedIdentity({
 		userId: session.user.id,
@@ -84,7 +86,7 @@ export async function action({
 	request,
 	context,
 }: Route.ActionArgs): Promise<MaybeError<{ displayName: string } | true>> {
-	const auth = createRouteAuthClient(request, context);
+	const auth = context.get(routeAuthClientContext);
 	const session = await auth.session.get();
 	if (!session) {
 		return fail("Not signed in");

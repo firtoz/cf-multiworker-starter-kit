@@ -8,7 +8,7 @@ import { type SubmitEvent, useCallback, useEffect, useRef, useState } from "reac
 import { useRevalidator } from "react-router";
 import { accountFormErrorMessage } from "~/lib/account-form-error";
 
-type RouteMod = typeof import("~/routes/account");
+type RouteMod = typeof import("~/routes/authed/account");
 
 type AccountDisplayNameFormProps = {
 	initialName: string;

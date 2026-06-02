@@ -7,7 +7,7 @@ import { createAdminApi } from "./admin-api";
 import { createProfileApi } from "./profile-api";
 
 export type AuthClientOptions = {
-	/** When set (e.g. from web worker `AppLoadContext`), skips a service-binding `get-session` call. */
+	/** When set (e.g. from web worker root route middleware), skips a service-binding `get-session` call. */
 	session?: AuthSession | null;
 	/** With `session`, mints a trusted internal token so auth-worker custom routes skip D1 `getSession`. */
 	internalBindingSecret?: string;

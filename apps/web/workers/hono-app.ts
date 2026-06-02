@@ -3,7 +3,6 @@ import {
 	authApiPrefix,
 	guestApiPrefix,
 	machineAdminBootstrapSyncPath,
-	resolveDocumentAuthSession,
 } from "@internal/auth-client";
 import { AUTH_ADMIN_SECRET_HEADER } from "@internal/auth-db/constants";
 import { INTERNAL_BINDING_SESSION_HEADER } from "@internal/auth-db/internal-binding-session";
@@ -23,10 +22,9 @@ import {
 } from "alchemy-utils/posthog-host";
 import { adminPath } from "auth-worker/admin";
 import { Hono } from "hono";
-import type { AppLoadContext } from "react-router";
+import { RouterContextProvider } from "react-router";
 import type { CloudflareEnv } from "../types/env.d.ts";
 import { resolveChatIdentityFromAuth } from "./resolve-chat-identity";
-import { shouldPreloadAuthSession } from "./should-preload-auth-session";
 
 const CHAT_WS_PREFIX = "/api/ws/";
 
@@ -37,7 +35,10 @@ function stripInternalBindingSessionHeader(request: Request): Request {
 }
 
 export function createWebWorkerApp(
-	requestHandler: (request: Request, loadContext: AppLoadContext) => Response | Promise<Response>,
+	requestHandler: (
+		request: Request,
+		loadContext: RouterContextProvider,
+	) => Response | Promise<Response>,
 ) {
 	return new Hono<{ Bindings: CloudflareEnv }>()
 		.get("/api/worker-services", async (c) => {
@@ -107,34 +108,7 @@ export function createWebWorkerApp(
 
 			return c.env.CHATROOM.fetch(buildWebSocketForwardRequest(forward, c.req.raw, headers));
 		})
-		.all("*", async (c) => {
-			const pathname = new URL(c.req.url).pathname;
-			let staleCookieHeaders: string[] = [];
-			const authSession = shouldPreloadAuthSession(pathname)
-				? await resolveDocumentAuthSession(c.env.AUTH, c.req.raw).then(
-						({ session, staleCookieHeaders: headers }) => {
-							staleCookieHeaders = headers;
-							return session;
-						},
-					)
-				: null;
-			const response = await requestHandler(c.req.raw, {
-				cloudflare: { env: c.env, ctx: c.executionCtx },
-				authSession,
-			});
-			if (staleCookieHeaders.length === 0) {
-				return response;
-			}
-			const headers = new Headers(response.headers);
-			for (const cookie of staleCookieHeaders) {
-				headers.append("Set-Cookie", cookie);
-			}
-			return new Response(response.body, {
-				status: response.status,
-				statusText: response.statusText,
-				headers,
-			});
-		});
+		.all("*", async (c) => requestHandler(c.req.raw, new RouterContextProvider()));
 }
 
 export type WebWorkerApp = ReturnType<typeof createWebWorkerApp>;

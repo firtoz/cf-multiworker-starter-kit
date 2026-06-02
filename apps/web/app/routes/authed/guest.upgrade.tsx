@@ -6,9 +6,9 @@ import { data, href, redirect } from "react-router";
 import { ClientOnly } from "~/components/client/ClientOnly";
 import { GuestUpgradePanel } from "~/components/guest/GuestUpgradePanel";
 import { BackToHomeLink } from "~/components/shared/BackToHomeLink";
-import { accountLinkErrorFromRequestUrl } from "~/lib/auth-link-error";
+import { accountLinkErrorFromUrl } from "~/lib/auth-link-error";
+import { ensureChatSessionMiddleware, resolveRouteChatSession } from "~/lib/chat-session-context";
 import { googleOAuthPortlessWarningForWebEnv } from "~/lib/google-oauth-portless-warning";
-import { createRouteAuthClient } from "~/lib/route-auth-client";
 import { safeRedirectPath } from "~/lib/safe-redirect-path";
 import type { Route } from "./+types/guest.upgrade";
 
@@ -24,11 +24,11 @@ export function meta(_args: Route.MetaArgs) {
 	];
 }
 
-export async function loader({ request, context }: Route.LoaderArgs) {
-	const url = new URL(request.url);
+export const middleware: Route.MiddlewareFunction[] = [ensureChatSessionMiddleware];
+
+export async function loader({ request, context, url }: Route.LoaderArgs) {
 	const redirectTo = safeRedirectPath(url.searchParams.get("redirectTo"), href("/chat"));
-	const auth = createRouteAuthClient(request, context);
-	const ensured = await auth.session.ensureChat();
+	const ensured = await resolveRouteChatSession({ request, context });
 	if (!ensured) {
 		return fail("Could not start a guest session. Open chat first, then try again.");
 	}
@@ -44,7 +44,7 @@ export async function loader({ request, context }: Route.LoaderArgs) {
 		providers.google && !providers.googleLoopbackOAuthProxy && !providers.oauthProxy
 			? googleOAuthPortlessWarningForWebEnv(env, true)
 			: undefined;
-	const linkErrorMessage = accountLinkErrorFromRequestUrl(request.url);
+	const linkErrorMessage = accountLinkErrorFromUrl(url);
 
 	const payload = success({
 		user: session.user,

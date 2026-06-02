@@ -3,8 +3,9 @@ import type { RoutePath } from "@firtoz/router-toolkit";
 import type { AdminUserRow } from "@internal/auth-db/api-schemas";
 import { GUEST_SESSION_RETENTION_DAYS } from "@internal/auth-db/constants";
 import { AdminUsersPanel } from "~/components/admin/AdminUsersPanel";
-import { createRouteAuthClient } from "~/lib/route-auth-client";
-import type { Route } from "./+types/admin.users";
+import { routeAuthClientContext } from "~/lib/route-auth-client";
+import { adminAuthSessionContext } from "~/lib/route-context";
+import type { Route } from "./+types/users";
 
 export const route: RoutePath<"/admin/users"> = "/admin/users";
 
@@ -12,7 +13,7 @@ export function meta(_args: Route.MetaArgs) {
 	return [{ title: "Admin — Users" }];
 }
 
-export async function loader({ request, context }: Route.LoaderArgs): Promise<
+export async function loader({ context, url }: Route.LoaderArgs): Promise<
 	MaybeError<{
 		users: AdminUserRow[];
 		currentUserId: string;
@@ -23,12 +24,8 @@ export async function loader({ request, context }: Route.LoaderArgs): Promise<
 		hasMore: boolean;
 	}>
 > {
-	const auth = createRouteAuthClient(request, context);
-	const session = await auth.session.requireAdmin();
-	if (!session) {
-		return fail("Forbidden");
-	}
-	const url = new URL(request.url);
+	const auth = context.get(routeAuthClientContext);
+	const session = context.get(adminAuthSessionContext);
 	const page = Math.max(1, Number(url.searchParams.get("page") ?? "1") || 1);
 	const pageSize = Math.min(
 		100,
@@ -53,11 +50,8 @@ export async function action({ request, context }: Route.ActionArgs): Promise<Ma
 	const form = await request.formData();
 	const intent = String(form.get("intent") ?? "");
 
-	const auth = createRouteAuthClient(request, context);
-	const session = await auth.session.requireAdmin();
-	if (!session) {
-		return fail("Forbidden");
-	}
+	const auth = context.get(routeAuthClientContext);
+	const session = context.get(adminAuthSessionContext);
 
 	if (intent === "bulkDelete" || intent === "bulkPromote" || intent === "bulkDemote") {
 		const userIds = form.getAll("userIds").map(String).filter(Boolean);

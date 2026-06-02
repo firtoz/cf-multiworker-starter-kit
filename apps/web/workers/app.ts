@@ -1,23 +1,7 @@
 import { WorkerEntrypoint } from "cloudflare:workers";
-import type { AuthSession } from "@internal/auth-client";
 import { createRequestHandler } from "react-router";
 import type { CloudflareEnv } from "../types/env.d.ts";
 import { createWebWorkerApp } from "./hono-app";
-
-/**
- * Extend the AppLoadContext interface from react-router
- * to include Cloudflare-specific context
- */
-declare module "react-router" {
-	export interface AppLoadContext {
-		cloudflare: {
-			env: CloudflareEnv;
-			ctx: ExecutionContext;
-		};
-		/** Resolved once per document request in {@link createWebWorkerApp}. */
-		authSession: AuthSession | null;
-	}
-}
 
 const requestHandler = createRequestHandler(
 	() => import("virtual:react-router/server-build") as Promise<import("react-router").ServerBuild>,
