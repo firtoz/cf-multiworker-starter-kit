@@ -10,6 +10,7 @@ import { type ChatMessageRow, chatContract } from "@internal/chat-contract";
 import type { KeyboardEvent as ReactKeyboardEvent } from "react";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { href, Link, useFetcher, useSearchParams } from "react-router";
+import { ChatConnectingShell } from "~/components/chat/ChatConnectingShell";
 import {
 	type ChatDiagnosticEntry,
 	ChatDiagnosticsPanel,
@@ -117,10 +118,17 @@ type ChatClientProps = {
 
 /** Wait until HttpOnly auth cookies from the loader are visible to the browser before opening Socka. */
 export function ChatClient(props: ChatClientProps) {
+	const [browserReady, setBrowserReady] = useState(false);
 	const [wsConnectReady, setWsConnectReady] = useState(!props.pendingAuthCookies);
 	const diagnosticEnabled =
 		typeof window !== "undefined" &&
 		new URLSearchParams(window.location.search).get("diag") === "1";
+	const displayName = accountDisplayName(props.user) ?? "Guest";
+	const room = props.chatAttestRoom;
+
+	useEffect(() => {
+		setBrowserReady(true);
+	}, []);
 
 	useEffect(() => {
 		if (diagnosticEnabled) {
@@ -156,13 +164,12 @@ export function ChatClient(props: ChatClientProps) {
 		};
 	}, [diagnosticEnabled, props.pendingAuthCookies]);
 
+	if (!browserReady) {
+		return <ChatConnectingShell displayName={displayName} room={room} status="Preparing chat" />;
+	}
+
 	if (!wsConnectReady) {
-		return (
-			<div className="max-w-2xl mx-auto w-full min-h-full flex flex-col justify-center gap-2 px-4 py-3">
-				<h1 className="text-lg font-bold text-gray-900 dark:text-gray-100 sm:text-2xl">Chat</h1>
-				<p className="text-sm text-gray-600 dark:text-gray-400">Starting session…</p>
-			</div>
-		);
+		return <ChatConnectingShell displayName={displayName} room={room} status="Starting session" />;
 	}
 
 	return <ChatClientWithSocket {...props} />;

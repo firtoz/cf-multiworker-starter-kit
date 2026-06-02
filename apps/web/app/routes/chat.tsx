@@ -11,7 +11,6 @@ import {
 import { registerChatRoom } from "@internal/db";
 import { data } from "react-router";
 import { ChatClient } from "~/components/chat/ChatClient";
-import { ClientOnly } from "~/components/client/ClientOnly";
 import { BackToHomeLink } from "~/components/shared/BackToHomeLink";
 import { ensureChatSessionMiddleware, resolveRouteChatSession } from "~/lib/chat-session-context";
 import { roomFromQueryParams } from "~/lib/chat-ws-url";
@@ -148,25 +147,15 @@ export default function ChatRoute({ loaderData, actionData }: Route.ComponentPro
 	const saveNameError = actionData && !actionData.success ? actionData.error : undefined;
 
 	return (
-		<ClientOnly
-			fallback={
-				<div className="max-w-2xl mx-auto w-full min-h-full flex flex-col justify-center gap-2 px-4 py-3">
-					<div className="flex min-h-0 flex-1 items-center justify-center text-gray-600 dark:text-gray-400 text-sm">
-						Loading chat…
-					</div>
-				</div>
-			}
-		>
-			<ChatClient
-				user={loaderData.result.user}
-				sessionExpiresAt={loaderData.result.sessionExpiresAt}
-				guestRetentionDays={loaderData.result.guestRetentionDays}
-				pendingAuthCookies={loaderData.result.pendingAuthCookies}
-				chatAttestToken={loaderData.result.chatAttestToken}
-				chatAttestRoom={loaderData.result.chatAttestRoom}
-				canModerate={loaderData.result.canModerate}
-				{...(saveNameError === undefined ? {} : { saveNameError })}
-			/>
-		</ClientOnly>
+		<ChatClient
+			user={loaderData.result.user}
+			sessionExpiresAt={loaderData.result.sessionExpiresAt}
+			guestRetentionDays={loaderData.result.guestRetentionDays}
+			pendingAuthCookies={loaderData.result.pendingAuthCookies}
+			chatAttestToken={loaderData.result.chatAttestToken}
+			chatAttestRoom={loaderData.result.chatAttestRoom}
+			canModerate={loaderData.result.canModerate}
+			{...(saveNameError === undefined ? {} : { saveNameError })}
+		/>
 	);
 }
