@@ -15,7 +15,7 @@
 		"catalog": {
 			"@biomejs/biome": "^2.4.16",
 			"@cloudflare/workers-types": "^4.20260529.1",
-			"@firtoz/hono-fetcher": "^2.8.1",
+			"@firtoz/hono-fetcher": "^2.8.2",
 			"@firtoz/maybe-error": "^1.6.2",
 			"@firtoz/socka": "^5.0.1",
 			"@firtoz/websocket-do": "^14.0.1",

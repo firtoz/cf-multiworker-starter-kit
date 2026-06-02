@@ -262,7 +262,7 @@
   "catalog": {
     "@biomejs/biome": "^2.4.16",
     "@cloudflare/workers-types": "^4.20260529.1",
-    "@firtoz/hono-fetcher": "^2.8.1",
+    "@firtoz/hono-fetcher": "^2.8.2",
     "@firtoz/maybe-error": "^1.6.2",
     "@firtoz/socka": "^5.0.1",
     "@firtoz/websocket-do": "^14.0.1",
@@ -506,7 +506,7 @@
 
     "@esbuild/win32-x64": ["@esbuild/win32-x64@0.25.12", "", { "os": "win32", "cpu": "x64" }, "sha512-alJC0uCZpTFrSL0CCDjcgleBXPnCrEAhTBILpeAp7M/OFgoqtAetfBzX0xM00MUsVVPpVjlPuMbREqnZCXaTnA=="],
 
-    "@firtoz/hono-fetcher": ["@firtoz/hono-fetcher@2.8.1", "", { "peerDependencies": { "@cloudflare/workers-types": "^4.20260529.1", "hono": "^4.12.23" } }, "sha512-tAW4mW+SiVry+mgETbqoiM1TrmZVW8Xj9H91GA10YVrLzLkJjBpKhgh7DSwC4fpqb8NtoIydVBIbSezN4MBMfw=="],
+    "@firtoz/hono-fetcher": ["@firtoz/hono-fetcher@2.8.2", "", { "peerDependencies": { "@cloudflare/workers-types": "^4.20260529.1", "hono": "^4.12.23" } }, "sha512-4SaXhGccspBM0/hJmYn3gcX2kJ+xxVAUR345urCAsurwlSTsxfBsUE25pOkwfsuUOj+fbMk5XQDn6Yupp52YjQ=="],
 
     "@firtoz/maybe-error": ["@firtoz/maybe-error@1.6.2", "", {}, "sha512-0R2FdKM3Ds5SNPGxk0BURc5PQ8bqk97e5Hto2AAVpFEQvCFdDGzD+Dqu3yf6a/+ChT5IAZuG6V1iwBUbrXjLWA=="],
 

@@ -1,4 +1,4 @@
-import { honoFetcher, type TypedHonoFetcher } from "@firtoz/hono-fetcher";
+import { honoFetcher, honoFetcherMounted, type TypedHonoFetcher } from "@firtoz/hono-fetcher";
 import type { AccountApp } from "auth-worker/account";
 import { accountPath } from "auth-worker/account";
 import type { AdminApp } from "auth-worker/admin";
@@ -15,14 +15,12 @@ import type { HonoClientApp } from "./hono-client-app";
 
 export type HonoWireFetch = (url: string, init?: RequestInit) => ReturnType<Hono["request"]>;
 
-function mountWireFetch(wireFetch: HonoWireFetch, mountPath: string): HonoWireFetch {
-	return (url, init) => {
-		const [pathPart, queryPart] = url.split("?", 2);
-		const path =
-			pathPart === "/" || pathPart === "" ? mountPath : `${mountPath}${pathPart}`;
-		const fullPath = queryPart === undefined ? path : `${path}?${queryPart}`;
-		return wireFetch(fullPath, init);
-	};
+/** Sub-app client on a binding fetcher (not {@link AuthWorkerApp} mount-prefix stripping). */
+function authSubAppMounted<T>(
+	wireFetch: HonoWireFetch,
+	mountPath: string,
+): TypedHonoFetcher<HonoClientApp<T>> {
+	return honoFetcherMounted(wireFetch, mountPath) as TypedHonoFetcher<HonoClientApp<T>>;
 }
 
 export type AuthWorkerHonoClient = {
@@ -37,15 +35,11 @@ export type AuthWorkerHonoClient = {
 export function createAuthWorkerHonoClient(wireFetch: HonoWireFetch): AuthWorkerHonoClient {
 	return {
 		root: honoFetcher<HonoClientApp<AuthWorkerApp>>(wireFetch),
-		admin: honoFetcher<HonoClientApp<AdminApp>>(mountWireFetch(wireFetch, adminPath)),
-		account: honoFetcher<HonoClientApp<AccountApp>>(mountWireFetch(wireFetch, accountPath)),
-		profile: honoFetcher<HonoClientApp<ProfileApp>>(mountWireFetch(wireFetch, profilePath)),
-		guestUpgrade: honoFetcher<HonoClientApp<GuestUpgradeApp>>(
-			mountWireFetch(wireFetch, guestUpgradePath),
-		),
-		betterAuth: honoFetcher<HonoClientApp<BetterAuthApp>>(
-			mountWireFetch(wireFetch, betterAuthPath),
-		),
+		admin: authSubAppMounted<AdminApp>(wireFetch, adminPath),
+		account: authSubAppMounted<AccountApp>(wireFetch, accountPath),
+		profile: authSubAppMounted<ProfileApp>(wireFetch, profilePath),
+		guestUpgrade: authSubAppMounted<GuestUpgradeApp>(wireFetch, guestUpgradePath),
+		betterAuth: authSubAppMounted<BetterAuthApp>(wireFetch, betterAuthPath),
 	};
 }
 

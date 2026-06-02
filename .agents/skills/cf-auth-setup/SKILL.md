@@ -103,6 +103,7 @@ Trusted origins seed from the resolved auth URL, `WEB_DOMAINS`, `AUTH_SEED_ORIGI
 ## Architecture notes
 
 - Web reaches auth via **`env.AUTH`** (auth worker binding), not `context.cloudflare.env`.
+- **`createAuthWorkerHonoClient`** ([`packages/auth-client/src/binding/auth-worker-hono-client.ts`](../../packages/auth-client/src/binding/auth-worker-hono-client.ts)) mounts typed sub-app clients with **`honoFetcherMounted`** from `@firtoz/hono-fetcher` (requires **2.8.2+** for correct root-route query join, e.g. `GET /api/account?includeSessions=1`).
 - Chat WebSocket: **web → chatroom worker → Chatroom DO**. The **chatroom worker** resolves identity via **`env.AUTH`** (`getSession` + profile display name); the web worker only forwards cookies and the internal secret.
 - **Human admin** = `user.role === "admin"` (browser `/admin/*`: trusted origins, user list with editable display names). **Machine admin** = `AUTH_ADMIN_SECRET` header on **`POST /api/internal/admin/bootstrap-sync`** (web worker) or auth-worker `/admin/*` over service binding only — never exposed without the secret (404 when missing/wrong).
 

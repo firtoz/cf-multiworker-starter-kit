@@ -11,7 +11,7 @@ description: Typed HTTP clients for Cloudflare service bindings — bindingHonoC
 - Adding a new worker with a Hono `app` on its entrypoint.
 - Debugging `TypedHonoFetcher<Hono<ClientEnv, any, any>>`, `JsonResponse<any>`, or missing methods like `.delete` on a binding client.
 
-**Not this skill:** Durable Object HTTP from a namespace → `honoDoFetcherWithName(env.MyDo, name)` ([cf-durable-object-package](../cf-durable-object-package/SKILL.md)). Auth worker multi-mount sub-apps → `createAuthWorkerHonoClient` / `mountWireFetch` ([cf-auth-setup](../cf-auth-setup/SKILL.md)).
+**Not this skill:** Durable Object HTTP from a namespace → `honoDoFetcherWithName(env.MyDo, name)` ([cf-durable-object-package](../cf-durable-object-package/SKILL.md)). Auth worker multi-mount sub-apps → `createAuthWorkerHonoClient` / `honoFetcherMounted` ([cf-auth-setup](../cf-auth-setup/SKILL.md)).
 
 ## Consumer (web): `bindingHonoClient`
 
