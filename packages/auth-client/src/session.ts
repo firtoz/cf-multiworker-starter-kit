@@ -4,6 +4,7 @@ import {
 	createBindingAuthWorkerHonoClientWithHeaders,
 } from "./binding/create-binding-hono-client";
 import { filterAuthCookieHeader } from "./binding-headers";
+import { isReactRouterDataRequest } from "./document-request";
 import { type AuthSession, type AuthUser, isAdminUser } from "./roles";
 import { signOut } from "./sign-out";
 
@@ -44,17 +45,31 @@ function mapSession(body: GetSessionResponse | null): AuthSession | null {
 	};
 }
 
-export async function getSession(auth: Fetcher, request: Request): Promise<AuthSession | null> {
+export type GetSessionOptions = {
+	/** Bypass Better Auth cookie cache (document loads). Defaults from request type when omitted. */
+	disableCookieCache?: boolean;
+};
+
+function resolveDisableCookieCache(request: Request, options?: GetSessionOptions): boolean {
+	return options?.disableCookieCache ?? !isReactRouterDataRequest(request);
+}
+
+export async function getSession(
+	auth: Fetcher,
+	request: Request,
+	options?: GetSessionOptions,
+): Promise<AuthSession | null> {
 	const api = createBindingAuthWorkerHonoClient(auth, request);
+	const disableCookieCache = resolveDisableCookieCache(request, options);
 
 	let res = await api.betterAuth.get({
 		url: "/get-session",
-		query: { disableCookieCache: true },
+		query: { disableCookieCache },
 	});
 	for (let attempt = 0; res.status === 503 && attempt < 2; attempt++) {
 		res = await api.betterAuth.get({
 			url: "/get-session",
-			query: { disableCookieCache: true },
+			query: { disableCookieCache },
 		});
 	}
 
@@ -69,11 +84,12 @@ export async function resolveDocumentAuthSession(
 	auth: Fetcher,
 	request: Request,
 ): Promise<{ session: AuthSession | null; staleCookieHeaders: string[] }> {
-	const session = await getSession(auth, request);
+	const isDataRequest = isReactRouterDataRequest(request);
+	const session = await getSession(auth, request, { disableCookieCache: !isDataRequest });
 	if (session) {
 		return { session, staleCookieHeaders: [] };
 	}
-	if (!filterAuthCookieHeader(request.headers.get("cookie"))) {
+	if (isDataRequest || !filterAuthCookieHeader(request.headers.get("cookie"))) {
 		return { session: null, staleCookieHeaders: [] };
 	}
 	return { session: null, staleCookieHeaders: await signOut(auth, request) };

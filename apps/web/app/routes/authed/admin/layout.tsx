@@ -28,13 +28,28 @@ export default function AdminLayout({ loaderData }: Route.ComponentProps) {
 		<div className="w-full px-4 py-8">
 			<BackToHomeLink />
 			<div className="flex flex-wrap gap-4 mt-4 mb-6 border-b border-gray-200 dark:border-gray-700 pb-4">
-				<Link to={href("/admin/origins")} className="text-sm font-medium underline">
+				<Link
+					to={href("/admin/origins")}
+					discover="none"
+					prefetch="none"
+					className="text-sm font-medium underline"
+				>
 					Trusted origins
 				</Link>
-				<Link to={href("/admin/users")} className="text-sm font-medium underline">
+				<Link
+					to={href("/admin/users")}
+					discover="none"
+					prefetch="none"
+					className="text-sm font-medium underline"
+				>
 					Users
 				</Link>
-				<Link to={href("/admin/chat-rooms")} className="text-sm font-medium underline">
+				<Link
+					to={href("/admin/chat-rooms")}
+					discover="none"
+					prefetch="none"
+					className="text-sm font-medium underline"
+				>
 					Chat rooms
 				</Link>
 				<span className="text-sm text-gray-500 ml-auto">

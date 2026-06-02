@@ -63,6 +63,14 @@ function attestedWebSocketDenied(headers: Headers, internalSecret: string): Resp
 	return undefined;
 }
 
+/** RFC 6455 reserves 1005/1006 — Cloudflare rejects them in `WebSocket#close()`. */
+function sanitizeWebSocketCloseCode(code: number): number {
+	if (code === 1005 || code === 1006 || code < 1000 || code >= 5000) {
+		return 1000;
+	}
+	return code;
+}
+
 export class ChatroomDo extends SockaWebSocketDO<typeof chatContract, SessionData, Env> {
 	protected readonly contract = chatContract;
 
@@ -220,6 +228,15 @@ export class ChatroomDo extends SockaWebSocketDO<typeof chatContract, SessionDat
 	override async webSocketMessage(ws: WebSocket, message: string | ArrayBuffer): Promise<void> {
 		this.touchActivityTtl();
 		return super.webSocketMessage(ws, message);
+	}
+
+	override async webSocketClose(
+		ws: WebSocket,
+		code: number,
+		reason: string,
+		wasClean: boolean,
+	): Promise<void> {
+		await super.webSocketClose(ws, sanitizeWebSocketCloseCode(code), reason, wasClean);
 	}
 
 	override async alarm(): Promise<void> {

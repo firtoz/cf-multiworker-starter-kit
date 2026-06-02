@@ -89,6 +89,13 @@ export const accountSessionsResponseSchema = z.object({
 
 export type AccountSessionsResponse = z.infer<typeof accountSessionsResponseSchema>;
 
+/** Account page: summary plus active sessions (auth worker `GET /api/account?includeSessions=1`). */
+export const accountPageDataSchema = accountSummarySchema.extend({
+	sessions: z.array(accountSessionRowSchema),
+});
+
+export type AccountPageData = z.infer<typeof accountPageDataSchema>;
+
 export const revokeAccountSessionSchema = z.object({
 	intent: z.literal("revokeSession"),
 	sessionId: z.string().min(1),

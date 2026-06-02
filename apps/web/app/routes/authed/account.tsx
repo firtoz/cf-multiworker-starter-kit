@@ -56,26 +56,20 @@ export async function loader({ context, url }: Route.LoaderArgs) {
 	const accountPath = href("/account");
 	const session = context.get(signedInAuthSessionContext);
 
-	const summaryResult = await auth.account.getSummary();
+	const summaryResult = await auth.account.loadPage();
 	if (!summaryResult.success) {
 		return fail(summaryResult.error);
 	}
-
-	const sessionsResult = await auth.account.listSessions();
-	if (!sessionsResult.success) {
-		return fail(sessionsResult.error);
-	}
-	const sessions = sessionsResult.result.sessions;
-
+	const { sessions, ...summary } = summaryResult.result;
 	const googlePortlessWarning =
-		summaryResult.result.providers.google &&
-		!summaryResult.result.providers.googleLoopbackOAuthProxy &&
-		!summaryResult.result.providers.oauthProxy
+		summary.providers.google &&
+		!summary.providers.googleLoopbackOAuthProxy &&
+		!summary.providers.oauthProxy
 			? googleOAuthPortlessWarningForWebEnv(env, true)
 			: undefined;
 	const linkErrorMessage = accountLinkErrorFromUrl(url);
 	return success({
-		summary: summaryResult.result,
+		summary,
 		sessions,
 		currentSessionId: sessions.find((s) => s.isCurrent)?.id ?? session.session.id,
 		accountPath,
@@ -156,17 +150,15 @@ export const action = formAction({
 				if (!result.success) {
 					return fail(result.error);
 				}
-				const [summaryResult, sessionsResult] = await Promise.all([
-					auth.account.getSummary(),
-					auth.account.listSessions(),
-				]);
-				if (!summaryResult.success) {
-					return fail(summaryResult.error);
+				const pageResult = await auth.account.loadPage();
+				if (!pageResult.success) {
+					return fail(pageResult.error);
 				}
+				const { sessions, ...summary } = pageResult.result;
 				return success({
 					ok: true as const,
-					summary: summaryResult.result,
-					...(sessionsResult.success ? { sessions: sessionsResult.result.sessions } : {}),
+					summary,
+					sessions,
 				});
 			}
 			case "revokeSession": {

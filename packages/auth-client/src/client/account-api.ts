@@ -1,8 +1,10 @@
 import type { TypedHonoFetcher } from "@firtoz/hono-fetcher";
 import type { MaybeError } from "@firtoz/maybe-error";
 import {
+	type AccountPageData,
 	type AccountSessionsResponse,
 	type AccountSummary,
+	accountPageDataSchema,
 	accountSessionsResponseSchema,
 	accountSummarySchema,
 	authAddContactEmailResponseSchema,
@@ -21,6 +23,13 @@ export function createAccountApi(api: TypedHonoFetcher<AccountAppClient>) {
 				api.get({ url: "/" }),
 				"Could not load account",
 				accountSummarySchema,
+			);
+		},
+		loadPage(): Promise<MaybeError<AccountPageData>> {
+			return parseBindingJson(
+				api.get({ url: "/", query: { includeSessions: "1" } }),
+				"Could not load account",
+				accountPageDataSchema,
 			);
 		},
 		setNotificationEmail(emailId: string): Promise<MaybeError<{ ok: true }>> {

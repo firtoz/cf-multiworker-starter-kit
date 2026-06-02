@@ -7,6 +7,7 @@ import {
 	syncUserEmailsForUser,
 } from "@internal/auth-db";
 import {
+	accountPageDataSchema,
 	accountPasswordBodySchema,
 	accountPatchBodySchema,
 	accountSessionsResponseSchema,
@@ -20,7 +21,7 @@ import {
 	user as userTable,
 } from "@internal/auth-db/schema";
 import { and, desc, eq, gt } from "drizzle-orm";
-import { Hono } from "hono";
+import { type Context, Hono } from "hono";
 import type { AuthWorkerAppEnv } from "./app-env";
 import { mapUserWithRole } from "./auth";
 import { authProviderFlags } from "./auth-provider-flags";
@@ -50,6 +51,36 @@ function oauthProviderEmail(
 		return profileEmail;
 	}
 	return null;
+}
+
+async function listAccountSessions(c: Context<AuthWorkerAppEnv>, userId: string) {
+	const db = getAuthDb(c.env.DB);
+	const now = new Date();
+	const rows = await db
+		.select({
+			id: sessionTable.id,
+			createdAt: sessionTable.createdAt,
+			updatedAt: sessionTable.updatedAt,
+			expiresAt: sessionTable.expiresAt,
+			ipAddress: sessionTable.ipAddress,
+			userAgent: sessionTable.userAgent,
+		})
+		.from(sessionTable)
+		.where(and(eq(sessionTable.userId, userId), gt(sessionTable.expiresAt, now)))
+		.orderBy(desc(sessionTable.updatedAt));
+
+	const currentId = await resolveRequestSessionId(c);
+	return accountSessionsResponseSchema.parse({
+		sessions: rows.map((row) => ({
+			id: row.id,
+			createdAt: (parseTimestampOrNull(row.createdAt) ?? new Date(0)).toISOString(),
+			updatedAt: (parseTimestampOrNull(row.updatedAt) ?? new Date(0)).toISOString(),
+			expiresAt: (parseTimestampOrNull(row.expiresAt) ?? new Date(0)).toISOString(),
+			ipAddress: row.ipAddress ?? null,
+			userAgent: row.userAgent ?? null,
+			isCurrent: currentId !== null && row.id === currentId,
+		})),
+	}).sessions;
 }
 
 export const accountPath = "/api/account" as const;
@@ -174,7 +205,14 @@ export const account = new Hono<AuthWorkerAppEnv>()
 			providers,
 		});
 
-		return c.json(summary);
+		const includeSessions =
+			c.req.query("includeSessions") === "1" || c.req.query("includeSessions") === "true";
+		if (!includeSessions) {
+			return c.json(summary);
+		}
+
+		const sessions = await listAccountSessions(c, sessionUser.id);
+		return c.json(accountPageDataSchema.parse({ ...summary, sessions }));
 	})
 	.patch("/", jsonValidator(accountPatchBodySchema), async (c) => {
 		const session = c.var.authSession;
@@ -214,34 +252,8 @@ export const account = new Hono<AuthWorkerAppEnv>()
 			return c.json({ error: "Unauthorized" }, 401);
 		}
 
-		const db = getAuthDb(c.env.DB);
-		const now = new Date();
-		const rows = await db
-			.select({
-				id: sessionTable.id,
-				createdAt: sessionTable.createdAt,
-				updatedAt: sessionTable.updatedAt,
-				expiresAt: sessionTable.expiresAt,
-				ipAddress: sessionTable.ipAddress,
-				userAgent: sessionTable.userAgent,
-			})
-			.from(sessionTable)
-			.where(and(eq(sessionTable.userId, session.user.id), gt(sessionTable.expiresAt, now)))
-			.orderBy(desc(sessionTable.updatedAt));
-
-		const currentId = await resolveRequestSessionId(c);
-		const payload = accountSessionsResponseSchema.parse({
-			sessions: rows.map((row) => ({
-				id: row.id,
-				createdAt: (parseTimestampOrNull(row.createdAt) ?? new Date(0)).toISOString(),
-				updatedAt: (parseTimestampOrNull(row.updatedAt) ?? new Date(0)).toISOString(),
-				expiresAt: (parseTimestampOrNull(row.expiresAt) ?? new Date(0)).toISOString(),
-				ipAddress: row.ipAddress ?? null,
-				userAgent: row.userAgent ?? null,
-				isCurrent: currentId !== null && row.id === currentId,
-			})),
-		});
-		return c.json(payload);
+		const sessions = await listAccountSessions(c, session.user.id);
+		return c.json({ sessions });
 	})
 	.delete("/sessions/:id", async (c) => {
 		const session = c.var.authSession;
