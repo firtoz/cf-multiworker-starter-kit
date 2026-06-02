@@ -22,7 +22,7 @@ import migrationConfig from "../drizzle/migrations.js";
 import * as schema from "../src/schema";
 import { type ChatMessageInsert, chatMessagesTable } from "../src/schema";
 
-type SessionData = { userId: string; displayName: string; isGuest: boolean };
+type SessionData = { userId: string; displayName: string; isGuest: boolean; cid: string };
 type ChatroomDb = DrizzleSqliteDODatabase<typeof schema>;
 
 const TTL_MS = 15 * 60 * 1000;
@@ -133,13 +133,14 @@ export class ChatroomDo extends SockaWebSocketDO<typeof chatContract, SessionDat
 
 	protected beforeWebSocket(ctx: Context<{ Bindings: Env }>): Response | undefined {
 		const room = ctx.req.query("room") ?? "lobby";
-		doLog("ws:do:before", { room });
+		const cid = ctx.req.query("cid") ?? "missing";
+		doLog("ws:do:before", { room, cid });
 		const denied = attestedWebSocketDenied(ctx.req.raw.headers, this.env.CHATROOM_INTERNAL_SECRET);
 		if (denied) {
-			doLog("ws:do:denied", { room, status: denied.status });
+			doLog("ws:do:denied", { room, cid, status: denied.status });
 			return denied;
 		}
-		doLog("ws:do:allowed", { room });
+		doLog("ws:do:allowed", { room, cid });
 		return undefined;
 	}
 
@@ -152,22 +153,24 @@ export class ChatroomDo extends SockaWebSocketDO<typeof chatContract, SessionDat
 			wireFormat: "json",
 			createData: (ctx) => {
 				const room = ctx.req.query("room") ?? "lobby";
+				const cid = ctx.req.query("cid") ?? "missing";
 				const userId = ctx.req.header(CHATROOM_AUTH_USER_ID_HEADER)?.trim();
 				const displayName = ctx.req.header(CHATROOM_AUTH_DISPLAY_NAME_HEADER)?.trim();
 				const isGuest = isGuestFromAttestedHeader(ctx.req.header(CHATROOM_AUTH_IS_GUEST_HEADER));
 				if (!userId || !displayName) {
-					doLog("ws:do:create-data-missing", { room });
+					doLog("ws:do:create-data-missing", { room, cid });
 					throw new Error("Chat requires attested identity headers");
 				}
 				const name =
 					displayName.length <= PROFILE_NAME_MAX_CHARS
 						? displayName
 						: displayName.slice(0, PROFILE_NAME_MAX_CHARS);
-				doLog("ws:do:create-data-ok", { room, userId, isGuest });
-				return { userId, displayName: name, isGuest };
+				doLog("ws:do:create-data-ok", { room, cid, userId, isGuest });
+				return { userId, displayName: name, isGuest, cid };
 			},
 			onAttached: async (session) => {
 				doLog("ws:do:attached", {
+					cid: session.data.cid,
 					userId: session.data.userId,
 					isGuest: session.data.isGuest,
 					peerCount: session.peerCount(),
@@ -235,6 +238,7 @@ export class ChatroomDo extends SockaWebSocketDO<typeof chatContract, SessionDat
 			},
 			handleClose: async (session) => {
 				doLog("ws:do:close", {
+					cid: session.data.cid,
 					userId: session.data.userId,
 					isGuest: session.data.isGuest,
 					peerCount: session.peerCount(),

@@ -29,6 +29,14 @@ const CHAT_MESSAGE_LIST_MIN_H_CLASS = "min-h-[150px]" as const;
 /** Treat as pinned when within a few CSS px of the true bottom (avoids subpixel / rounding drift). */
 const BOTTOM_STICKY_PX = 4;
 
+function createConnectionId(room: string): string {
+	const suffix =
+		typeof crypto !== "undefined" && "randomUUID" in crypto
+			? crypto.randomUUID()
+			: `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+	return `${room}-${suffix}`;
+}
+
 function withYouLabel(
 	selfUserId: string,
 	users: { userId: string; displayName: string; isGuest: boolean }[],
@@ -126,11 +134,13 @@ function ChatClientWithSocket({
 	const stuckToBottomRef = useRef(true);
 	/** Revert name field on blur/Esc to what it was on last focus. */
 	const nameFieldSnap = useRef(nameDraft);
+	const connectionStartedAtRef = useRef(Date.now());
 
+	const connectionId = useMemo(() => createConnectionId(committedRoom), [committedRoom]);
 	const wsUrl = useMemo(() => {
 		const token = committedRoom === chatAttestRoom ? chatAttestToken : undefined;
-		return buildChatWsUrl(committedRoom, token);
-	}, [committedRoom, chatAttestRoom, chatAttestToken]);
+		return buildChatWsUrl(committedRoom, token, connectionId);
+	}, [committedRoom, chatAttestRoom, chatAttestToken, connectionId]);
 
 	const applyPresence = useCallback(
 		(nextId: string, users: { userId: string; displayName: string; isGuest: boolean }[]) => {
@@ -178,28 +188,58 @@ function ChatClientWithSocket({
 			url: wsUrl,
 			pushHandlers,
 			onOpen: () => {
-				console.info("chat:ws:open", { room: committedRoom, url: wsUrl });
+				console.info("chat:ws:open", {
+					room: committedRoom,
+					cid: connectionId,
+					elapsedMs: Date.now() - connectionStartedAtRef.current,
+					url: wsUrl,
+				});
 			},
 			onClose: (event) => {
 				console.warn("chat:ws:close", {
 					room: committedRoom,
+					cid: connectionId,
 					url: wsUrl,
 					code: event.code,
 					reason: event.reason,
 					wasClean: event.wasClean,
+					elapsedMs: Date.now() - connectionStartedAtRef.current,
 				});
 			},
 			onError: () => {
-				console.error("chat:ws:error", { room: committedRoom, url: wsUrl });
+				console.error("chat:ws:error", {
+					room: committedRoom,
+					cid: connectionId,
+					elapsedMs: Date.now() - connectionStartedAtRef.current,
+					url: wsUrl,
+				});
 			},
 			onReconnecting: (info) => {
-				console.warn("chat:ws:reconnecting", { room: committedRoom, url: wsUrl, ...info });
+				console.warn("chat:ws:reconnecting", {
+					room: committedRoom,
+					cid: connectionId,
+					elapsedMs: Date.now() - connectionStartedAtRef.current,
+					url: wsUrl,
+					...info,
+				});
 			},
 			onReconnected: (info) => {
-				console.info("chat:ws:reconnected", { room: committedRoom, url: wsUrl, ...info });
+				console.info("chat:ws:reconnected", {
+					room: committedRoom,
+					cid: connectionId,
+					elapsedMs: Date.now() - connectionStartedAtRef.current,
+					url: wsUrl,
+					...info,
+				});
 			},
 			reportError: (event) => {
-				console.error("chat:socka:error", { room: committedRoom, url: wsUrl, event });
+				console.error("chat:socka:error", {
+					room: committedRoom,
+					cid: connectionId,
+					elapsedMs: Date.now() - connectionStartedAtRef.current,
+					url: wsUrl,
+					event,
+				});
 			},
 		},
 		[wsUrl],
@@ -228,13 +268,14 @@ function ChatClientWithSocket({
 	}, [send, applyPresence]);
 
 	useEffect(() => {
-		console.info("chat:room:reset", { room: committedRoom, url: wsUrl });
+		connectionStartedAtRef.current = Date.now();
+		console.info("chat:ws:init", { room: committedRoom, cid: connectionId, url: wsUrl });
 		setMessages([]);
 		setPresence([]);
 		setSelfUserId(null);
 		selfUserIdRef.current = null;
 		stuckToBottomRef.current = true;
-	}, [committedRoom, wsUrl]);
+	}, [committedRoom, connectionId, wsUrl]);
 
 	useEffect(() => {
 		if (!ready) {

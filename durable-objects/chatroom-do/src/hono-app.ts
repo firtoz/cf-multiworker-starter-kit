@@ -54,22 +54,25 @@ export const chatroomWorkerApp = new Hono<ChatroomHonoContext>()
 	)
 	.all("/websocket", async (c) => {
 		const room = sanitizeChatRoomId(c.req.query("room") ?? "lobby");
+		const cid = c.req.query("cid") ?? "missing";
 		chatroomLog("ws:worker:received", {
 			room,
+			cid,
 			hasSecret: c.req.header(CHATROOM_INTERNAL_SECRET_HEADER) != null,
 		});
 		if (c.req.header(CHATROOM_INTERNAL_SECRET_HEADER) !== c.env.CHATROOM_INTERNAL_SECRET) {
-			chatroomLog("ws:worker:bad-secret", { room });
+			chatroomLog("ws:worker:bad-secret", { room, cid });
 			return c.text("Unauthorized chatroom websocket", 401);
 		}
 
 		const identity = readChatIdentityHeaders(c.req.raw.headers);
 		if (!identity) {
-			chatroomLog("ws:worker:identity-missing", { room });
+			chatroomLog("ws:worker:identity-missing", { room, cid });
 			return c.text("Missing attested chat identity", 401);
 		}
 		chatroomLog("ws:worker:identity-ok", {
 			room,
+			cid,
 			userId: identity.userId,
 			isGuest: identity.isGuest,
 		});
@@ -82,7 +85,7 @@ export const chatroomWorkerApp = new Hono<ChatroomHonoContext>()
 		stripClientChatIdentityHeaders(headers);
 		applyChatIdentityHeaders(headers, identity);
 
-		chatroomLog("ws:worker:forward-do", { room });
+		chatroomLog("ws:worker:forward-do", { room, cid });
 		return stub.fetch(buildWebSocketForwardRequest(forward, c.req.raw, headers));
 	});
 

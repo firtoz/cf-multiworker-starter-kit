@@ -8,12 +8,15 @@ export {
 } from "@internal/chat-contract";
 
 /** Build `wss://…/api/ws/<room>` for Socka (web → chatroom worker → DO). */
-export function buildChatWsUrl(room: string, attestToken?: string): string {
+export function buildChatWsUrl(room: string, attestToken?: string, connectionId?: string): string {
 	const u = new URL(window.location.href);
 	u.protocol = u.protocol === "https:" ? "wss:" : "ws:";
 	const r = sanitizeChatRoomId(room);
 	u.pathname = `/api/ws/${encodeURIComponent(r)}`;
 	u.search = "";
+	if (connectionId) {
+		u.searchParams.set("cid", connectionId);
+	}
 	if (attestToken) {
 		u.searchParams.set(CHAT_ATTEST_QUERY_PARAM, attestToken);
 	}
