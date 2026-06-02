@@ -19,6 +19,10 @@ import type { ChatroomWorkerBindingEnv } from "./worker-binding-env";
 
 type ChatroomHonoContext = { Bindings: ChatroomWorkerBindingEnv };
 
+function chatroomLog(event: string, detail: Record<string, unknown>): void {
+	console.log({ event: `chatroom:${event}`, ...detail });
+}
+
 export const chatroomWorkerApp = new Hono<ChatroomHonoContext>()
 	.get("/service-ack", async (c) => {
 		const providers = await getAuthProviders(c.env.AUTH);
@@ -49,16 +53,28 @@ export const chatroomWorkerApp = new Hono<ChatroomHonoContext>()
 		},
 	)
 	.all("/websocket", async (c) => {
+		const room = sanitizeChatRoomId(c.req.query("room") ?? "lobby");
+		chatroomLog("ws:worker:received", {
+			room,
+			hasSecret: c.req.header(CHATROOM_INTERNAL_SECRET_HEADER) != null,
+		});
 		if (c.req.header(CHATROOM_INTERNAL_SECRET_HEADER) !== c.env.CHATROOM_INTERNAL_SECRET) {
+			chatroomLog("ws:worker:bad-secret", { room });
 			return c.text("Unauthorized chatroom websocket", 401);
 		}
 
 		const identity = readChatIdentityHeaders(c.req.raw.headers);
 		if (!identity) {
+			chatroomLog("ws:worker:identity-missing", { room });
 			return c.text("Missing attested chat identity", 401);
 		}
+		chatroomLog("ws:worker:identity-ok", {
+			room,
+			userId: identity.userId,
+			isGuest: identity.isGuest,
+		});
 
-		const stub = c.env.ChatroomDo.getByName(sanitizeChatRoomId(c.req.query("room") ?? "lobby"));
+		const stub = c.env.ChatroomDo.getByName(room);
 
 		const forward = new URL(c.req.url);
 		forward.pathname = "/websocket";
@@ -66,6 +82,7 @@ export const chatroomWorkerApp = new Hono<ChatroomHonoContext>()
 		stripClientChatIdentityHeaders(headers);
 		applyChatIdentityHeaders(headers, identity);
 
+		chatroomLog("ws:worker:forward-do", { room });
 		return stub.fetch(buildWebSocketForwardRequest(forward, c.req.raw, headers));
 	});
 

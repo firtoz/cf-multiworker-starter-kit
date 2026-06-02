@@ -28,6 +28,10 @@ import { resolveChatIdentityFromAuth } from "./resolve-chat-identity";
 
 const CHAT_WS_PREFIX = "/api/ws/";
 
+function chatLog(event: string, detail: Record<string, unknown>): void {
+	console.log({ event: `chat:${event}`, ...detail });
+}
+
 function stripInternalBindingSessionHeader(request: Request): Request {
 	const headers = new Headers(request.headers);
 	headers.delete(INTERNAL_BINDING_SESSION_HEADER);
@@ -84,6 +88,11 @@ export function createWebWorkerApp(
 		.all(`${CHAT_WS_PREFIX}*`, async (c) => {
 			const rest = c.req.path.slice(CHAT_WS_PREFIX.length);
 			const room = sanitizeChatRoomId(decodeURIComponent(rest));
+			chatLog("ws:web:received", {
+				room,
+				path: c.req.path,
+				hasAttest: c.req.query(CHAT_ATTEST_QUERY_PARAM) != null,
+			});
 			await registerChatRoom(c.env.DB, room);
 			const forward = new URL(c.req.url);
 			forward.pathname = "/websocket";
@@ -95,17 +104,25 @@ export function createWebWorkerApp(
 					? null
 					: await verifyChatAttestToken(attest, room, c.env.CHATROOM_INTERNAL_SECRET);
 			if (!identity) {
+				chatLog("ws:web:attest-miss", { room, hasAttest: attest != null });
 				identity = await resolveChatIdentityFromAuth(c.env.AUTH, c.req.raw);
 			}
 			if (!identity) {
+				chatLog("ws:web:identity-missing", { room });
 				return c.text("Chat requires an auth session", 401);
 			}
+			chatLog("ws:web:identity-ok", {
+				room,
+				userId: identity.userId,
+				isGuest: identity.isGuest,
+			});
 
 			const headers = new Headers(c.req.raw.headers);
 			stripClientChatIdentityHeaders(headers);
 			applyChatIdentityHeaders(headers, identity);
 			headers.set(CHATROOM_INTERNAL_SECRET_HEADER, c.env.CHATROOM_INTERNAL_SECRET);
 
+			chatLog("ws:web:forward", { room, forwardPath: forward.pathname });
 			return c.env.CHATROOM.fetch(buildWebSocketForwardRequest(forward, c.req.raw, headers));
 		})
 		.all("*", async (c) => requestHandler(c.req.raw, new RouterContextProvider()));

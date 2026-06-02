@@ -27,6 +27,10 @@ type ChatroomDb = DrizzleSqliteDODatabase<typeof schema>;
 
 const TTL_MS = 15 * 60 * 1000;
 
+function doLog(event: string, detail: Record<string, unknown>): void {
+	console.log({ event: `chatroom-do:${event}`, ...detail });
+}
+
 function sortPresence(users: { userId: string; displayName: string; isGuest: boolean }[]) {
 	return [...users].sort(
 		(a, b) => a.displayName.localeCompare(b.displayName) || a.userId.localeCompare(b.userId),
@@ -94,9 +98,12 @@ export class ChatroomDo extends SockaWebSocketDO<typeof chatContract, SessionDat
 	constructor(ctx: DurableObjectState, env: Env) {
 		super(ctx, env);
 		void ctx.blockConcurrencyWhile(async () => {
+			const startedAt = Date.now();
+			doLog("migration:start", {});
 			const db = drizzle(ctx.storage, { schema });
 			await migrate(db, migrationConfig);
 			this.db = db;
+			doLog("migration:done", { durationMs: Date.now() - startedAt });
 		});
 	}
 
@@ -125,7 +132,15 @@ export class ChatroomDo extends SockaWebSocketDO<typeof chatContract, SessionDat
 	}
 
 	protected beforeWebSocket(ctx: Context<{ Bindings: Env }>): Response | undefined {
-		return attestedWebSocketDenied(ctx.req.raw.headers, this.env.CHATROOM_INTERNAL_SECRET);
+		const room = ctx.req.query("room") ?? "lobby";
+		doLog("ws:do:before", { room });
+		const denied = attestedWebSocketDenied(ctx.req.raw.headers, this.env.CHATROOM_INTERNAL_SECRET);
+		if (denied) {
+			doLog("ws:do:denied", { room, status: denied.status });
+			return denied;
+		}
+		doLog("ws:do:allowed", { room });
+		return undefined;
 	}
 
 	protected buildSockaSessionConfig(): SockaDoSessionConfigInput<
@@ -136,19 +151,27 @@ export class ChatroomDo extends SockaWebSocketDO<typeof chatContract, SessionDat
 		return {
 			wireFormat: "json",
 			createData: (ctx) => {
+				const room = ctx.req.query("room") ?? "lobby";
 				const userId = ctx.req.header(CHATROOM_AUTH_USER_ID_HEADER)?.trim();
 				const displayName = ctx.req.header(CHATROOM_AUTH_DISPLAY_NAME_HEADER)?.trim();
 				const isGuest = isGuestFromAttestedHeader(ctx.req.header(CHATROOM_AUTH_IS_GUEST_HEADER));
 				if (!userId || !displayName) {
+					doLog("ws:do:create-data-missing", { room });
 					throw new Error("Chat requires attested identity headers");
 				}
 				const name =
 					displayName.length <= PROFILE_NAME_MAX_CHARS
 						? displayName
 						: displayName.slice(0, PROFILE_NAME_MAX_CHARS);
+				doLog("ws:do:create-data-ok", { room, userId, isGuest });
 				return { userId, displayName: name, isGuest };
 			},
 			onAttached: async (session) => {
+				doLog("ws:do:attached", {
+					userId: session.data.userId,
+					isGuest: session.data.isGuest,
+					peerCount: session.peerCount(),
+				});
 				this.touchActivityTtl();
 				await session.broadcastPush("userJoined", presenceFromSession(session.data), true);
 				const users = sortPresence(session.listPeers().map((d) => presenceFromSession(d)));
@@ -211,6 +234,11 @@ export class ChatroomDo extends SockaWebSocketDO<typeof chatContract, SessionDat
 				},
 			},
 			handleClose: async (session) => {
+				doLog("ws:do:close", {
+					userId: session.data.userId,
+					isGuest: session.data.isGuest,
+					peerCount: session.peerCount(),
+				});
 				this.touchActivityTtl();
 				await session.broadcastPush("userLeft", presenceFromSession(session.data), true);
 				const users = sortPresence(

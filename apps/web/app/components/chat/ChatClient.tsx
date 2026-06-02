@@ -172,7 +172,38 @@ function ChatClientWithSocket({
 		[],
 	);
 
-	const { ready, send } = useSockaSession(chatContract, { url: wsUrl, pushHandlers }, [wsUrl]);
+	const { ready, send, status, reconnecting, reconnectAttempt } = useSockaSession(
+		chatContract,
+		{
+			url: wsUrl,
+			pushHandlers,
+			onOpen: () => {
+				console.info("chat:ws:open", { room: committedRoom, url: wsUrl });
+			},
+			onClose: (event) => {
+				console.warn("chat:ws:close", {
+					room: committedRoom,
+					url: wsUrl,
+					code: event.code,
+					reason: event.reason,
+					wasClean: event.wasClean,
+				});
+			},
+			onError: () => {
+				console.error("chat:ws:error", { room: committedRoom, url: wsUrl });
+			},
+			onReconnecting: (info) => {
+				console.warn("chat:ws:reconnecting", { room: committedRoom, url: wsUrl, ...info });
+			},
+			onReconnected: (info) => {
+				console.info("chat:ws:reconnected", { room: committedRoom, url: wsUrl, ...info });
+			},
+			reportError: (event) => {
+				console.error("chat:socka:error", { room: committedRoom, url: wsUrl, event });
+			},
+		},
+		[wsUrl],
+	);
 
 	const proposedRoom = sanitizeChatRoomId(roomInput);
 	const joinIsRedundant = proposedRoom === committedRoom;
@@ -195,6 +226,15 @@ function ChatClientWithSocket({
 		const { selfUserId, users } = await send.listPresence({});
 		applyPresence(selfUserId, users);
 	}, [send, applyPresence]);
+
+	useEffect(() => {
+		console.info("chat:room:reset", { room: committedRoom, url: wsUrl });
+		setMessages([]);
+		setPresence([]);
+		setSelfUserId(null);
+		selfUserIdRef.current = null;
+		stuckToBottomRef.current = true;
+	}, [committedRoom, wsUrl]);
 
 	useEffect(() => {
 		if (!ready) {
@@ -323,6 +363,11 @@ function ChatClientWithSocket({
 	const sessionExpiryLabel = formatSessionExpiry(sessionExpiresAt);
 	const presenceSummary =
 		presence.length > 0 ? presence.map((u) => u.displayName).join(", ") : null;
+	const connectionLabel = ready
+		? "Connected"
+		: reconnecting
+			? `Reconnecting ${reconnectAttempt}`
+			: `Connecting (${status})`;
 
 	return (
 		<div className="max-w-2xl mx-auto w-full min-h-full flex flex-col gap-2 px-4 py-2 sm:gap-3 sm:py-3 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
@@ -330,8 +375,7 @@ function ChatClientWithSocket({
 				<div className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5">
 					<h1 className="text-lg font-bold text-gray-900 dark:text-gray-100 sm:text-2xl">Chat</h1>
 					<p className="text-xs text-gray-500 min-w-0 text-right">
-						{ready ? "Connected" : "Connecting…"} ·{" "}
-						<span className="font-mono">{committedRoom}</span>
+						{connectionLabel} · <span className="font-mono">{committedRoom}</span>
 						{presenceSummary ? (
 							<>
 								<span className="hidden sm:inline"> · Online: </span>
