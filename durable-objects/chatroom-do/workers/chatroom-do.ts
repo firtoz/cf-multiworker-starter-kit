@@ -27,35 +27,10 @@ type SessionData = {
 	displayName: string;
 	isGuest: boolean;
 	room: string;
-	cid: string;
-	wsStartedAt: number;
-	workerForwardAt: number | undefined;
-	doReceivedAt: number;
 };
 type ChatroomDb = DrizzleSqliteDODatabase<typeof schema>;
 
 const TTL_MS = 15 * 60 * 1000;
-
-function doLog(event: string, detail: Record<string, unknown>): void {
-	console.log({ event: `chatroom-do:${event}`, ...detail });
-}
-
-function elapsedSince(startedAt: number): number {
-	return Date.now() - startedAt;
-}
-
-function queryEpochMs(ctx: Context<{ Bindings: Env }>, name: string): number | undefined {
-	const raw = ctx.req.query(name);
-	if (!raw) {
-		return undefined;
-	}
-	const value = Number(raw);
-	return Number.isFinite(value) ? value : undefined;
-}
-
-function ageSince(epochMs: number | undefined, now = Date.now()): number | undefined {
-	return epochMs === undefined ? undefined : now - epochMs;
-}
 
 function sortPresence(users: { userId: string; displayName: string; isGuest: boolean }[]) {
 	return [...users].sort(
@@ -120,20 +95,13 @@ export class ChatroomDo extends SockaWebSocketDO<typeof chatContract, SessionDat
 	);
 
 	private db: ChatroomDb | null = null;
-	private readonly wsTraceByCid = new Map<
-		string,
-		{ wsStartedAt: number; workerForwardAt: number | undefined; doReceivedAt: number }
-	>();
 
 	constructor(ctx: DurableObjectState, env: Env) {
 		super(ctx, env);
 		void ctx.blockConcurrencyWhile(async () => {
-			const startedAt = Date.now();
-			doLog("migration:start", {});
 			const db = drizzle(ctx.storage, { schema });
 			await migrate(db, migrationConfig);
 			this.db = db;
-			doLog("migration:done", { durationMs: Date.now() - startedAt });
 		});
 	}
 
@@ -162,38 +130,7 @@ export class ChatroomDo extends SockaWebSocketDO<typeof chatContract, SessionDat
 	}
 
 	protected beforeWebSocket(ctx: Context<{ Bindings: Env }>): Response | undefined {
-		const room = ctx.req.query("room") ?? "lobby";
-		const cid = ctx.req.query("cid") ?? "missing";
-		const startedAt = Date.now();
-		const wsStartedAt = queryEpochMs(ctx, "wsStart") ?? startedAt;
-		const workerForwardAt = queryEpochMs(ctx, "workerForwardAt");
-		this.wsTraceByCid.set(cid, { wsStartedAt, workerForwardAt, doReceivedAt: startedAt });
-		doLog("ws:do:before", {
-			room,
-			cid,
-			elapsedMs: elapsedSince(startedAt),
-			wsStartAgeMs: ageSince(wsStartedAt, startedAt),
-			workerToDoMs: ageSince(workerForwardAt, startedAt),
-		});
-		const denied = attestedWebSocketDenied(ctx.req.raw.headers, this.env.CHATROOM_INTERNAL_SECRET);
-		if (denied) {
-			doLog("ws:do:denied", {
-				room,
-				cid,
-				status: denied.status,
-				elapsedMs: elapsedSince(startedAt),
-				wsStartAgeMs: ageSince(wsStartedAt),
-			});
-			this.wsTraceByCid.delete(cid);
-			return denied;
-		}
-		doLog("ws:do:allowed", {
-			room,
-			cid,
-			elapsedMs: elapsedSince(startedAt),
-			wsStartAgeMs: ageSince(wsStartedAt),
-		});
-		return undefined;
+		return attestedWebSocketDenied(ctx.req.raw.headers, this.env.CHATROOM_INTERNAL_SECRET);
 	}
 
 	protected buildSockaSessionConfig(): SockaDoSessionConfigInput<
@@ -205,64 +142,31 @@ export class ChatroomDo extends SockaWebSocketDO<typeof chatContract, SessionDat
 			wireFormat: "json",
 			createData: (ctx) => {
 				const room = ctx.req.query("room") ?? "lobby";
-				const cid = ctx.req.query("cid") ?? "missing";
-				const trace = this.wsTraceByCid.get(cid);
-				const wsStartedAt = trace?.wsStartedAt ?? Date.now();
 				const userId = ctx.req.header(CHATROOM_AUTH_USER_ID_HEADER)?.trim();
 				const displayName = ctx.req.header(CHATROOM_AUTH_DISPLAY_NAME_HEADER)?.trim();
 				const isGuest = isGuestFromAttestedHeader(ctx.req.header(CHATROOM_AUTH_IS_GUEST_HEADER));
 				if (!userId || !displayName) {
-					doLog("ws:do:create-data-missing", {
-						room,
-						cid,
-						elapsedMs: elapsedSince(wsStartedAt),
-					});
-					this.wsTraceByCid.delete(cid);
 					throw new Error("Chat requires attested identity headers");
 				}
 				const name =
 					displayName.length <= PROFILE_NAME_MAX_CHARS
 						? displayName
 						: displayName.slice(0, PROFILE_NAME_MAX_CHARS);
-				doLog("ws:do:create-data-ok", {
-					room,
-					cid,
-					userId,
-					isGuest,
-					elapsedMs: elapsedSince(wsStartedAt),
-					doCreateDataAfterReceiveMs: ageSince(trace?.doReceivedAt),
-				});
 				return {
 					userId,
 					displayName: name,
 					isGuest,
 					room,
-					cid,
-					wsStartedAt,
-					workerForwardAt: trace?.workerForwardAt,
-					doReceivedAt: trace?.doReceivedAt ?? Date.now(),
 				};
 			},
 			onAttached: async (session) => {
-				doLog("ws:do:attached", {
-					room: session.data.room,
-					cid: session.data.cid,
-					userId: session.data.userId,
-					isGuest: session.data.isGuest,
-					peerCount: session.peerCount(),
-					elapsedMs: elapsedSince(session.data.wsStartedAt),
-					workerForwardAgeMs: ageSince(session.data.workerForwardAt),
-					doAttachAfterReceiveMs: ageSince(session.data.doReceivedAt),
-				});
-				this.wsTraceByCid.delete(session.data.cid);
 				this.touchActivityTtl();
 				await session.broadcastPush("userJoined", presenceFromSession(session.data), true);
 				const users = sortPresence(session.listPeers().map((d) => presenceFromSession(d)));
 				await session.broadcastPush("presenceUpdated", { users }, false);
 			},
 			handlers: {
-				listHistory: async (input: unknown, session) => {
-					const startedAt = Date.now();
+				listHistory: async (input: unknown, _session) => {
 					this.touchActivityTtl();
 					const { limit } = input as { limit?: number };
 					const lim = limit ?? 200;
@@ -272,30 +176,14 @@ export class ChatroomDo extends SockaWebSocketDO<typeof chatContract, SessionDat
 						.orderBy(desc(chatMessagesTable.ts))
 						.limit(lim);
 					const messages = rows.reverse();
-					doLog("call:list-history", {
-						room: session.data.room,
-						cid: session.data.cid,
-						count: messages.length,
-						elapsedMs: elapsedSince(startedAt),
-						wsStartAgeMs: ageSince(session.data.wsStartedAt),
-					});
 					return { messages };
 				},
 				listPresence: async (_input, session) => {
-					const startedAt = Date.now();
 					this.touchActivityTtl();
 					const users = sortPresence(session.listPeers().map((d) => presenceFromSession(d)));
-					doLog("call:list-presence", {
-						room: session.data.room,
-						cid: session.data.cid,
-						count: users.length,
-						elapsedMs: elapsedSince(startedAt),
-						wsStartAgeMs: ageSince(session.data.wsStartedAt),
-					});
 					return { selfUserId: session.data.userId, users };
 				},
 				setDisplayName: async (input, session) => {
-					const startedAt = Date.now();
 					this.touchActivityTtl();
 					const { displayName } = input as { displayName: string };
 					const t = clampChatDisplayName(displayName);
@@ -303,15 +191,9 @@ export class ChatroomDo extends SockaWebSocketDO<typeof chatContract, SessionDat
 					await session.update();
 					const users = sortPresence(session.listPeers().map((d) => presenceFromSession(d)));
 					await session.broadcastPush("presenceUpdated", { users }, false);
-					doLog("call:set-display-name", {
-						room: session.data.room,
-						cid: session.data.cid,
-						elapsedMs: elapsedSince(startedAt),
-					});
 					return { ok: true as const };
 				},
 				sendMessage: async (input, session) => {
-					const startedAt = Date.now();
 					this.touchActivityTtl();
 					const { text } = input as { text: string };
 					const row = {
@@ -324,17 +206,9 @@ export class ChatroomDo extends SockaWebSocketDO<typeof chatContract, SessionDat
 					} satisfies ChatMessageInsert;
 					await this.getDb().insert(chatMessagesTable).values(row);
 					await session.broadcastPush("roomMessage", row);
-					doLog("call:send-message", {
-						room: session.data.room,
-						cid: session.data.cid,
-						messageId: row.id,
-						elapsedMs: elapsedSince(startedAt),
-						wsStartAgeMs: ageSince(session.data.wsStartedAt),
-					});
 					return { ok: true as const };
 				},
 				clearHistory: async (_input, session) => {
-					const startedAt = Date.now();
 					this.touchActivityTtl();
 					await this.getDb().delete(chatMessagesTable);
 					const ts = Date.now();
@@ -344,23 +218,10 @@ export class ChatroomDo extends SockaWebSocketDO<typeof chatContract, SessionDat
 						clearedByDisplayName: session.data.displayName,
 						clearedByIsGuest: session.data.isGuest,
 					});
-					doLog("call:clear-history", {
-						room: session.data.room,
-						cid: session.data.cid,
-						elapsedMs: elapsedSince(startedAt),
-					});
 					return { ok: true as const };
 				},
 			},
 			handleClose: async (session) => {
-				doLog("ws:do:close", {
-					room: session.data.room,
-					cid: session.data.cid,
-					userId: session.data.userId,
-					isGuest: session.data.isGuest,
-					peerCount: session.peerCount(),
-					lifetimeMs: elapsedSince(session.data.wsStartedAt),
-				});
 				this.touchActivityTtl();
 				await session.broadcastPush("userLeft", presenceFromSession(session.data), true);
 				const users = sortPresence(

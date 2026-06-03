@@ -28,37 +28,10 @@ import type { CloudflareEnv } from "../types/env.d.ts";
 import { resolveChatIdentityFromAuth } from "./resolve-chat-identity";
 
 const CHAT_WS_PREFIX = "/api/ws/";
-const CHAT_DIAG_PATH = "/api/chat/diag";
 const CHAT_ATTEST_PATH = "/api/chat/attest";
-
-type ChatDiagPayload = {
-	label?: unknown;
-	room?: unknown;
-	cid?: unknown;
-	atMs?: unknown;
-	deltaMs?: unknown;
-	details?: unknown;
-	pageUrl?: unknown;
-};
-
-function chatLog(event: string, detail: Record<string, unknown>): void {
-	console.log({ event: `chat:${event}`, ...detail });
-}
 
 function stringField(value: unknown, fallback = "missing"): string {
 	return typeof value === "string" && value.trim().length > 0 ? value.slice(0, 160) : fallback;
-}
-
-function numberField(value: unknown): number | undefined {
-	return typeof value === "number" && Number.isFinite(value) ? Math.round(value) : undefined;
-}
-
-function elapsedSince(startedAt: number): number {
-	return Date.now() - startedAt;
-}
-
-function ageSince(epochMs: number | undefined, now = Date.now()): number | undefined {
-	return epochMs === undefined ? undefined : now - epochMs;
 }
 
 function stripInternalBindingSessionHeader(request: Request): Request {
@@ -114,140 +87,45 @@ export function createWebWorkerApp(
 		.all(POSTHOG_BROWSER_API_PATH, (c) =>
 			c.env.POSTHOG.fetch(rewritePosthogBrowserApiRequest(c.req.raw)),
 		)
-		.post(CHAT_DIAG_PATH, async (c) => {
-			const body = (await c.req.json().catch(() => ({}))) as ChatDiagPayload;
-			const label = stringField(body.label);
-			const room = sanitizeChatRoomId(stringField(body.room, "lobby"));
-			const cid = stringField(body.cid);
-			chatLog("diag:client", {
-				label,
-				room,
-				cid,
-				atMs: numberField(body.atMs),
-				deltaMs: numberField(body.deltaMs),
-				pageUrl: stringField(body.pageUrl, "missing").slice(0, 240),
-				details: body.details,
-			});
-			return c.json({ ok: true });
-		})
 		.post(CHAT_ATTEST_PATH, async (c) => {
-			const startedAt = Date.now();
-			const body = (await c.req.json().catch(() => ({}))) as { room?: unknown; cid?: unknown };
+			const body = (await c.req.json().catch(() => ({}))) as { room?: unknown };
 			const room = sanitizeChatRoomId(stringField(body.room, "lobby"));
-			const cid = stringField(body.cid);
-			chatLog("attest:received", { room, cid, elapsedMs: elapsedSince(startedAt) });
 			const roomRegistered = registerChatRoom(c.env.DB, room);
 			const identity = await resolveChatIdentityFromAuth(c.env.AUTH, c.req.raw);
 			await roomRegistered;
-			chatLog("attest:room-registered", { room, cid, elapsedMs: elapsedSince(startedAt) });
-			chatLog("attest:auth-resolved", {
-				room,
-				cid,
-				hasIdentity: identity != null,
-				elapsedMs: elapsedSince(startedAt),
-			});
 			if (!identity) {
 				return c.json({ ok: false, error: "Chat requires an auth session" }, 401);
 			}
 			const token = await createChatAttestToken(identity, room, c.env.CHATROOM_INTERNAL_SECRET);
-			chatLog("attest:token-created", {
-				room,
-				cid,
-				userId: identity.userId,
-				isGuest: identity.isGuest,
-				elapsedMs: elapsedSince(startedAt),
-			});
 			return c.json({ ok: true, room, token });
 		})
 		.all(`${CHAT_WS_PREFIX}*`, async (c) => {
-			const startedAt = Date.now();
 			const rest = c.req.path.slice(CHAT_WS_PREFIX.length);
 			const room = sanitizeChatRoomId(decodeURIComponent(rest));
-			const cid = c.req.query("cid") ?? "missing";
-			chatLog("ws:web:received", {
-				room,
-				cid,
-				path: c.req.path,
-				hasAttest: c.req.query(CHAT_ATTEST_QUERY_PARAM) != null,
-				elapsedMs: elapsedSince(startedAt),
-			});
 			const forward = new URL(c.req.url);
 			forward.pathname = "/websocket";
 			const attest = forward.searchParams.get(CHAT_ATTEST_QUERY_PARAM);
-			forward.search = `?${new URLSearchParams({
-				cid,
-				room,
-				wsStart: String(startedAt),
-			}).toString()}`;
+			forward.search = `?${new URLSearchParams({ room }).toString()}`;
 
 			let identity =
 				attest == null
 					? null
 					: await verifyChatAttestToken(attest, room, c.env.CHATROOM_INTERNAL_SECRET);
-			if (identity) {
-				chatLog("ws:web:attest-ok", {
-					room,
-					cid,
-					elapsedMs: elapsedSince(startedAt),
-				});
-			} else {
-				chatLog("ws:web:attest-miss", {
-					room,
-					cid,
-					hasAttest: attest != null,
-					elapsedMs: elapsedSince(startedAt),
-				});
+			if (!identity) {
 				const roomRegistered = registerChatRoom(c.env.DB, room);
 				identity = await resolveChatIdentityFromAuth(c.env.AUTH, c.req.raw);
 				await roomRegistered;
-				chatLog("ws:web:room-registered", {
-					room,
-					cid,
-					elapsedMs: elapsedSince(startedAt),
-				});
-				chatLog("ws:web:auth-resolved", {
-					room,
-					cid,
-					hasIdentity: identity != null,
-					elapsedMs: elapsedSince(startedAt),
-				});
 			}
 			if (!identity) {
-				chatLog("ws:web:identity-missing", { room, cid, elapsedMs: elapsedSince(startedAt) });
 				return c.text("Chat requires an auth session", 401);
 			}
-			chatLog("ws:web:identity-ok", {
-				room,
-				cid,
-				userId: identity.userId,
-				isGuest: identity.isGuest,
-				elapsedMs: elapsedSince(startedAt),
-			});
 
 			const headers = new Headers(c.req.raw.headers);
 			stripClientChatIdentityHeaders(headers);
 			applyChatIdentityHeaders(headers, identity);
 			headers.set(CHATROOM_INTERNAL_SECRET_HEADER, c.env.CHATROOM_INTERNAL_SECRET);
 
-			chatLog("ws:web:forward", {
-				room,
-				cid,
-				forwardPath: forward.pathname,
-				elapsedMs: elapsedSince(startedAt),
-			});
-			const webForwardAt = Date.now();
-			forward.searchParams.set("webForwardAt", String(webForwardAt));
-			const response = await c.env.CHATROOM.fetch(
-				buildWebSocketForwardRequest(forward, c.req.raw, headers),
-			);
-			chatLog("ws:web:forward-response", {
-				room,
-				cid,
-				status: response.status,
-				elapsedMs: elapsedSince(startedAt),
-				forwardWaitMs: ageSince(webForwardAt),
-			});
-			return response;
+			return c.env.CHATROOM.fetch(buildWebSocketForwardRequest(forward, c.req.raw, headers));
 		})
 		.all("*", async (c) => requestHandler(c.req.raw, new RouterContextProvider()));
 }

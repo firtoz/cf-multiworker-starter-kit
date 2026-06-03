@@ -19,27 +19,6 @@ import type { ChatroomWorkerBindingEnv } from "./worker-binding-env";
 
 type ChatroomHonoContext = { Bindings: ChatroomWorkerBindingEnv };
 
-function chatroomLog(event: string, detail: Record<string, unknown>): void {
-	console.log({ event: `chatroom:${event}`, ...detail });
-}
-
-function elapsedSince(startedAt: number): number {
-	return Date.now() - startedAt;
-}
-
-function queryEpochMs(c: { req: { query: (name: string) => string | undefined } }, name: string) {
-	const raw = c.req.query(name);
-	if (!raw) {
-		return undefined;
-	}
-	const value = Number(raw);
-	return Number.isFinite(value) ? value : undefined;
-}
-
-function ageSince(epochMs: number | undefined, now = Date.now()): number | undefined {
-	return epochMs === undefined ? undefined : now - epochMs;
-}
-
 export const chatroomWorkerApp = new Hono<ChatroomHonoContext>()
 	.get("/service-ack", async (c) => {
 		const providers = await getAuthProviders(c.env.AUTH);
@@ -70,40 +49,17 @@ export const chatroomWorkerApp = new Hono<ChatroomHonoContext>()
 		},
 	)
 	.all("/websocket", async (c) => {
-		const startedAt = Date.now();
 		const room = sanitizeChatRoomId(c.req.query("room") ?? "lobby");
-		const cid = c.req.query("cid") ?? "missing";
-		const wsStart = queryEpochMs(c, "wsStart");
-		const webForwardAt = queryEpochMs(c, "webForwardAt");
-		chatroomLog("ws:worker:received", {
-			room,
-			cid,
-			hasSecret: c.req.header(CHATROOM_INTERNAL_SECRET_HEADER) != null,
-			elapsedMs: elapsedSince(startedAt),
-			wsStartAgeMs: ageSince(wsStart, startedAt),
-			webToWorkerMs: ageSince(webForwardAt, startedAt),
-		});
 		if (c.req.header(CHATROOM_INTERNAL_SECRET_HEADER) !== c.env.CHATROOM_INTERNAL_SECRET) {
-			chatroomLog("ws:worker:bad-secret", { room, cid, elapsedMs: elapsedSince(startedAt) });
 			return c.text("Unauthorized chatroom websocket", 401);
 		}
 
 		const identity = readChatIdentityHeaders(c.req.raw.headers);
 		if (!identity) {
-			chatroomLog("ws:worker:identity-missing", { room, cid, elapsedMs: elapsedSince(startedAt) });
 			return c.text("Missing attested chat identity", 401);
 		}
-		chatroomLog("ws:worker:identity-ok", {
-			room,
-			cid,
-			userId: identity.userId,
-			isGuest: identity.isGuest,
-			elapsedMs: elapsedSince(startedAt),
-			wsStartAgeMs: ageSince(wsStart),
-		});
 
 		const stub = c.env.ChatroomDo.getByName(room);
-		chatroomLog("ws:worker:stub-created", { room, cid, elapsedMs: elapsedSince(startedAt) });
 
 		const forward = new URL(c.req.url);
 		forward.pathname = "/websocket";
@@ -111,24 +67,7 @@ export const chatroomWorkerApp = new Hono<ChatroomHonoContext>()
 		stripClientChatIdentityHeaders(headers);
 		applyChatIdentityHeaders(headers, identity);
 
-		const workerForwardAt = Date.now();
-		forward.searchParams.set("workerForwardAt", String(workerForwardAt));
-		chatroomLog("ws:worker:forward-do", {
-			room,
-			cid,
-			elapsedMs: elapsedSince(startedAt),
-			wsStartAgeMs: ageSince(wsStart, workerForwardAt),
-		});
-		const response = await stub.fetch(buildWebSocketForwardRequest(forward, c.req.raw, headers));
-		chatroomLog("ws:worker:do-response", {
-			room,
-			cid,
-			status: response.status,
-			elapsedMs: elapsedSince(startedAt),
-			workerToDoResponseMs: ageSince(workerForwardAt),
-			wsStartAgeMs: ageSince(wsStart),
-		});
-		return response;
+		return stub.fetch(buildWebSocketForwardRequest(forward, c.req.raw, headers));
 	});
 
 export type ChatroomWorkerApp = typeof chatroomWorkerApp;
