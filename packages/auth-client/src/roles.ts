@@ -1,24 +1,9 @@
-import type { AuthRole } from "@internal/auth-db/schema";
+import type { BetterAuthGetSessionResponse } from "@internal/auth-db/api-schemas";
 
-export type AuthUser = {
-	id: string;
-	email: string;
-	name?: string;
-	image?: string;
-	role: AuthRole;
-	/** Better Auth anonymous plugin — guest chat identity with sliding session expiry. */
-	isAnonymous?: boolean;
-};
+export type AuthSession = NonNullable<BetterAuthGetSessionResponse>;
 
-export type AuthSessionPayload = {
-	id: string;
-	expiresAt: string;
-};
-
-export type AuthSession = {
-	user: AuthUser;
-	session: AuthSessionPayload;
-};
+export type AuthUser = AuthSession["user"];
+export type AuthSessionPayload = AuthSession["session"];
 
 export function isAdminUser(
 	user: AuthUser | null | undefined,

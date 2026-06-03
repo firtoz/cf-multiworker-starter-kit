@@ -1,49 +1,11 @@
-import { parseAuthRole } from "@internal/auth-db/roles";
 import {
 	createBindingAuthWorkerHonoClient,
 	createBindingAuthWorkerHonoClientWithHeaders,
 } from "./binding/create-binding-hono-client";
 import { filterAuthCookieHeader } from "./binding-headers";
 import { isReactRouterDataRequest } from "./document-request";
-import { type AuthSession, type AuthUser, isAdminUser } from "./roles";
+import { type AuthSession, isAdminUser } from "./roles";
 import { signOut } from "./sign-out";
-
-type GetSessionResponse = {
-	user?: {
-		id: string;
-		email: string;
-		name?: string | null;
-		image?: string | null;
-		role?: string;
-		isAnonymous?: boolean | null;
-	};
-	session?: {
-		id: string;
-		expiresAt: string | Date;
-	};
-};
-
-function mapSession(body: GetSessionResponse | null): AuthSession | null {
-	if (body == null || typeof body !== "object" || !body.user || !body.session) {
-		return null;
-	}
-	const expiresAt =
-		body.session.expiresAt instanceof Date
-			? body.session.expiresAt.toISOString()
-			: String(body.session.expiresAt);
-	const user: AuthUser = {
-		id: body.user.id,
-		email: body.user.email,
-		role: parseAuthRole(body.user.role),
-		...(body.user.name != null && body.user.name !== "" ? { name: body.user.name } : {}),
-		...(body.user.image != null && body.user.image !== "" ? { image: body.user.image } : {}),
-		...(body.user.isAnonymous === true ? { isAnonymous: true } : {}),
-	};
-	return {
-		user,
-		session: { id: body.session.id, expiresAt },
-	};
-}
 
 export type GetSessionOptions = {
 	/** Bypass Better Auth cookie cache (document loads). Defaults from request type when omitted. */
@@ -76,7 +38,7 @@ export async function getSession(
 	if (!res.ok) {
 		return null;
 	}
-	return mapSession(await res.json());
+	return res.json();
 }
 
 /** Document preload: DB-backed session; clears stale browser cookies when revoked elsewhere. */

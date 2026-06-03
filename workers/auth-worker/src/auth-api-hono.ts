@@ -24,6 +24,25 @@ function mergeApiErrorHeaders(error: {
 	return headers;
 }
 
+export function authApiErrorResponse(error: unknown): Response | null {
+	if (!isAPIError(error)) {
+		return null;
+	}
+	const headers = mergeApiErrorHeaders(
+		error as typeof error & { [kApiErrorHeaderSymbol]?: Headers },
+	);
+	const status = error.statusCode;
+	// OAuth before-hooks (e.g. oAuthProxy staging callback) throw redirect APIErrors.
+	if (status >= 300 && status < 400) {
+		return new Response(null, { status, headers });
+	}
+	headers.set("content-type", "application/json");
+	return new Response(JSON.stringify({ message: error.message, ...error.body }), {
+		status,
+		headers,
+	});
+}
+
 /** Invoke Better Auth `auth.api.*` and return an HTTP `Response` (cookies, redirects, JSON). */
 export async function callAuthApi(
 	c: Context<AuthWorkerAppEnv>,
@@ -36,20 +55,9 @@ export async function callAuthApi(
 		}
 		return c.json(result ?? null);
 	} catch (error) {
-		if (isAPIError(error)) {
-			const headers = mergeApiErrorHeaders(
-				error as typeof error & { [kApiErrorHeaderSymbol]?: Headers },
-			);
-			const status = error.statusCode;
-			// OAuth before-hooks (e.g. oAuthProxy staging callback) throw redirect APIErrors.
-			if (status >= 300 && status < 400) {
-				return new Response(null, { status, headers });
-			}
-			headers.set("content-type", "application/json");
-			return new Response(JSON.stringify({ message: error.message, ...error.body }), {
-				status,
-				headers,
-			});
+		const response = authApiErrorResponse(error);
+		if (response) {
+			return response;
 		}
 		throw error;
 	}

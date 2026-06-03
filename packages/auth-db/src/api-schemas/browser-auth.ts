@@ -1,4 +1,5 @@
 import * as z from "zod";
+import { authRoleSchema } from "./admin";
 
 export const authSocialProviderSchema = z.enum(["google", "github"]);
 
@@ -39,6 +40,31 @@ export const betterAuthSessionOkResponseSchema = z.object({
 });
 
 export type BetterAuthSessionOkResponse = z.infer<typeof betterAuthSessionOkResponseSchema>;
+
+export const betterAuthSignOutResponseSchema = z.object({
+	success: z.boolean(),
+});
+
+export type BetterAuthSignOutResponse = z.infer<typeof betterAuthSignOutResponseSchema>;
+
+export const betterAuthGetSessionResponseSchema = z
+	.object({
+		user: z.object({
+			id: z.string(),
+			email: z.string(),
+			role: authRoleSchema,
+			name: z.string().optional(),
+			image: z.string().optional(),
+			isAnonymous: z.literal(true).optional(),
+		}),
+		session: z.object({
+			id: z.string(),
+			expiresAt: z.string(),
+		}),
+	})
+	.nullable();
+
+export type BetterAuthGetSessionResponse = z.infer<typeof betterAuthGetSessionResponseSchema>;
 
 export const authEmailSignInBodySchema = z.object({
 	email: z.email(),
