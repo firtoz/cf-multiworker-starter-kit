@@ -1,7 +1,27 @@
+import { env, waitUntil } from "cloudflare:workers";
+import { fail, type MaybeError, success } from "@firtoz/maybe-error";
 import type { RoutePath } from "@firtoz/router-toolkit";
+import { accountDisplayName } from "@internal/auth-client/display-name";
+import { type AuthUser, isAdminUser } from "@internal/auth-client/roles";
+import { GUEST_SESSION_RETENTION_DAYS } from "@internal/auth-db/constants";
+import {
+	type ChatMessageRow,
+	createChatAttestToken,
+	resolveChatAttestedIdentity,
+	sanitizeChatRoomId,
+} from "@internal/chat-contract";
+import { registerChatRoom } from "@internal/db";
+import { data } from "react-router";
 import { ChatClient } from "~/components/chat/ChatClient";
-import { ClientOnly } from "~/components/client/ClientOnly";
 import { BackToHomeLink } from "~/components/shared/BackToHomeLink";
+import {
+	ensureChatSessionMiddleware,
+	resolveRouteChatSession,
+} from "~/lib/chat-session-context.server";
+import { roomFromQueryParams } from "~/lib/chat-ws-url";
+import { deleteChatRoomMessageForAdmin } from "~/lib/chatroom-admin.server";
+import { listChatRoomHistory } from "~/lib/chatroom-history.server";
+import { routeAuthClientContext } from "~/lib/route-auth-client.server";
 import type { Route } from "./+types/chat";
 
 export const route: RoutePath<"/chat"> = "/chat";
@@ -11,24 +31,143 @@ export function meta(_args: Route.MetaArgs) {
 		{ title: "Chat" },
 		{
 			name: "description",
-			content: "Group chat: choose a room, set your name, and send messages.",
+			content: "Group chat with persistent guest sessions or a signed-in account.",
 		},
 	];
 }
 
-export default function ChatRoute(_props: Route.ComponentProps) {
+export type ChatLoaderData = {
+	user: AuthUser;
+	sessionExpiresAt: string;
+	guestRetentionDays: number;
+	/** True when the loader just issued `Set-Cookie` — client must wait before opening the chat WebSocket. */
+	pendingAuthCookies: boolean;
+	/** Room-scoped WS attest token — avoids AUTH `getSession` on WebSocket upgrade. */
+	chatAttestToken: string;
+	chatAttestRoom: string;
+	initialMessages: Promise<ChatMessageRow[]>;
+	canModerate: boolean;
+};
+
+export const middleware: Route.MiddlewareFunction[] = [ensureChatSessionMiddleware];
+
+export async function loader({ request, context, url }: Route.LoaderArgs) {
+	const ensured = await resolveRouteChatSession({ request, context });
+	if (!ensured) {
+		return fail("Could not start a chat session. Try refreshing the page.");
+	}
+
+	const { session, setCookieHeaders } = ensured;
+	const pendingAuthCookies = setCookieHeaders.length > 0;
+	const room = roomFromQueryParams(url.searchParams);
+	waitUntil(registerChatRoom(env.DB, room));
+	const initialMessages = listChatRoomHistory(env, room, 200).catch((error: unknown) => {
+		throw error;
+	});
+	const identity = resolveChatAttestedIdentity({
+		userId: session.user.id,
+		profileDisplayName: accountDisplayName(session.user),
+		isAnonymous: session.user.isAnonymous === true,
+	});
+	const chatAttestToken = await createChatAttestToken(identity, room, env.CHATROOM_INTERNAL_SECRET);
+	const payload = success({
+		user: session.user,
+		sessionExpiresAt: session.session.expiresAt,
+		guestRetentionDays: GUEST_SESSION_RETENTION_DAYS,
+		pendingAuthCookies,
+		chatAttestToken,
+		chatAttestRoom: room,
+		initialMessages,
+		canModerate: isAdminUser(session.user),
+	} satisfies ChatLoaderData);
+
+	if (!pendingAuthCookies) {
+		return payload;
+	}
+
+	const headers = new Headers();
+	for (const cookie of setCookieHeaders) {
+		headers.append("Set-Cookie", cookie);
+	}
+	return data(payload, { headers });
+}
+
+export async function action({
+	request,
+	context,
+}: Route.ActionArgs): Promise<MaybeError<{ displayName: string } | true>> {
+	const auth = context.get(routeAuthClientContext);
+	const session = await auth.session.get();
+	if (!session) {
+		return fail("Not signed in");
+	}
+
+	const form = await request.formData();
+	const intent = String(form.get("intent") ?? "");
+
+	if (intent === "deleteMessage") {
+		const adminSession = await auth.session.requireAdmin();
+		if (!adminSession) {
+			return fail("Forbidden");
+		}
+		const roomId = sanitizeChatRoomId(String(form.get("room") ?? ""));
+		const messageId = String(form.get("messageId") ?? "").trim();
+		if (!messageId) {
+			return fail("Message id required");
+		}
+		const deleted = await deleteChatRoomMessageForAdmin(
+			env,
+			roomId,
+			messageId,
+			adminSession.user.id,
+		);
+		if (!deleted.success) {
+			return fail(deleted.error.message);
+		}
+		await registerChatRoom(env.DB, roomId);
+		return success(true);
+	}
+
+	if (intent !== "saveDisplayName") {
+		return fail("Unknown action");
+	}
+
+	const displayName = String(form.get("displayName") ?? "").trim();
+	if (!displayName) {
+		return fail("Display name is required");
+	}
+
+	const result = await auth.profile.update({ name: displayName });
+	if (!result.success) {
+		return fail(result.error);
+	}
+
+	return success({ displayName });
+}
+
+export default function ChatRoute({ loaderData, actionData }: Route.ComponentProps) {
+	if (!loaderData.success) {
+		return (
+			<div className="max-w-2xl mx-auto w-full px-4 py-4">
+				<BackToHomeLink />
+				<p className="text-red-600 mt-4">{loaderData.error}</p>
+			</div>
+		);
+	}
+
+	const saveNameError = actionData && !actionData.success ? actionData.error : undefined;
+
 	return (
-		<ClientOnly
-			fallback={
-				<div className="max-w-2xl mx-auto w-full h-dvh max-h-dvh min-h-0 flex flex-col overflow-hidden gap-3 px-4 py-4">
-					<BackToHomeLink />
-					<div className="flex min-h-0 flex-1 items-center justify-center text-gray-600 dark:text-gray-400 text-sm">
-						Loading chat…
-					</div>
-				</div>
-			}
-		>
-			<ChatClient />
-		</ClientOnly>
+		<ChatClient
+			user={loaderData.result.user}
+			sessionExpiresAt={loaderData.result.sessionExpiresAt}
+			guestRetentionDays={loaderData.result.guestRetentionDays}
+			pendingAuthCookies={loaderData.result.pendingAuthCookies}
+			chatAttestToken={loaderData.result.chatAttestToken}
+			chatAttestRoom={loaderData.result.chatAttestRoom}
+			initialMessages={loaderData.result.initialMessages}
+			canModerate={loaderData.result.canModerate}
+			{...(saveNameError === undefined ? {} : { saveNameError })}
+		/>
 	);
 }

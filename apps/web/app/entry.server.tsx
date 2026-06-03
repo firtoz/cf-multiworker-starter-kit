@@ -1,6 +1,6 @@
 import { isbot } from "isbot";
 import { renderToReadableStream } from "react-dom/server";
-import type { AppLoadContext, EntryContext } from "react-router";
+import type { EntryContext, RouterContextProvider } from "react-router";
 import { ServerRouter } from "react-router";
 import { generateEarlyHintsLinks, getCriticalCssAssets } from "./lib/get-critical-css";
 
@@ -9,7 +9,7 @@ export default async function handleRequest(
 	responseStatusCode: number,
 	responseHeaders: Headers,
 	routerContext: EntryContext,
-	_loadContext: AppLoadContext,
+	_loadContext: RouterContextProvider,
 ) {
 	// Add 103 Early Hints for critical CSS
 	// This allows Cloudflare to send the CSS assets before the HTML is fully rendered

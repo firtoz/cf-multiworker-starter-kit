@@ -22,14 +22,36 @@ export function omitDefaultPhysicalWorkerScriptName(
 	return `${alchemyApplicationId}-${DEFAULT_WORKER_RESOURCE_ID}-${stage}`;
 }
 
+/** Alchemy physical script name for the SSR web app (`ReactRouter("web", …)`). */
+export function physicalWebScriptName(stage: string): string {
+	return `${ALCHEMY_APP_IDS.frontend}-${DEFAULT_REACT_ROUTER_WEB_RESOURCE_ID}-${stage}`;
+}
+
+/** Alchemy physical script name for the auth worker (`Worker("worker", …)`). */
+export function physicalAuthScriptName(stage: string): string {
+	return omitDefaultPhysicalWorkerScriptName(ALCHEMY_APP_IDS.auth, stage);
+}
+
 /** ReactRouter / SSR app resource id inside the SSR Alchemy app (e.g. **`${PRODUCT_PREFIX}-frontend`**). */
 export const DEFAULT_REACT_ROUTER_WEB_RESOURCE_ID = "web" as const;
 
-/** Root D1 resource id (`packages/db`); physical name adds app id + stage. */
-export const DEFAULT_D1_DATABASE_RESOURCE_ID = "db" as const;
+/**
+ * App D1 resource id (`packages/db`); physical name adds app id + stage.
+ *
+ * Renamed from `db` → `main-db` so existing stages provision fresh D1s with
+ * `primaryLocationHint: weur` (region is immutable after creation).
+ */
+export const DEFAULT_D1_DATABASE_RESOURCE_ID = "main-db" as const;
 
 /**
- * Leading segment for Alchemy **`await alchemy("…")`** ids — default **`starter`** yields **`starter-frontend`**, **`starter-ping`**, etc.
+ * Better Auth D1 resource id (`packages/auth-db`); physical name adds app id + stage.
+ *
+ * Renamed from `db-auth` → `auth-db` for the same reason as {@link DEFAULT_D1_DATABASE_RESOURCE_ID}.
+ */
+export const DEFAULT_AUTH_D1_DATABASE_RESOURCE_ID = "auth-db" as const;
+
+/**
+ * Leading segment for Alchemy **`await alchemy("…")`** ids — default **`starter`** yields **`starter-frontend`**, **`starter-chatroom`**, etc.
  *
  * Forks set **`PRODUCT_PREFIX`** once to your slug (**`skybook`**, **`hotel`**, …) so **`ALCHEMY_APP_IDS`** and **`--app`** scripts stay aligned ([physical names](https://alchemy.run/concepts/resource/#physical-name)).
  */
@@ -43,9 +65,11 @@ export const PRODUCT_PREFIX = "starter" as const;
 export const ALCHEMY_APP_IDS = {
 	frontend: `${PRODUCT_PREFIX}-frontend`,
 	chatroom: `${PRODUCT_PREFIX}-chatroom`,
-	ping: `${PRODUCT_PREFIX}-ping`,
-	other: `${PRODUCT_PREFIX}-other`,
 	database: `${PRODUCT_PREFIX}-database`,
+	auth: `${PRODUCT_PREFIX}-auth`,
+	/** Self-hosted PostHog reverse proxy (`workers/posthog-proxy`). */
+	posthogProxy: `${PRODUCT_PREFIX}-posthog-proxy`,
+	authDatabase: `${PRODUCT_PREFIX}-auth-database`,
 	admin: `${PRODUCT_PREFIX}-admin`,
 	/** Provision-only app: ensures shared [`CloudflareStateStore`](https://alchemy.run/guides/cloudflare-state-store) exists for non-local **`STAGE`** before parallel `deploy:*`. Turbo: list **`state-hub`** (workspace **`package.json`** **name**) as a **`devDependency`** and use **`^deploy:*`** so **`stateHub` runs first**. */
 	stateHub: `${PRODUCT_PREFIX}-state-hub`,

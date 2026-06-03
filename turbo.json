@@ -69,13 +69,18 @@
 			"cache": false,
 			"outputLogs": "new-only"
 		},
-		"ping-do#destroy:prod": {
+		"posthog-proxy#destroy:prod": {
 			"dependsOn": ["@internal/web#destroy:prod"],
 			"cache": false,
 			"outputLogs": "new-only"
 		},
-		"other-worker#destroy:prod": {
-			"dependsOn": ["@internal/web#destroy:prod"],
+		"auth-worker#destroy:prod": {
+			"dependsOn": ["@internal/web#destroy:prod", "chatroom-do#destroy:prod"],
+			"cache": false,
+			"outputLogs": "new-only"
+		},
+		"@internal/auth-db#destroy:prod": {
+			"dependsOn": ["auth-worker#destroy:prod"],
 			"cache": false,
 			"outputLogs": "new-only"
 		},
@@ -85,7 +90,14 @@
 			"outputLogs": "new-only"
 		},
 		"state-hub#destroy:prod": {
-			"dependsOn": ["@internal/web#destroy:prod"],
+			"dependsOn": [
+				"@internal/web#destroy:prod",
+				"chatroom-do#destroy:prod",
+				"posthog-proxy#destroy:prod",
+				"auth-worker#destroy:prod",
+				"@internal/auth-db#destroy:prod",
+				"@internal/db#destroy:prod"
+			],
 			"cache": false,
 			"outputLogs": "new-only"
 		},
@@ -94,13 +106,18 @@
 			"cache": false,
 			"outputLogs": "new-only"
 		},
-		"ping-do#destroy:staging": {
+		"posthog-proxy#destroy:staging": {
 			"dependsOn": ["@internal/web#destroy:staging"],
 			"cache": false,
 			"outputLogs": "new-only"
 		},
-		"other-worker#destroy:staging": {
-			"dependsOn": ["@internal/web#destroy:staging"],
+		"auth-worker#destroy:staging": {
+			"dependsOn": ["@internal/web#destroy:staging", "chatroom-do#destroy:staging"],
+			"cache": false,
+			"outputLogs": "new-only"
+		},
+		"@internal/auth-db#destroy:staging": {
+			"dependsOn": ["auth-worker#destroy:staging"],
 			"cache": false,
 			"outputLogs": "new-only"
 		},
@@ -110,7 +127,14 @@
 			"outputLogs": "new-only"
 		},
 		"state-hub#destroy:staging": {
-			"dependsOn": ["@internal/web#destroy:staging"],
+			"dependsOn": [
+				"@internal/web#destroy:staging",
+				"chatroom-do#destroy:staging",
+				"posthog-proxy#destroy:staging",
+				"auth-worker#destroy:staging",
+				"@internal/auth-db#destroy:staging",
+				"@internal/db#destroy:staging"
+			],
 			"cache": false,
 			"outputLogs": "new-only"
 		},
@@ -119,13 +143,18 @@
 			"cache": false,
 			"outputLogs": "new-only"
 		},
-		"ping-do#destroy:preview": {
+		"posthog-proxy#destroy:preview": {
 			"dependsOn": ["@internal/web#destroy:preview"],
 			"cache": false,
 			"outputLogs": "new-only"
 		},
-		"other-worker#destroy:preview": {
-			"dependsOn": ["@internal/web#destroy:preview"],
+		"auth-worker#destroy:preview": {
+			"dependsOn": ["@internal/web#destroy:preview", "chatroom-do#destroy:preview"],
+			"cache": false,
+			"outputLogs": "new-only"
+		},
+		"@internal/auth-db#destroy:preview": {
+			"dependsOn": ["auth-worker#destroy:preview"],
 			"cache": false,
 			"outputLogs": "new-only"
 		},
@@ -135,7 +164,14 @@
 			"outputLogs": "new-only"
 		},
 		"state-hub#destroy:preview": {
-			"dependsOn": ["@internal/web#destroy:preview"],
+			"dependsOn": [
+				"@internal/web#destroy:preview",
+				"chatroom-do#destroy:preview",
+				"posthog-proxy#destroy:preview",
+				"auth-worker#destroy:preview",
+				"@internal/auth-db#destroy:preview",
+				"@internal/db#destroy:preview"
+			],
 			"cache": false,
 			"outputLogs": "new-only"
 		},
@@ -162,6 +198,14 @@
 		"ALCHEMY_PASSWORD",
 		"ALCHEMY_STATE_TOKEN",
 		"CHATROOM_INTERNAL_SECRET",
+		"BETTER_AUTH_SECRET",
+		"AUTH_ADMIN_SECRET",
+		"AUTH_BOOTSTRAP_ADMIN_EMAILS",
+		"GOOGLE_CLIENT_ID",
+		"GOOGLE_CLIENT_SECRET",
+		"GH_CLIENT_ID",
+		"GH_CLIENT_SECRET",
+		"AUTH_DOMAINS",
 		"STAGE",
 		"DEPLOY_ENABLED",
 		"WEB_DOMAINS",
@@ -170,6 +214,7 @@
 		"WEB_DOMAIN_OVERRIDE_EXISTING_ORIGIN",
 		"LOCAL_PORTLESS",
 		"PORT",
+		"PORTLESS_TLD",
 		"PORTLESS_URL",
 		"POSTHOG_CLI_API_KEY",
 		"POSTHOG_CLI_ENV_ID",
@@ -179,6 +224,8 @@
 		"POSTHOG_DEPLOY_SOURCE",
 		"POSTHOG_KEY",
 		"POSTHOG_HOST",
+		"POSTHOG_UI_HOST",
+		"POSTHOG_REGION",
 		"POSTHOG_SITE",
 		"POSTHOG_RELEASE_BUILD",
 		"POSTHOG_RELEASE_VERSION",

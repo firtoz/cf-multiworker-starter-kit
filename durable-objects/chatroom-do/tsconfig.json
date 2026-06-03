@@ -14,6 +14,7 @@
 		"workers/**/*.ts",
 		"src/**/*.ts",
 		"drizzle/**/*.js",
+		"drizzle/sql.d.ts",
 		"drizzle.config.ts",
 		"alchemy.run.ts",
 		"env.d.ts"

@@ -13,6 +13,7 @@ import {
 	buildGitHubRequiredSecretPayload,
 	buildGitHubRequiredVariablePayload,
 	missingDeployConfigurationKeysFromRequirements,
+	missingLocalDevConfigurationKeysFromRequirements,
 } from "alchemy-utils/env-requirements";
 import { ALL_REPO_ENV_REQUIREMENTS } from "./collected-env-requirements";
 
@@ -73,6 +74,13 @@ export function missingDeployConfigurationKeys(
 	options?: { requiresAlchemyStateToken?: boolean },
 ): string[] {
 	return missingDeployConfigurationKeysFromRequirements(ALL_REPO_ENV_REQUIREMENTS, env, options);
+}
+
+/** Keys required in repo-root `.env.local` before `bun run dev` (see `dev:preflight`). */
+export function missingLocalDevConfigurationKeys(
+	env: Record<string, string | undefined>,
+): string[] {
+	return missingLocalDevConfigurationKeysFromRequirements(ALL_REPO_ENV_REQUIREMENTS, env);
 }
 
 /**

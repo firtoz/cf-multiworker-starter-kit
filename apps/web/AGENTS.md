@@ -12,7 +12,7 @@ Use the Cloudflare Workers virtual module only:
 import { env } from "cloudflare:workers";
 ```
 
-Do **not** use `context.cloudflare.env` (or similar) from React Router for bindings — types and runtime expect `cloudflare:workers`. See root [AGENTS.md](../../AGENTS.md) (skill index) and [agents/skills/multiworker-gotchas/SKILL.md](../../agents/skills/multiworker-gotchas/SKILL.md).
+Do **not** use `context.cloudflare.env` (or similar) from React Router for bindings — types and runtime expect `cloudflare:workers`. See root [AGENTS.md](../../AGENTS.md) (skill index) and [.agents/skills/multiworker-gotchas/SKILL.md](../../.agents/skills/multiworker-gotchas/SKILL.md).
 
 ## Package Alchemy app
 
@@ -72,8 +72,8 @@ When you want to add or edit routes:
 
 ## General guidelines
 
-Follow the root [AGENTS.md](../../AGENTS.md) skill index and [multiworker-workflow](../../agents/skills/multiworker-workflow/SKILL.md) for:
+Follow the root [AGENTS.md](../../AGENTS.md) skill index and [multiworker-workflow](../../.agents/skills/multiworker-workflow/SKILL.md) for:
 - Linting and completion checklist
-- Environment variable management ([cf-workers-env-local](../../agents/skills/cf-workers-env-local/SKILL.md))
-- Alchemy / worker package conventions ([multiworker-gotchas](../../agents/skills/multiworker-gotchas/SKILL.md) and the `cf-` skills linked there)
-- **WebSocket / `/api/ws` / chat:** [cf-socka-realtime](../../agents/skills/cf-socka-realtime/SKILL.md) and [cf-realtime-websockets](../../agents/rules/cf-realtime-websockets.mdc) (Socka, SSR-safe URLs, `workers/app.ts` forwarding)
+- Environment variable management ([cf-workers-env-local](../../.agents/skills/cf-workers-env-local/SKILL.md))
+- Alchemy / worker package conventions ([multiworker-gotchas](../../.agents/skills/multiworker-gotchas/SKILL.md) and the `cf-` skills linked there)
+- **WebSocket / `/api/ws` / chat:** [cf-socka-realtime](../../.agents/skills/cf-socka-realtime/SKILL.md) and [cf-realtime-websockets](../../.agents/rules/cf-realtime-websockets.mdc) (Socka, SSR-safe URLs, `workers/app.ts` forwarding)

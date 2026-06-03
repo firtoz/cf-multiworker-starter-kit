@@ -16,6 +16,7 @@ export type PostHogLoaderAnalytics = {
 	enabled: boolean;
 	key: string;
 	host: string;
+	uiHost: string;
 	site: string;
 	runtimeTags: PostHogRuntimeTags;
 	/** Matches **`posthog-cli` `--release-name`**. */
@@ -34,6 +35,7 @@ let posthogInitialized = false;
 function initPostHog(
 	key: string,
 	host: string,
+	uiHost: string,
 	site: string,
 	runtimeTags: PostHogRuntimeTags,
 	release: { releaseName: string; releaseVersion: string },
@@ -46,6 +48,7 @@ function initPostHog(
 
 	posthog.init(key, {
 		api_host: host,
+		ui_host: uiHost,
 		defaults: "2026-01-30",
 		logs: {
 			environment: isLocalStage ? "local_development" : runtimeTags.deployment_environment,
@@ -170,7 +173,7 @@ function schedulePostHogInit(callback: () => void): () => void {
 }
 
 export function PostHogAnalyticsProvider({ analytics, children }: PostHogAnalyticsRootProps) {
-	const { enabled, key, host, site, runtimeTags, releaseName, releaseVersion } = analytics;
+	const { enabled, key, host, uiHost, site, runtimeTags, releaseName, releaseVersion } = analytics;
 	const [initComplete, setInitComplete] = useState(false);
 
 	useEffect(() => {
@@ -181,10 +184,10 @@ export function PostHogAnalyticsProvider({ analytics, children }: PostHogAnalyti
 		}
 
 		return schedulePostHogInit(() => {
-			initPostHog(key, host, site, runtimeTags, { releaseName, releaseVersion });
+			initPostHog(key, host, uiHost, site, runtimeTags, { releaseName, releaseVersion });
 			setInitComplete(true);
 		});
-	}, [enabled, key, host, site, runtimeTags, releaseName, releaseVersion]);
+	}, [enabled, key, host, uiHost, site, runtimeTags, releaseName, releaseVersion]);
 
 	if (!enabled || !key) {
 		return <>{children}</>;

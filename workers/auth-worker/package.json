@@ -1,0 +1,68 @@
+{
+	"name": "auth-worker",
+	"private": true,
+	"type": "module",
+	"alchemy": {
+		"app": "auth"
+	},
+	"exports": {
+		"./alchemy": "./alchemy.run.ts",
+		"./admin": {
+			"types": "./src/admin.ts",
+			"default": "./src/admin.ts"
+		},
+		"./account": {
+			"types": "./src/account.ts",
+			"default": "./src/account.ts"
+		},
+		"./profile": {
+			"types": "./src/profile.ts",
+			"default": "./src/profile.ts"
+		},
+		"./guest-upgrade": {
+			"types": "./src/guest-upgrade.ts",
+			"default": "./src/guest-upgrade.ts"
+		},
+		"./better-auth": {
+			"types": "./src/better-auth-routes.ts",
+			"default": "./src/better-auth-routes.ts"
+		},
+		"./hono-app": {
+			"types": "./src/hono-app.ts",
+			"default": "./src/hono-app.ts"
+		},
+		"./workers/rpc": "./workers/rpc.ts"
+	},
+	"scripts": {
+		"deploy:prod": "alchemy-cli --stage prod deploy",
+		"deploy:staging": "alchemy-cli --stage staging deploy",
+		"deploy:preview": "alchemy-cli --stage preview deploy",
+		"destroy:prod": "alchemy-cli --stage prod destroy",
+		"destroy:staging": "alchemy-cli --stage staging destroy",
+		"destroy:preview": "alchemy-cli --stage preview destroy",
+		"dev": "alchemy-cli --stage local dev",
+		"typegen": "node -e \"process.exit(0)\"",
+		"typecheck": "tsgo --noEmit -p ./tsconfig.json",
+		"lint": "biome check --write .",
+		"lint:format": "biome format --write ."
+	},
+	"dependencies": {
+		"@hono/zod-validator": "^0.8.0",
+		"@internal/auth-db": "workspace:*",
+		"better-auth": "catalog:",
+		"drizzle-orm": "catalog:",
+		"hono": "catalog:",
+		"unique-names-generator": "^4.7.1",
+		"zod": "catalog:"
+	},
+	"devDependencies": {
+		"state-hub": "workspace:*",
+		"alchemy-utils": "workspace:*",
+		"@cloudflare/workers-types": "catalog:",
+		"@typescript/native-preview": "catalog:",
+		"@biomejs/biome": "catalog:",
+		"@types/node": "catalog:",
+		"alchemy": "catalog:",
+		"typescript": "catalog:"
+	}
+}

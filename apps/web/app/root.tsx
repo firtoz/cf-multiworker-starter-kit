@@ -1,5 +1,6 @@
 import { env } from "cloudflare:workers";
 import { type MaybeError, success } from "@firtoz/maybe-error";
+import type { AuthUser } from "@internal/auth-client/roles";
 import type { Route } from "./+types/root";
 import "./app.css";
 
@@ -15,14 +16,19 @@ import {
 	Scripts,
 	ScrollRestoration,
 } from "react-router";
+import { LastLoginMethodSync } from "~/components/auth/LastLoginMethodSync";
 import {
 	PostHogAnalyticsProvider,
 	type PostHogLoaderAnalytics,
 } from "~/components/client/PostHogAnalytics";
+import { SiteNav } from "~/components/layout/SiteNav";
 import { getPostHogClientConfig, getPostHogRuntimeTags } from "~/lib/analytics-config.server";
+import { runAuthSessionMiddleware } from "~/lib/auth-session-middleware.server";
+import { resolveAuthSession } from "~/lib/route-context.server";
 
 type RootLoaderData = {
 	analytics: PostHogLoaderAnalytics;
+	user: AuthUser | null;
 };
 
 const CRITICAL_FONT_FACE_CSS = `
@@ -92,12 +98,20 @@ export const links: Route.LinksFunction = () => [
 	},
 ];
 
-export async function loader(_args: Route.LoaderArgs): Promise<MaybeError<RootLoaderData>> {
+export const middleware: Route.MiddlewareFunction[] = [
+	({ request, context }, next) => {
+		return runAuthSessionMiddleware(request, context, next);
+	},
+];
+
+export async function loader({ context }: Route.LoaderArgs): Promise<MaybeError<RootLoaderData>> {
+	const session = await resolveAuthSession(context);
 	return success({
 		analytics: {
 			...getPostHogClientConfig(env),
 			runtimeTags: getPostHogRuntimeTags(env),
 		},
+		user: session?.user ?? null,
 	});
 }
 
@@ -143,19 +157,27 @@ export function Layout({ children }: { children: React.ReactNode }) {
 }
 
 export default function App({ loaderData }: Route.ComponentProps) {
+	const shell = (user: AuthUser | null, outlet: React.ReactNode) => (
+		<div className="flex h-dvh max-h-dvh flex-col overflow-hidden">
+			{user ? <LastLoginMethodSync /> : null}
+			<SiteNav user={user} />
+			<main className="min-h-0 flex-1 overflow-auto">{outlet}</main>
+		</div>
+	);
+
 	if (!loaderData.success) {
-		return <Outlet />;
+		return shell(null, <Outlet />);
 	}
 
-	const { analytics } = loaderData.result;
+	const { analytics, user } = loaderData.result;
 
 	if (!analytics.enabled) {
-		return <Outlet />;
+		return shell(user, <Outlet />);
 	}
 
 	return (
 		<PostHogAnalyticsProvider analytics={analytics}>
-			<Outlet />
+			{shell(user, <Outlet />)}
 		</PostHogAnalyticsProvider>
 	);
 }

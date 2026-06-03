@@ -1,26 +1,35 @@
-import { mkdirSync, writeFileSync } from "node:fs";
-import path from "node:path";
 import { mainDb } from "@internal/db/alchemy";
 import alchemy from "alchemy";
 import { ReactRouter } from "alchemy/cloudflare";
 import { requireAlchemyPassword, requireEnv } from "alchemy-utils";
 import { alchemyCiCloudStateStoreOptions } from "alchemy-utils/alchemy-cloud-state-store";
-import { CI_WEB_DEPLOY_URL_RELPATH } from "alchemy-utils/ci-deploy-web-url";
+import {
+	CI_WEB_DEPLOY_URL_RELPATH,
+	resolvePublicWebUrlForCi,
+	writeCiDeployUrlIfGithubActions,
+} from "alchemy-utils/ci-deploy-web-url";
 import { isPrStage, resolveStageFromEnv } from "alchemy-utils/deployment-stage";
 import { readProcessEnvTrimmed } from "alchemy-utils/env-requirements";
+import {
+	isPortlessLocalDevEnabled,
+	localWebPortlessHostname,
+	localWebPortlessRouteName,
+	portlessRunShellEnvPrefix,
+} from "alchemy-utils/local-portless-dev";
 import { pickListenPort } from "alchemy-utils/pick-listen-port";
+import { isPosthogAnalyticsEnabled, POSTHOG_BROWSER_API_PATH } from "alchemy-utils/posthog-host";
 import {
 	reactRouterDomainsFromProcessEnv,
 	reactRouterRoutesFromProcessEnv,
 } from "alchemy-utils/web-deploy-hostnames";
+import { workerObservabilityWithTraces } from "alchemy-utils/worker-observability";
 import {
 	ALCHEMY_APP_IDS,
 	DEFAULT_REACT_ROUTER_WEB_RESOURCE_ID,
-	PRODUCT_PREFIX,
 } from "alchemy-utils/worker-peer-scripts";
+import { authWorker } from "auth-worker/alchemy";
 import { chatroomWorker } from "chatroom-do/alchemy";
-import { otherWorker } from "other-worker/alchemy";
-import { pingWorker } from "ping-do/alchemy";
+import { posthogProxyWorker } from "posthog-proxy/alchemy";
 import { logPosthogSourcemapsAlchemyPlan } from "./posthog/log-sourcemaps-plan";
 import { defaultPosthogReleaseName, resolvePosthogReleaseBuild } from "./posthog/release-names";
 import { resolvePosthogReleaseVersion } from "./posthog/release-version";
@@ -45,23 +54,20 @@ const chatroomInternalSecretRaw = requireEnv(
 	"Shared secret used when the web worker forwards /api/ws/* to the chatroom DO",
 	app,
 );
+const authAdminSecretRaw = requireEnv(
+	"AUTH_ADMIN_SECRET",
+	"Machine admin API secret (bootstrap sync and auth-worker admin routes)",
+	app,
+);
 const chatroomInternalSecret = alchemy.secret(chatroomInternalSecretRaw);
-const ChatroomDo = chatroomWorker.bindings.ChatroomDo;
-const PingDo = pingWorker.bindings.PingDo;
+const authAdminSecret = alchemy.secret(authAdminSecretRaw);
 
 const skipWebCustomHostnames = isPrStage(stage);
 const webDomains = skipWebCustomHostnames ? [] : [...reactRouterDomainsFromProcessEnv()];
 const webRoutes = skipWebCustomHostnames ? [] : [...reactRouterRoutesFromProcessEnv()];
 
-/** Portless `--name`: `PRODUCT_PREFIX` + same segment as `ReactRouter(...)` resource id (`web` ⇒ e.g. `starter-web`). */
-const localWebPortlessRouteName = `${PRODUCT_PREFIX}-${DEFAULT_REACT_ROUTER_WEB_RESOURCE_ID}`;
-
-/** `LOCAL_PORTLESS` in repo-root `.env.local`: omit or `on` (default) ⇒ Portless; `off` ⇒ plain `http://localhost`. */
-function isLocalPortlessExplicitlyDisabled(): boolean {
-	return process.env["LOCAL_PORTLESS"]?.trim().toLowerCase() === "off";
-}
-
-const usePortlessLocalDev = stage === "local" && !isLocalPortlessExplicitlyDisabled();
+const portlessEnabled = isPortlessLocalDevEnabled(stage);
+const localWebPortlessName = localWebPortlessRouteName();
 
 /** `PORT` when set and positive; otherwise `undefined`. */
 function explicitPortFromEnv(env: NodeJS.ProcessEnv): number | undefined {
@@ -71,13 +77,13 @@ function explicitPortFromEnv(env: NodeJS.ProcessEnv): number | undefined {
 
 const explicitListenPort = explicitPortFromEnv(process.env);
 /** Portless: honor `PORT`, else `get-port` from 5173 on 127.0.0.1. Otherwise unused for `dev` command — `5173` matches Vite default. */
-const localDevListenPort = usePortlessLocalDev
+const localDevListenPort = portlessEnabled
 	? (explicitListenPort ?? (await pickListenPort({ preferred: 5173, host: "127.0.0.1" })))
 	: (explicitListenPort ?? 5173);
 
 /** `portless run` then `react-router dev` (Turbo `dev` already runs `typegen:local` where configured). */
-const portlessWrappedLocalDev = usePortlessLocalDev
-	? `portless run --name ${localWebPortlessRouteName} --app-port ${localDevListenPort} bunx react-router dev --port ${localDevListenPort}`
+const portlessWrappedLocalDev = portlessEnabled
+	? `${portlessRunShellEnvPrefix(process.env)}portless run --name ${localWebPortlessName} --app-port ${localDevListenPort} bunx react-router dev --port ${localDevListenPort}`
 	: undefined;
 
 /** Turbo **`deploy:*`** depends on **`typegen`** (see **`turbo.json`**) — this is **`react-router build`** only. */
@@ -95,10 +101,13 @@ logPosthogSourcemapsAlchemyPlan({
 	runUploadAfterClientBuild: posthogSourcemapUploadAfterBuild,
 });
 
+const posthogKey = readProcessEnvTrimmed("POSTHOG_KEY");
+
 export const web = await ReactRouter(DEFAULT_REACT_ROUTER_WEB_RESOURCE_ID, {
 	main: "workers/app.ts",
 	compatibility: "node",
 	placement: { mode: "smart" },
+	observability: workerObservabilityWithTraces,
 	build: posthogSourcemapUploadAfterBuild
 		? `${reactRouterProductionBuild} && bun posthog/upload-sourcemaps.ts`
 		: reactRouterProductionBuild,
@@ -109,13 +118,15 @@ export const web = await ReactRouter(DEFAULT_REACT_ROUTER_WEB_RESOURCE_ID, {
 	bindings: {
 		DB: mainDb,
 		CHATROOM_INTERNAL_SECRET: chatroomInternalSecret,
-		ChatroomDo,
-		PingDo,
-		PING: pingWorker,
-		OTHER: otherWorker,
+		AUTH_ADMIN_SECRET: authAdminSecret,
+		AUTH: authWorker,
+		CHATROOM: chatroomWorker,
 		STAGE: stage,
-		POSTHOG_KEY: readProcessEnvTrimmed("POSTHOG_KEY"),
-		POSTHOG_HOST: readProcessEnvTrimmed("POSTHOG_HOST"),
+		LOCAL_PORTLESS: readProcessEnvTrimmed("LOCAL_PORTLESS"),
+		POSTHOG: posthogProxyWorker,
+		POSTHOG_KEY: posthogKey,
+		POSTHOG_UI_HOST: readProcessEnvTrimmed("POSTHOG_UI_HOST"),
+		POSTHOG_REGION: readProcessEnvTrimmed("POSTHOG_REGION"),
 		POSTHOG_SITE: readProcessEnvTrimmed("POSTHOG_SITE"),
 		/** Symbol-set name — see **`posthog/release-names.ts`**. */
 		POSTHOG_RELEASE_NAME: defaultPosthogReleaseName(stage, process.env),
@@ -136,7 +147,7 @@ const portlessRaw = process.env["PORTLESS_URL"]?.trim();
  */
 const portlessDerivedPublicBase =
 	stage === "local" && portlessWrappedLocalDev
-		? `https://${localWebPortlessRouteName}.localhost`
+		? `https://${localWebPortlessHostname(process.env)}`
 		: undefined;
 const portlessDevPublicUrl = (() => {
 	if (stage !== "local") {
@@ -147,18 +158,18 @@ const portlessDevPublicUrl = (() => {
 	return fromEnv ?? fromFlag;
 })();
 
-console.log({ webUrl: portlessDevPublicUrl ?? web.url });
-/** GitHub Actions: write URL for deploy workflows — see **`CI_WEB_DEPLOY_URL_RELPATH`**. */
-if (process.env["GITHUB_ACTIONS"] === "true" && web.url) {
-	const root = process.env["GITHUB_WORKSPACE"]?.trim();
-	if (root) {
-		const filePath = path.join(root, CI_WEB_DEPLOY_URL_RELPATH);
-		mkdirSync(path.dirname(filePath), { recursive: true });
-		writeFileSync(filePath, `${web.url.trim()}\n`, "utf8");
-	}
-}
+const ciWebPublicUrl = resolvePublicWebUrlForCi({ stage, workersDevUrl: web.url });
+console.log({ webUrl: portlessDevPublicUrl ?? ciWebPublicUrl ?? web.url });
+writeCiDeployUrlIfGithubActions(CI_WEB_DEPLOY_URL_RELPATH, ciWebPublicUrl ?? web.url);
 
 // PR preview comments belong in `.github/workflows/pr-deploy.yml`. Avoid `alchemy/github`
 // `GitHubComment` here on CI + `STAGE=pr-*` — `verifyGitHubAuth` often 404s for fork/private PRs.
 
 await app.finalize();
+
+if (isPosthogAnalyticsEnabled(process.env)) {
+	console.log({
+		posthogBrowserApiPath: POSTHOG_BROWSER_API_PATH,
+		posthogProxyWorker: posthogProxyWorker.name,
+	});
+}

@@ -18,8 +18,9 @@ A production-minded starter for full-stack Cloudflare apps: React Router on Work
 ## What you get
 
 - **React Router 7 on Workers** — streaming SSR, Tailwind, typed loaders/actions, form actions.
-- **Durable Object examples** — Hono RPC-style access, service bindings, Socka WebSockets (`/chat`).
-- **D1 + Drizzle** — generated migrations and a `/visitors` route.
+- **Durable Object example** — Socka WebSockets + DO SQLite on `/chat` (`chatroom-do`), with auth session gating via service bindings.
+- **Better Auth (`auth-worker`)** — email/password + optional Google/GitHub, account display names, and admin APIs used by the web admin UI (`/admin`); anonymous guests on `/chat` (7-day sliding session, random names like `Coastal-Falcon`).
+- **D1 + Drizzle** — root app DB (`/visitors` counter + chat room registry) plus separate auth D1 (`@internal/auth-db`).
 - **Typed bindings** — package-local `alchemy.run.ts` → Worker `env` types.
 - **Deploy story** — Turbo + Alchemy, staging/production, PR previews (details below only when you need them).
 
@@ -28,11 +29,12 @@ A production-minded starter for full-stack Cloudflare apps: React Router on Work
 | Goal | Where |
 |------|--------|
 | Web routes, SSR, bindings, forms | [`apps/web/README.md`](apps/web/README.md) |
+| Auth, OAuth, admin, anonymous chat guests | [`docs/oauth-setup.md`](docs/oauth-setup.md) (Google/GitHub) · [`.agents/skills/cf-auth-setup/SKILL.md`](.agents/skills/cf-auth-setup/SKILL.md) · [`.env.example`](.env.example) |
 | GitHub Environments, rulesets, what runs in CI, custom domains | [`docs/github-admin.md`](docs/github-admin.md) |
-| `.env.local` / staging / prod secrets | [`.env.example`](.env.example) · [`agents/skills/cf-workers-env-local/SKILL.md`](agents/skills/cf-workers-env-local/SKILL.md) |
-| Full rebrand (package names, UI copy) | [`agents/skills/project-init/SKILL.md`](agents/skills/project-init/SKILL.md) |
-| Typegen cadence, Turbo deploy order, generated artifacts | [`agents/skills/multiworker-workflow/SKILL.md`](agents/skills/multiworker-workflow/SKILL.md) |
-| Cursor / IDE rules look wrong after clone | `bun run agents:link` · [`agents/README.md`](agents/README.md) |
+| `.env.local` / staging / prod secrets | [`.env.example`](.env.example) · [`.agents/skills/cf-workers-env-local/SKILL.md`](.agents/skills/cf-workers-env-local/SKILL.md) |
+| Full rebrand (package names, UI copy) | [`.agents/skills/project-init/SKILL.md`](.agents/skills/project-init/SKILL.md) |
+| Typegen cadence, Turbo deploy order, generated artifacts | [`.agents/skills/multiworker-workflow/SKILL.md`](.agents/skills/multiworker-workflow/SKILL.md) |
+| Cursor / IDE rules look wrong after clone | `bun run agents:link` · [`.agents/README.md`](.agents/README.md) |
 
 **Bun:** use the version in root [`package.json`](package.json) → `packageManager` (CI matches it).
 
@@ -66,7 +68,7 @@ bun alchemy login
 
 Then rerun **`bun run quickstart`** (or **`bun run dev`** if `.env.local` is already set).
 
-Open the URL Vite prints — with Portless (default), **`Local:`** is **`https://<PRODUCT_PREFIX>-web.localhost/`** (see [CONTRIBUTING — Portless](CONTRIBUTING.md#local-https-dev-portless)); otherwise often **`http://localhost:5173`**. Try **`/`**, **`/visitors`**, **`/ping-do`**, **`/chat`**.
+Open the URL Vite prints — with Portless (default), **`Local:`** is **`https://<PRODUCT_PREFIX>-web.localhost/`** (see [CONTRIBUTING — Portless](CONTRIBUTING.md#local-https-dev-portless)); otherwise often **`http://localhost:5173`**. Try **`/`**, **`/visitors`**, **`/chat`** (anonymous guest sign-in), **`/login`**, **`/account`**. Set **`AUTH_BOOTSTRAP_ADMIN_EMAILS`** in **`.env.local`** to access **`/admin`** after signing in with that email.
 
 ### Deploy with GitHub Actions (optional)
 
@@ -80,7 +82,7 @@ You need a Cloudflare **API token** and **Account ID** from the dashboard (this 
 2. **`bun run setup:staging`** then **`bun run github:sync:staging`** (or **`bun run onboard:staging`**).
 3. **`bun run setup:prod`** then **`bun run github:sync:prod`** (or **`bun run onboard:prod`**).
 
-Per-environment secrets (**`ALCHEMY_PASSWORD`**, **`CHATROOM_INTERNAL_SECRET`**, optional **`WEB_*`**) stay in each stage dotfile (or GitHub Environments after sync).
+Per-environment secrets (**`ALCHEMY_PASSWORD`**, **`CHATROOM_INTERNAL_SECRET`**, **`BETTER_AUTH_SECRET`**, **`AUTH_ADMIN_SECRET`**, optional **`AUTH_BOOTSTRAP_ADMIN_EMAILS`**, optional **`WEB_*`**) stay in each stage dotfile (or GitHub Environments after sync). **No auth URL env var** — Alchemy derives the public auth URL from the local web origin, **`WEB_DOMAINS`**, or web **workers.dev** (see [cf-auth-setup](.agents/skills/cf-auth-setup/SKILL.md)).
 
 With [`gh`](https://cli.github.com/) authenticated and repo admin rights, from a trusted machine:
 
@@ -108,7 +110,7 @@ bun run onboard:prod      # sync production → deploys from `production` branch
 2. Run **`bun run typegen`**.
 3. Adjust visible product copy when you want.
 
-**Workspace package names** and Turbo **`--filter`** values (e.g. `@internal/web`) are separate from those ids. Full checklist: [`agents/skills/project-init/SKILL.md`](agents/skills/project-init/SKILL.md).
+**Workspace package names** and Turbo **`--filter`** values (e.g. `@internal/web`) are separate from those ids. Full checklist: [`.agents/skills/project-init/SKILL.md`](.agents/skills/project-init/SKILL.md).
 
 ## Deploy
 
@@ -128,24 +130,83 @@ Each command runs the **full** Turbo graph (shared Alchemy state, D1 + migration
 
 **Optional PostHog:** leave keys empty to stay dark; wiring/removal notes: [`apps/web/README.md`](apps/web/README.md#optional-posthog).
 
+## Architecture
+
+Only **`apps/web`** faces the internet. Every other worker is a **service binding** ([`apps/web/alchemy.run.ts`](apps/web/alchemy.run.ts)). The web worker gates chat sessions with **`auth-worker`**, then forwards WebSocket upgrades to **`chatroom-do`** with attested headers.
+
+```mermaid
+---
+config:
+  layout: dagre
+  theme: neutral
+---
+flowchart TB
+  Browser["Browser"]
+  PostHog["PostHog ingest"]
+
+  subgraph webLayer["apps/web"]
+    AppDB[("App D1<br>visits · chat room registry")]
+    Web["React Router"]
+  end
+
+  subgraph authLayer["auth-worker"]
+    AUTH["Better Auth API"]
+    AuthDB[("Auth D1<br>users · sessions · OAuth")]
+    AuthKV[("AUTH_KV<br>trusted origins")]
+  end
+
+  subgraph chatLayer["chatroom-do"]
+    CHAT["Chat Worker<br>WebSockets · Socka"]
+    ChatDO["ChatroomDo"]
+    ChatSQL[("SQLite<br>chat per room")]
+  end
+
+  PH["posthog-proxy"]
+
+  Web --> AppDB & AUTH & CHAT & PH
+  AUTH --> AuthDB & AuthKV
+  CHAT --> ChatDO --> ChatSQL
+  CHAT -. service probe .-> AUTH
+
+  Browser -- HTTPS --> Web
+  PH -- forward /d/* --> PostHog
+
+  classDef external fill:#f8fafc,stroke:#94a3b8,color:#334155
+  class Browser,PostHog external
+```
+
+**Common request paths** (detail in [`apps/web/README.md`](apps/web/README.md)):
+
+| Flow | Path |
+|------|------|
+| **Auth / sessions** | Browser → web `/api/auth/*` → `AUTH.fetch` → auth-worker (Better Auth + auth D1). Loaders use `env.AUTH` via `@internal/auth-client`. |
+| **Chat WebSocket** | Browser → web `/api/ws/*` → session or attest token check in web → `CHATROOM.fetch` with attestation headers → chatroom-do verifies the worker-to-worker request. |
+
+`chatroom-do` also has an `AUTH` binding for the `/service-ack` provider probe; normal chat WebSocket identity is resolved by the web worker before forwarding.
+
+Bindings and route wiring: [`apps/web/alchemy.run.ts`](apps/web/alchemy.run.ts), [`apps/web/workers/hono-app.ts`](apps/web/workers/hono-app.ts). Adding a worker: [Adding workers](#adding-workers) below.
+
 ## Project layout
 
 ```text
 ├── apps/
 │   └── web/                    # React Router app + Worker entry
+├── workers/
+│   ├── auth-worker/            # Better Auth API, admin routes, trusted origins KV
+│   └── posthog-proxy/          # Optional PostHog reverse proxy
 ├── durable-objects/
-│   ├── chatroom-do/
-│   ├── ping-do/
-│   └── other-worker/
+│   └── chatroom-do/
 ├── packages/
 │   ├── alchemy-utils/          # PRODUCT_PREFIX, app ids, alchemy-cli
+│   ├── auth-client/            # getSession, createAuthClient, binding headers for AUTH.fetch
+│   ├── auth-db/                # Better Auth D1 schema + migrations
 │   ├── chat-contract/
-│   ├── db/                     # D1 schema + Drizzle migrations
+│   ├── db/                     # App D1 schema + Drizzle migrations (/visitors + chat room registry)
 │   ├── scripts/                # quickstart, setup, onboard, GitHub sync helpers
 │   └── state-hub/              # shared remote Alchemy state (non-local STAGE)
 ├── stacks/                     # admin / GitHub sync (Alchemy)
-├── agents/                     # AI rules + skills (human playbooks too)
-├── .cursor/                    # Cursor env + symlinks to agents/
+├── .agents/                     # AI rules + skills (human playbooks too)
+├── .cursor/                    # Cursor env + symlinks to .agents/
 └── .claude/                    # optional Claude Code symlinks
 ```
 
@@ -162,7 +223,7 @@ bun run lint
 bun run build
 ```
 
-Run **`typegen`** after routes, `alchemy.run.ts`, or binding/env changes. Run **`bun run db:generate`** after editing `packages/db/src/schema.ts`. Do not hand-edit Drizzle SQL/snapshots, React Router `+types`, or `.alchemy/`.
+Run **`typegen`** after routes, `alchemy.run.ts`, or binding/env changes. Run **`bun run db:generate`** after editing `packages/db/src/schema.ts`; run **`bun run db:generate:auth`** after editing `packages/auth-db/src/schema.ts`. Do not hand-edit Drizzle SQL/snapshots, React Router `+types`, or `.alchemy/`.
 
 Bindings in app code:
 
@@ -180,7 +241,7 @@ bunx turbo gen durable-object
 
 Then: add the package to root **`dev`** filters if it should run locally; fix **`turbo.json`** deploy/destroy order as needed; add a workspace dep from **`apps/web`** if the web app uses it; import its **`./alchemy`** from **`apps/web/alchemy.run.ts`**; run **`bun run typegen`** and **`bun run typecheck`**.
 
-Details: [`agents/skills/cf-durable-object-package/SKILL.md`](agents/skills/cf-durable-object-package/SKILL.md), [`agents/skills/cf-web-alchemy-bindings/SKILL.md`](agents/skills/cf-web-alchemy-bindings/SKILL.md), [`agents/skills/cf-worker-rpc-turbo/SKILL.md`](agents/skills/cf-worker-rpc-turbo/SKILL.md).
+Details: [`.agents/skills/cf-durable-object-package/SKILL.md`](.agents/skills/cf-durable-object-package/SKILL.md), [`.agents/skills/cf-web-alchemy-bindings/SKILL.md`](.agents/skills/cf-web-alchemy-bindings/SKILL.md), [`.agents/skills/cf-worker-rpc-turbo/SKILL.md`](.agents/skills/cf-worker-rpc-turbo/SKILL.md).
 
 ## Common scripts
 
@@ -191,12 +252,12 @@ Details: [`agents/skills/cf-durable-object-package/SKILL.md`](agents/skills/cf-d
 | GitHub Environments | `github:setup`, `github:sync:staging`, `github:sync:prod`, `github:sync`, `github:env:*`, `github:sync:config` |
 | DB | `db:generate`, `check:drizzle-generated` |
 
-More context: [`agents/skills/multiworker-workflow/SKILL.md`](agents/skills/multiworker-workflow/SKILL.md), [`docs/github-admin.md`](docs/github-admin.md).
+More context: [`.agents/skills/multiworker-workflow/SKILL.md`](.agents/skills/multiworker-workflow/SKILL.md), [`docs/github-admin.md`](docs/github-admin.md).
 
 ## Deeper docs
 
 - [`CONTRIBUTING.md`](CONTRIBUTING.md) — PRs and checks.
-- [`AGENTS.md`](AGENTS.md) — index for AI assistants; **`agents/skills/`** are deep playbooks (optional for humans).
+- [`AGENTS.md`](AGENTS.md) — index for AI assistants; **`.agents/skills/`** are deep playbooks (optional for humans).
 
 ## Stack
 
@@ -204,7 +265,7 @@ More context: [`agents/skills/multiworker-workflow/SKILL.md`](agents/skills/mult
 
 ## Security posture
 
-Real infra + demo routes: treat as a starting point. **This** repository’s stock workflows use GitHub Environments for **same-repo** PR previews (**`staging`**), production deploys from **`production`**, and guardrails so **fork** PRs never receive preview deploy secrets. Add your own auth, CSP, rate limits, and least-privilege tokens before launch. See [`docs/github-admin.md`](docs/github-admin.md) and [`agents/skills/cf-workers-env-local/SKILL.md`](agents/skills/cf-workers-env-local/SKILL.md).
+Real infra + demo routes: treat as a starting point. **This** repository’s stock workflows use GitHub Environments for **same-repo** PR previews (**`staging`**), production deploys from **`production`**, and guardrails so **fork** PRs never receive preview deploy secrets. Auth is included for demonstration (Better Auth + admin UI + anonymous chat guests)—harden for production (CSP, rate limits, OAuth review, least-privilege tokens). See [`.agents/skills/cf-auth-setup/SKILL.md`](.agents/skills/cf-auth-setup/SKILL.md), [`docs/github-admin.md`](docs/github-admin.md), and [`.agents/skills/cf-workers-env-local/SKILL.md`](.agents/skills/cf-workers-env-local/SKILL.md).
 
 ## Contributing
 

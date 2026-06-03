@@ -7,3 +7,4 @@
 
 [install]
 minimumReleaseAge = 172800 # seconds (2 days); https://bun.com/docs/cli/install#minimum-release-age
+minimumReleaseAgeExcludes = ["@firtoz/socka", "@firtoz/hono-fetcher", "@firtoz/websocket-do", "@firtoz/maybe-error", "@firtoz/router-toolkit"]

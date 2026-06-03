@@ -1,0 +1,168 @@
+import { createSelectSchema } from "drizzle-zod";
+import * as z from "zod";
+import { AUTH_ROLES, user } from "../schema";
+import { profileNameRequiredSchema } from "./profile";
+
+/** D1 / legacy rows may omit timestamps or store invalid values — normalize before Zod. */
+export function parseTimestampOrNull(value: unknown): Date | null {
+	if (value == null || value === "") {
+		return null;
+	}
+	const d = value instanceof Date ? value : new Date(value as string | number);
+	return Number.isNaN(d.getTime()) ? null : d;
+}
+
+function parseTimestamp(value: unknown, fallback?: unknown): Date {
+	return parseTimestampOrNull(value) ?? parseTimestampOrNull(fallback) ?? new Date(0);
+}
+
+export const adminUserRowSchema = createSelectSchema(user)
+	.pick({
+		id: true,
+		email: true,
+		name: true,
+	})
+	.extend({
+		createdAt: z.coerce.date(),
+		updatedAt: z.coerce.date(),
+		isAnonymous: z.boolean(),
+		/** Latest `session.updatedAt` across all sessions (sliding refresh on visit). */
+		lastSeenAt: z.coerce.date().nullable(),
+		/** Latest active session `expiresAt` (`null` when no non-expired session). */
+		sessionExpiresAt: z.coerce.date().nullable(),
+		role: z.enum(AUTH_ROLES),
+	});
+
+export type AdminUserRow = z.infer<typeof adminUserRowSchema>;
+
+export type AdminUserRowSource = Pick<
+	typeof user.$inferSelect,
+	"id" | "email" | "name" | "role" | "createdAt" | "updatedAt" | "isAnonymous"
+>;
+
+export type AdminUserSessionActivity = {
+	lastSeenAt: Date | null;
+	sessionExpiresAt: Date | null;
+};
+
+export function toAdminUserRowWire(
+	row: AdminUserRowSource,
+	activity?: AdminUserSessionActivity,
+): AdminUserRow {
+	return adminUserRowSchema.parse({
+		id: row.id,
+		email: row.email,
+		name: row.name,
+		role: row.role,
+		createdAt: parseTimestamp(row.createdAt),
+		updatedAt: parseTimestamp(row.updatedAt, row.createdAt),
+		isAnonymous: row.isAnonymous === true,
+		lastSeenAt: parseTimestampOrNull(activity?.lastSeenAt),
+		sessionExpiresAt: parseTimestampOrNull(activity?.sessionExpiresAt),
+	});
+}
+
+export const adminUsersListQuerySchema = z.object({
+	page: z.coerce.number().int().min(1).default(1),
+	pageSize: z.coerce.number().int().min(1).max(100).default(50),
+});
+
+export type AdminUsersListQuery = z.infer<typeof adminUsersListQuerySchema>;
+
+export const adminUsersResponseSchema = z.object({
+	users: z.array(adminUserRowSchema),
+	total: z.number().int().nonnegative(),
+	page: z.number().int().min(1),
+	pageSize: z.number().int().min(1),
+	hasMore: z.boolean(),
+});
+
+export type AdminUsersResponse = z.infer<typeof adminUsersResponseSchema>;
+
+export const adminOriginsResponseSchema = z.object({
+	origins: z.array(z.string()),
+});
+
+export type AdminOriginsResponse = z.infer<typeof adminOriginsResponseSchema>;
+
+export const adminOkResponseSchema = z.object({
+	ok: z.literal(true),
+});
+
+export type AdminOkResponse = z.infer<typeof adminOkResponseSchema>;
+
+export const adminBootstrapSyncResponseSchema = z.object({
+	ok: z.literal(true),
+	promoted: z.number().int().nonnegative(),
+});
+
+export type AdminBootstrapSyncResponse = z.infer<typeof adminBootstrapSyncResponseSchema>;
+
+export const authRoleSchema = z.enum(AUTH_ROLES);
+
+export const adminSetRoleSchema = z.object({
+	role: z.enum(AUTH_ROLES),
+});
+
+export type AdminSetRoleInput = z.infer<typeof adminSetRoleSchema>;
+
+/** Full origin (scheme + host, optional non-default port) — no path or trailing slash. */
+export const trustedOriginSchema = z
+	.string()
+	.trim()
+	.url()
+	.refine(
+		(value) => {
+			try {
+				const url = new URL(value);
+				if (url.pathname !== "/" && url.pathname !== "") {
+					return false;
+				}
+				if (url.search || url.hash) {
+					return false;
+				}
+				return `${url.protocol}//${url.host}` === value.replace(/\/+$/, "");
+			} catch {
+				return false;
+			}
+		},
+		{ message: "Must be a full origin (e.g. https://app.example.com)" },
+	);
+
+export const adminAddOriginSchema = z.object({
+	origin: trustedOriginSchema,
+});
+
+export type AdminAddOriginInput = z.infer<typeof adminAddOriginSchema>;
+
+export const adminSetOriginsSchema = z.object({
+	origins: z.array(trustedOriginSchema),
+});
+
+export const adminBulkUserIdsSchema = z.object({
+	userIds: z.array(z.string().min(1)).min(1).max(100),
+});
+
+export type AdminBulkUserIdsInput = z.infer<typeof adminBulkUserIdsSchema>;
+
+export const adminBulkSetRoleSchema = adminBulkUserIdsSchema.extend({
+	role: z.enum(AUTH_ROLES),
+});
+
+export type AdminBulkSetRoleInput = z.infer<typeof adminBulkSetRoleSchema>;
+
+export type AdminSetOriginsInput = z.infer<typeof adminSetOriginsSchema>;
+
+export const adminSetUserNameSchema = profileNameRequiredSchema;
+
+export const adminSetUserNameResponseSchema = z.object({
+	user: adminUserRowSchema,
+});
+
+export type AdminSetUserNameResponse = z.infer<typeof adminSetUserNameResponseSchema>;
+
+export const authApiErrorBodySchema = z.object({
+	error: z.string().optional(),
+});
+
+export type AuthApiErrorBody = z.infer<typeof authApiErrorBodySchema>;

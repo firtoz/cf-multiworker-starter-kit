@@ -2,7 +2,7 @@
 
 Thanks for helping improve this starter. This file is **contribution process and PR checks** only.
 
-**Setup, first-time Alchemy/Cloudflare, `bun run dev`, and deploy** live in the root **[README.md](README.md)**. **Web app routes and bindings** in **[apps/web/README.md](apps/web/README.md)**. **Index of rules and skills** in **[AGENTS.md](AGENTS.md)**. **Edits to rules and skills** go in **[`agents/`](agents/README.md)** only (canonical tree); [`.cursor/rules`](.cursor/rules) and [`.cursor/skills`](.cursor/skills) are symlinks. After an unusual clone, run `bash agents/install-symlinks.sh` from the repo root. **When committing rule/skill changes,** `git add agents/` (or paths under `agents/`). Do not `git add` individual files as `.cursor/rules/…` — Git can reject that as *beyond a symbolic link*; see the **Git** section in [`agents/README.md`](agents/README.md).
+**Setup, first-time Alchemy/Cloudflare, `bun run dev`, and deploy** live in the root **[README.md](README.md)**. **Web app routes and bindings** in **[apps/web/README.md](apps/web/README.md)**. **Index of rules and skills** in **[AGENTS.md](AGENTS.md)**. **Edits to rules and skills** go in **[`.agents/`](.agents/README.md)** only (canonical tree); [`.cursor/rules`](.cursor/rules) and [`.cursor/skills`](.cursor/skills) are symlinks. After an unusual clone, run `bash .agents/install-symlinks.sh` from the repo root. **When committing rule/skill changes,** `git add .agents/` (or paths under `.agents/`). Do not `git add` individual files as `.cursor/rules/…` — Git can reject that as *beyond a symbolic link*; see the **Git** section in [`.agents/README.md`](.agents/README.md).
 
 ## Local setup (summary)
 
@@ -103,11 +103,11 @@ Optionally `bun run dev` to exercise the app locally.
 
 ## Adding a Durable Object or worker package
 
-The generator and post-steps (root `dev` filter, web bindings, `turbo` destroy, `bun run typegen`) are documented in the root README (**Adding workers**) and in [agents/skills/cf-durable-object-package/SKILL.md](agents/skills/cf-durable-object-package/SKILL.md) / [agents/skills/cf-web-alchemy-bindings/SKILL.md](agents/skills/cf-web-alchemy-bindings/SKILL.md).
+The generator and post-steps (root `dev` filter, web bindings, `turbo` destroy, `bun run typegen`) are documented in the root README (**Adding workers**) and in [.agents/skills/cf-durable-object-package/SKILL.md](.agents/skills/cf-durable-object-package/SKILL.md) / [.agents/skills/cf-web-alchemy-bindings/SKILL.md](.agents/skills/cf-web-alchemy-bindings/SKILL.md).
 
 ## Dependency changes
 
-- Prefer `bun add` from the repo root; scope to one app with `--filter` or `--cwd` (see [multiworker-workflow](agents/skills/multiworker-workflow/SKILL.md)).
+- Prefer `bun add` from the repo root; scope to one app with `--filter` or `--cwd` (see [multiworker-workflow](.agents/skills/multiworker-workflow/SKILL.md)).
 - `bun run outdated`, `bun run update:interactive`, and `bun pm audit` (or your registry workflow) when upgrading.
 - **Forks** may add Renovate, Dependabot, or similar; the template does not require one.
 
