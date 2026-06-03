@@ -1,4 +1,5 @@
 import type { AdminUserRow } from "@internal/auth-db/api-schemas";
+import { LocalDateTime } from "~/components/shared/LocalDateTime";
 
 function toDate(value: Date | string | null | undefined): Date | null {
 	if (value == null) {
@@ -6,14 +7,6 @@ function toDate(value: Date | string | null | undefined): Date | null {
 	}
 	const d = value instanceof Date ? value : new Date(value);
 	return Number.isNaN(d.getTime()) ? null : d;
-}
-
-export function formatAdminTimestamp(value: Date | string | null | undefined): string {
-	const d = toDate(value);
-	if (!d) {
-		return "—";
-	}
-	return d.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
 }
 
 export function formatAdminUserType(user: AdminUserRow): string {
@@ -38,14 +31,10 @@ export function AdminUserSessionExpiryCell({ user, guestRetentionDays }: Session
 	}
 
 	const expired = expires.getTime() <= Date.now();
-	const label = formatAdminTimestamp(expires);
-
 	if (user.isAnonymous === true) {
 		return (
 			<div className="flex flex-col gap-0.5">
-				<time dateTime={expires.toISOString()} className={expired ? "text-gray-500" : undefined}>
-					{label}
-				</time>
+				<LocalDateTime value={expires} className={expired ? "text-gray-500" : undefined} />
 				<span className="text-xs text-gray-500 leading-snug">
 					{expired
 						? `Expired · ${guestRetentionDays}-day sliding window`
@@ -55,9 +44,5 @@ export function AdminUserSessionExpiryCell({ user, guestRetentionDays }: Session
 		);
 	}
 
-	return (
-		<time dateTime={expires.toISOString()} className={expired ? "text-gray-500" : undefined}>
-			{label}
-		</time>
-	);
+	return <LocalDateTime value={expires} className={expired ? "text-gray-500" : undefined} />;
 }

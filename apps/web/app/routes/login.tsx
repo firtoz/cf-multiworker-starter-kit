@@ -1,14 +1,13 @@
 import { env } from "cloudflare:workers";
 import { type MaybeError, success } from "@firtoz/maybe-error";
 import type { RoutePath } from "@firtoz/router-toolkit";
-import { type AuthProviders, getAuthProviders } from "@internal/auth-client";
+import { type AuthProviders, getAuthProviders } from "@internal/auth-client/session";
 import { href, redirect } from "react-router";
 import { LoginPanel } from "~/components/auth/LoginPanel";
-import { ClientOnly } from "~/components/client/ClientOnly";
 import { BackToHomeLink } from "~/components/shared/BackToHomeLink";
 import { accountLinkErrorFromUrl } from "~/lib/auth-link-error";
-import { googleOAuthPortlessWarningForWebEnv } from "~/lib/google-oauth-portless-warning";
-import { resolveAuthSession } from "~/lib/route-context";
+import { googleOAuthPortlessWarningForWebEnv } from "~/lib/google-oauth-portless-warning.server";
+import { resolveAuthSession } from "~/lib/route-context.server";
 import { safeRedirectPath } from "~/lib/safe-redirect-path";
 import type { Route } from "./+types/login";
 
@@ -21,6 +20,7 @@ export function meta(_args: Route.MetaArgs) {
 export async function loader({ context, url }: Route.LoaderArgs): Promise<
 	MaybeError<{
 		redirectTo: string;
+		origin: string;
 		providers: AuthProviders;
 		googlePortlessWarning?: string;
 		oauthErrorMessage?: string;
@@ -43,6 +43,7 @@ export async function loader({ context, url }: Route.LoaderArgs): Promise<
 	const oauthErrorMessage = accountLinkErrorFromUrl(url);
 	return success({
 		redirectTo,
+		origin: url.origin,
 		providers,
 		...(googlePortlessWarning ? { googlePortlessWarning } : {}),
 		...(oauthErrorMessage ? { oauthErrorMessage } : {}),
@@ -61,18 +62,17 @@ export default function LoginRoute({ loaderData }: Route.ComponentProps) {
 	return (
 		<div className="container mx-auto px-4 py-8">
 			<BackToHomeLink />
-			<ClientOnly fallback={<p className="text-sm text-gray-600 mt-6">Loading sign-in…</p>}>
-				<LoginPanel
-					redirectTo={loaderData.result.redirectTo}
-					providers={loaderData.result.providers}
-					{...(loaderData.result.googlePortlessWarning
-						? { googlePortlessWarning: loaderData.result.googlePortlessWarning }
-						: {})}
-					{...(loaderData.result.oauthErrorMessage
-						? { oauthErrorMessage: loaderData.result.oauthErrorMessage }
-						: {})}
-				/>
-			</ClientOnly>
+			<LoginPanel
+				redirectTo={loaderData.result.redirectTo}
+				origin={loaderData.result.origin}
+				providers={loaderData.result.providers}
+				{...(loaderData.result.googlePortlessWarning
+					? { googlePortlessWarning: loaderData.result.googlePortlessWarning }
+					: {})}
+				{...(loaderData.result.oauthErrorMessage
+					? { oauthErrorMessage: loaderData.result.oauthErrorMessage }
+					: {})}
+			/>
 		</div>
 	);
 }

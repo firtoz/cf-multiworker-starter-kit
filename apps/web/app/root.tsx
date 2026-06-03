@@ -1,6 +1,6 @@
 import { env } from "cloudflare:workers";
 import { type MaybeError, success } from "@firtoz/maybe-error";
-import type { AuthUser } from "@internal/auth-client";
+import type { AuthUser } from "@internal/auth-client/roles";
 import type { Route } from "./+types/root";
 import "./app.css";
 
@@ -23,8 +23,8 @@ import {
 } from "~/components/client/PostHogAnalytics";
 import { SiteNav } from "~/components/layout/SiteNav";
 import { getPostHogClientConfig, getPostHogRuntimeTags } from "~/lib/analytics-config.server";
-import { runAuthSessionMiddleware } from "~/lib/auth-session-middleware";
-import { resolveAuthSession } from "~/lib/route-context";
+import { runAuthSessionMiddleware } from "~/lib/auth-session-middleware.server";
+import { resolveAuthSession } from "~/lib/route-context.server";
 
 type RootLoaderData = {
 	analytics: PostHogLoaderAnalytics;

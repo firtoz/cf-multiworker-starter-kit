@@ -1,10 +1,10 @@
-import { isAdminUser } from "@internal/auth-client";
+import { isAdminUser } from "@internal/auth-client/roles";
 import { href, type RouterContextProvider, redirect } from "react-router";
 import {
 	adminAuthSessionContext,
 	resolveAuthSession,
 	signedInAuthSessionContext,
-} from "./route-context";
+} from "./route-context.server";
 
 type RouteMiddlewareArgs = {
 	context: Readonly<RouterContextProvider>;

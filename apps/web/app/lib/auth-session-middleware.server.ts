@@ -1,7 +1,7 @@
 import { env } from "cloudflare:workers";
-import { resolveDocumentAuthSession } from "@internal/auth-client";
+import { resolveDocumentAuthSession } from "@internal/auth-client/session";
 import type { RouterContextProvider } from "react-router";
-import { authSessionResolverContext } from "./route-context";
+import { authSessionResolverContext } from "./route-context.server";
 
 type DocumentAuthSessionResult = Awaited<ReturnType<typeof resolveDocumentAuthSession>>;
 

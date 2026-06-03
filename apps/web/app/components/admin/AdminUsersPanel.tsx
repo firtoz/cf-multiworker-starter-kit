@@ -2,12 +2,9 @@ import type { AdminUserRow } from "@internal/auth-db/api-schemas";
 import { PROFILE_NAME_MAX_CHARS } from "@internal/auth-db/constants";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useFetcher } from "react-router";
+import { LocalDateTime } from "~/components/shared/LocalDateTime";
 import type { Route } from "../../routes/authed/admin/+types/users";
-import {
-	AdminUserSessionExpiryCell,
-	formatAdminTimestamp,
-	formatAdminUserType,
-} from "./admin-user-dates";
+import { AdminUserSessionExpiryCell, formatAdminUserType } from "./admin-user-dates";
 
 type AdminUsersPanelProps = {
 	users: AdminUserRow[];
@@ -278,15 +275,11 @@ export function AdminUsersPanel({
 										</span>
 									</td>
 									<td className="py-2 pr-3 align-top whitespace-nowrap text-xs text-gray-700 dark:text-gray-300">
-										<time dateTime={new Date(u.createdAt).toISOString()}>
-											{formatAdminTimestamp(u.createdAt)}
-										</time>
+										<LocalDateTime value={u.createdAt} />
 									</td>
 									<td className="py-2 pr-3 align-top whitespace-nowrap text-xs text-gray-700 dark:text-gray-300">
 										{u.lastSeenAt ? (
-											<time dateTime={new Date(u.lastSeenAt).toISOString()}>
-												{formatAdminTimestamp(u.lastSeenAt)}
-											</time>
+											<LocalDateTime value={u.lastSeenAt} />
 										) : (
 											<span className="text-gray-500">Never</span>
 										)}

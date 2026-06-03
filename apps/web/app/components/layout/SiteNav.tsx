@@ -1,4 +1,5 @@
-import { type AuthUser, accountDisplayName, isAdminUser } from "@internal/auth-client";
+import { accountDisplayName } from "@internal/auth-client/display-name";
+import { type AuthUser, isAdminUser } from "@internal/auth-client/roles";
 import { href, Link } from "react-router";
 import { LogoutForm } from "~/components/auth/LogoutForm";
 

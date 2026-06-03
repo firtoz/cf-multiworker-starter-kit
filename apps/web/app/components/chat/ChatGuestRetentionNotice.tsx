@@ -1,11 +1,12 @@
+import type { ReactNode } from "react";
 import { href, Link } from "react-router";
 
 type ChatGuestRetentionNoticeProps = {
 	guestRetentionDays: number;
-	sessionExpiresAt: string;
+	sessionExpiresAt: ReactNode;
 };
 
-function noticeBody(guestRetentionDays: number, sessionExpiresAt: string) {
+function noticeBody(guestRetentionDays: number, sessionExpiresAt: ReactNode) {
 	return (
 		<>
 			Your guest name and history on this device last <strong>{guestRetentionDays} days</strong>{" "}

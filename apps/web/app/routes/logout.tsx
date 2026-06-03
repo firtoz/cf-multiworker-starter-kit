@@ -1,6 +1,6 @@
 import { env } from "cloudflare:workers";
 import type { RoutePath } from "@firtoz/router-toolkit";
-import { signOut } from "@internal/auth-client";
+import { signOut } from "@internal/auth-client/sign-out";
 import { href, redirect } from "react-router";
 import type { Route } from "./+types/logout";
 

@@ -2,7 +2,7 @@ import { fail, type MaybeError, success } from "@firtoz/maybe-error";
 import type { RoutePath } from "@firtoz/router-toolkit";
 import { useState } from "react";
 import { Form, useFetcher } from "react-router";
-import { routeAuthClientContext } from "~/lib/route-auth-client";
+import { routeAuthClientContext } from "~/lib/route-auth-client.server";
 import type { Route } from "./+types/origins";
 
 export const route: RoutePath<"/admin/origins"> = "/admin/origins";

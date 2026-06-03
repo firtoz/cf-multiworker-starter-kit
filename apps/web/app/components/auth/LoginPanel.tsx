@@ -1,4 +1,4 @@
-import type { AuthProviders } from "@internal/auth-client";
+import type { AuthProviders } from "@internal/auth-client/session";
 import { useCallback, useEffect, useState } from "react";
 import { EmailAuthForm } from "~/components/auth/EmailAuthForm";
 import { GoogleOAuthPortlessWarning } from "~/components/auth/GoogleOAuthPortlessWarning";
@@ -14,6 +14,7 @@ import {
 
 type LoginPanelProps = {
 	redirectTo: string;
+	origin: string;
 	providers: AuthProviders;
 	googlePortlessWarning?: string;
 	oauthErrorMessage?: string;
@@ -31,12 +32,16 @@ function isMethodAvailable(method: LastLoginMethod, providers: AuthProviders): b
 
 export function LoginPanel({
 	redirectTo,
+	origin,
 	providers,
 	googlePortlessWarning,
 	oauthErrorMessage,
 }: LoginPanelProps) {
-	const callback = authCallbackUrl(redirectTo);
-	const loginErrorCallback = authCallbackUrl(`/login?redirectTo=${encodeURIComponent(redirectTo)}`);
+	const callback = authCallbackUrl(redirectTo, origin);
+	const loginErrorCallback = authCallbackUrl(
+		`/login?redirectTo=${encodeURIComponent(redirectTo)}`,
+		origin,
+	);
 	const [error, setError] = useState<string | null>(oauthErrorMessage ?? null);
 	const [busyProvider, setBusyProvider] = useState<"google" | "github" | null>(null);
 	const [lastUsed, setLastUsed] = useState<LastLoginMethod | null>(null);

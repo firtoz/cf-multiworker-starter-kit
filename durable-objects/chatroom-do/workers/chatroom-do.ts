@@ -6,6 +6,7 @@ import {
 	CHATROOM_AUTH_IS_GUEST_HEADER,
 	CHATROOM_AUTH_USER_ID_HEADER,
 	CHATROOM_INTERNAL_SECRET_HEADER,
+	type ChatMessageRow,
 	chatContract,
 } from "@internal/chat-contract";
 import {
@@ -55,6 +56,14 @@ function isGuestFromAttestedHeader(raw: string | null | undefined): boolean {
 	return raw?.trim().toLowerCase() === "true";
 }
 
+function historyLimit(raw: string | null | undefined): number {
+	const parsed = Number(raw ?? "");
+	if (!Number.isFinite(parsed)) {
+		return 200;
+	}
+	return Math.min(500, Math.max(1, Math.trunc(parsed)));
+}
+
 function attestedWebSocketDenied(headers: Headers, internalSecret: string): Response | undefined {
 	const secretOk = headers.get(CHATROOM_INTERNAL_SECRET_HEADER) === internalSecret;
 	if (!secretOk) {
@@ -79,20 +88,28 @@ function sanitizeWebSocketCloseCode(code: number): number {
 export class ChatroomDo extends SockaWebSocketDO<typeof chatContract, SessionData, Env> {
 	protected readonly contract = chatContract;
 
-	readonly app = this.getBaseApp().delete(
-		"/admin/messages/:messageId",
-		async (c): Promise<TypedResponse<ChatroomAdminDeleteResult>> => {
-			const allowed = checkChatroomAdminAllowed(
-				c.req.raw.headers,
-				this.env.CHATROOM_INTERNAL_SECRET,
-			);
-			if (!allowed.success) {
-				return c.json(allowed, allowed.error.status);
+	readonly app = this.getBaseApp()
+		.get("/history", async (c): Promise<TypedResponse<{ messages: ChatMessageRow[] }>> => {
+			if (c.req.header(CHATROOM_INTERNAL_SECRET_HEADER) !== this.env.CHATROOM_INTERNAL_SECRET) {
+				return c.json({ messages: [] }, 401);
 			}
-			const result = await this.deleteMessageForAdmin(c.req.param("messageId"));
-			return c.json(result, chatroomAdminDeleteHttpStatus(result));
-		},
-	);
+			const messages = await this.listHistory(historyLimit(c.req.query("limit")));
+			return c.json({ messages });
+		})
+		.delete(
+			"/admin/messages/:messageId",
+			async (c): Promise<TypedResponse<ChatroomAdminDeleteResult>> => {
+				const allowed = checkChatroomAdminAllowed(
+					c.req.raw.headers,
+					this.env.CHATROOM_INTERNAL_SECRET,
+				);
+				if (!allowed.success) {
+					return c.json(allowed, allowed.error.status);
+				}
+				const result = await this.deleteMessageForAdmin(c.req.param("messageId"));
+				return c.json(result, chatroomAdminDeleteHttpStatus(result));
+			},
+		);
 
 	private db: ChatroomDb | null = null;
 
@@ -110,6 +127,15 @@ export class ChatroomDo extends SockaWebSocketDO<typeof chatContract, SessionDat
 			throw new Error("Chatroom DO database not ready");
 		}
 		return this.db;
+	}
+
+	private async listHistory(limit: number): Promise<ChatMessageRow[]> {
+		const rows = await this.getDb()
+			.select()
+			.from(chatMessagesTable)
+			.orderBy(desc(chatMessagesTable.ts))
+			.limit(limit);
+		return rows.reverse();
 	}
 
 	async deleteMessageForAdmin(messageId: string): Promise<ChatroomAdminDeleteResult> {
@@ -169,13 +195,7 @@ export class ChatroomDo extends SockaWebSocketDO<typeof chatContract, SessionDat
 				listHistory: async (input: unknown, _session) => {
 					this.touchActivityTtl();
 					const { limit } = input as { limit?: number };
-					const lim = limit ?? 200;
-					const rows = await this.getDb()
-						.select()
-						.from(chatMessagesTable)
-						.orderBy(desc(chatMessagesTable.ts))
-						.limit(lim);
-					const messages = rows.reverse();
+					const messages = await this.listHistory(historyLimit(String(limit ?? "")));
 					return { messages };
 				},
 				listPresence: async (_input, session) => {

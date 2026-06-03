@@ -1,4 +1,6 @@
-import { type AuthProviders, type AuthUser, accountDisplayName } from "@internal/auth-client";
+import { accountDisplayName } from "@internal/auth-client/display-name";
+import type { AuthUser } from "@internal/auth-client/roles";
+import type { AuthProviders } from "@internal/auth-client/session";
 import { SIGNED_IN_SESSION_DAYS } from "@internal/auth-db/constants";
 import { type ComponentProps, useCallback, useEffect, useState } from "react";
 import { href } from "react-router";
@@ -12,6 +14,7 @@ import { upgradeGuestWithEmail } from "~/lib/guest-upgrade-client";
 type GuestUpgradePanelProps = {
 	user: AuthUser;
 	redirectTo: string;
+	origin: string;
 	providers: AuthProviders;
 	googlePortlessWarning?: string;
 	linkErrorMessage?: string;
@@ -20,13 +23,15 @@ type GuestUpgradePanelProps = {
 export function GuestUpgradePanel({
 	user,
 	redirectTo,
+	origin,
 	providers,
 	googlePortlessWarning,
 	linkErrorMessage,
 }: GuestUpgradePanelProps) {
-	const callback = authCallbackUrl(redirectTo);
+	const callback = authCallbackUrl(redirectTo, origin);
 	const upgradeErrorCallback = authCallbackUrl(
 		`${href("/guest/upgrade")}?redirectTo=${encodeURIComponent(redirectTo)}`,
+		origin,
 	);
 	const displayName = accountDisplayName(user) ?? "Guest";
 	const [email, setEmail] = useState("");

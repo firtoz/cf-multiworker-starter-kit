@@ -1,19 +1,28 @@
 import type { InferSockaPushHandlers } from "@firtoz/socka";
 import { useSockaSession } from "@firtoz/socka/react";
-import {
-	type AuthUser,
-	accountDisplayName,
-	hasAccountDisplayName,
-	waitForBrowserSession,
-} from "@internal/auth-client";
+import { waitForBrowserSession } from "@internal/auth-client/browser-client";
+import { accountDisplayName, hasAccountDisplayName } from "@internal/auth-client/display-name";
+import type { AuthUser } from "@internal/auth-client/roles";
 import { type ChatMessageRow, chatContract } from "@internal/chat-contract";
-import type { KeyboardEvent as ReactKeyboardEvent } from "react";
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { href, Link, useFetcher, useSearchParams } from "react-router";
-import { ChatConnectingShell } from "~/components/chat/ChatConnectingShell";
+import {
+	type KeyboardEvent as ReactKeyboardEvent,
+	Suspense,
+	useCallback,
+	useEffect,
+	useLayoutEffect,
+	useMemo,
+	useRef,
+	useState,
+} from "react";
+import { Await, href, Link, useFetcher, useSearchParams } from "react-router";
 import { ChatGuestRetentionNotice } from "~/components/chat/ChatGuestRetentionNotice";
+import { ChatInitialHistoryError } from "~/components/chat/ChatInitialHistoryError";
+import { ChatInitialHistoryResolved } from "~/components/chat/ChatInitialHistoryResolved";
 import { ChatMessageItem } from "~/components/chat/ChatMessageItem";
 import { ChatRoomToolbar } from "~/components/chat/ChatRoomToolbar";
+import { ChatServerShell } from "~/components/chat/ChatServerShell";
+import { LocalDateTime } from "~/components/shared/LocalDateTime";
+import { markChatPerformance, measureChatPerformance } from "~/lib/chat-performance";
 import {
 	buildChatWsUrl,
 	isChatRoomIdInputValid,
@@ -30,6 +39,25 @@ const CHAT_MESSAGE_LIST_MIN_H_CLASS = "min-h-[150px]" as const;
 
 /** Treat as pinned when within a few CSS px of the true bottom (avoids subpixel / rounding drift). */
 const BOTTOM_STICKY_PX = 4;
+
+function mergeMessages(
+	history: ChatMessageRow[],
+	current: ChatMessageRow[],
+	deletedIds: ReadonlySet<string>,
+): ChatMessageRow[] {
+	const byId = new Map<string, ChatMessageRow>();
+	for (const message of history) {
+		if (!deletedIds.has(message.id)) {
+			byId.set(message.id, message);
+		}
+	}
+	for (const message of current) {
+		if (!deletedIds.has(message.id)) {
+			byId.set(message.id, message);
+		}
+	}
+	return [...byId.values()].sort((a, b) => a.ts - b.ts || a.id.localeCompare(b.id));
+}
 
 async function mintChatAttestToken(room: string): Promise<{ room: string; token: string }> {
 	const response = await fetch("/api/chat/attest", {
@@ -54,14 +82,6 @@ function withYouLabel(
 	}));
 }
 
-function formatSessionExpiry(iso: string): string {
-	const d = new Date(iso);
-	if (Number.isNaN(d.getTime())) {
-		return iso;
-	}
-	return d.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
-}
-
 type ChatClientProps = {
 	user: AuthUser;
 	sessionExpiresAt: string;
@@ -69,6 +89,7 @@ type ChatClientProps = {
 	pendingAuthCookies: boolean;
 	chatAttestToken: string;
 	chatAttestRoom: string;
+	initialMessages: Promise<ChatMessageRow[]>;
 	canModerate: boolean;
 	saveNameError?: string;
 };
@@ -77,10 +98,10 @@ type ChatClientProps = {
 export function ChatClient(props: ChatClientProps) {
 	const [browserReady, setBrowserReady] = useState(false);
 	const [wsConnectReady, setWsConnectReady] = useState(!props.pendingAuthCookies);
-	const displayName = accountDisplayName(props.user) ?? "Guest";
 	const room = props.chatAttestRoom;
 
 	useEffect(() => {
+		markChatPerformance("client-mounted");
 		setBrowserReady(true);
 	}, []);
 
@@ -100,11 +121,33 @@ export function ChatClient(props: ChatClientProps) {
 	}, [props.pendingAuthCookies]);
 
 	if (!browserReady) {
-		return <ChatConnectingShell displayName={displayName} room={room} status="Preparing chat" />;
+		return (
+			<ChatServerShell
+				user={props.user}
+				sessionExpiresAt={props.sessionExpiresAt}
+				guestRetentionDays={props.guestRetentionDays}
+				room={room}
+				status="Preparing chat"
+				initialMessages={props.initialMessages}
+				canModerate={props.canModerate}
+				{...(props.saveNameError === undefined ? {} : { saveNameError: props.saveNameError })}
+			/>
+		);
 	}
 
 	if (!wsConnectReady) {
-		return <ChatConnectingShell displayName={displayName} room={room} status="Starting session" />;
+		return (
+			<ChatServerShell
+				user={props.user}
+				sessionExpiresAt={props.sessionExpiresAt}
+				guestRetentionDays={props.guestRetentionDays}
+				room={room}
+				status="Starting session"
+				initialMessages={props.initialMessages}
+				canModerate={props.canModerate}
+				{...(props.saveNameError === undefined ? {} : { saveNameError: props.saveNameError })}
+			/>
+		);
 	}
 
 	return <ChatClientWithSocket {...props} />;
@@ -117,6 +160,7 @@ function ChatClientWithSocket({
 	saveNameError,
 	chatAttestToken,
 	chatAttestRoom,
+	initialMessages,
 	canModerate,
 }: Omit<ChatClientProps, "pendingAuthCookies">) {
 	const isAnonymousGuest = user.isAnonymous === true;
@@ -143,14 +187,24 @@ function ChatClientWithSocket({
 	const [roomAttest, setRoomAttest] = useState<{ room: string; token: string } | null>(null);
 	const [joinPending, setJoinPending] = useState(false);
 	const [openedRoom, setOpenedRoom] = useState<string | null>(null);
+	const [initialHistoryStatus, setInitialHistoryStatus] = useState<"pending" | "ready" | "error">(
+		"pending",
+	);
 	/** `useLayoutEffect` needs self in deps; ref alone can lag behind first `messages` paint. */
 	const [selfUserId, setSelfUserId] = useState<string | null>(null);
 	const selfUserIdRef = useRef<string | null>(null);
 	const messageListRef = useRef<HTMLUListElement | null>(null);
+	const deletedMessageIdsRef = useRef(new Set<string>());
 	/** True if the user is at (or we just snapped to) the true bottom. */
 	const stuckToBottomRef = useRef(true);
 	/** Revert name field on blur/Esc to what it was on last focus. */
 	const nameFieldSnap = useRef(nameDraft);
+	const didRunRoomResetRef = useRef(false);
+	const initialMessagesRef = useRef(initialMessages);
+
+	useEffect(() => {
+		markChatPerformance("socket-controller-mounted");
+	}, []);
 
 	const wsUrl = useMemo(() => {
 		const token =
@@ -196,6 +250,7 @@ function ChatClientWithSocket({
 				setMessages([]);
 			},
 			messageDeleted: ({ id }: { id: string }) => {
+				deletedMessageIdsRef.current.add(id);
 				setMessages((prev) => prev.filter((m) => m.id !== id));
 			},
 		}),
@@ -208,6 +263,7 @@ function ChatClientWithSocket({
 			url: wsUrl,
 			pushHandlers,
 			onOpen: () => {
+				markChatPerformance("socket-open");
 				setOpenedRoom(committedRoom);
 			},
 			onClose: (event) => {
@@ -235,21 +291,61 @@ function ChatClientWithSocket({
 
 	const loadInitial = useCallback(async () => {
 		stuckToBottomRef.current = true;
-		const historyPromise = send.listHistory({ limit: 200 }).then(({ messages: hist }) => {
-			setMessages(hist);
-		});
+		markChatPerformance("initial-load-start");
+		const canUseLoaderHistory =
+			committedRoom === chatAttestRoom && initialHistoryStatus !== "error";
+		const historyPromise = canUseLoaderHistory
+			? Promise.resolve()
+			: send.listHistory({ limit: 200 }).then(({ messages: hist }) => {
+					markChatPerformance("history-fallback-loaded");
+					setMessages((current) => mergeMessages(hist, current, deletedMessageIdsRef.current));
+				});
 		const presencePromise = send.listPresence({}).then(({ selfUserId, users }) => {
+			markChatPerformance("presence-loaded");
 			applyPresence(selfUserId, users);
 		});
 		await Promise.all([historyPromise, presencePromise]);
-	}, [send, applyPresence]);
+		markChatPerformance("initial-load-complete");
+		measureChatPerformance("initial-load", "initial-load-start", "initial-load-complete");
+	}, [send, applyPresence, committedRoom, chatAttestRoom, initialHistoryStatus]);
+
+	const applyInitialMessages = useCallback(
+		(history: ChatMessageRow[]) => {
+			setInitialHistoryStatus("ready");
+			markChatPerformance("initial-history-state-applied");
+			if (committedRoom !== chatAttestRoom) {
+				return;
+			}
+			stuckToBottomRef.current = true;
+			setMessages((current) => mergeMessages(history, current, deletedMessageIdsRef.current));
+		},
+		[committedRoom, chatAttestRoom],
+	);
+
+	const markInitialHistoryError = useCallback(() => {
+		setInitialHistoryStatus("error");
+	}, []);
 
 	useEffect(() => {
+		if (initialMessagesRef.current === initialMessages) {
+			return;
+		}
+		initialMessagesRef.current = initialMessages;
+		setInitialHistoryStatus("pending");
+	}, [initialMessages]);
+
+	useEffect(() => {
+		if (!didRunRoomResetRef.current) {
+			didRunRoomResetRef.current = true;
+			return;
+		}
 		setMessages([]);
 		setPresence([]);
 		setSelfUserId(null);
 		setSocketError(null);
+		setInitialHistoryStatus("pending");
 		selfUserIdRef.current = null;
+		deletedMessageIdsRef.current = new Set();
 		stuckToBottomRef.current = true;
 		setOpenedRoom((current) => (current === committedRoom ? null : current));
 	}, [committedRoom]);
@@ -394,7 +490,6 @@ function ChatClientWithSocket({
 		setCommittedRoom(fromUrl);
 	}, [searchParams]);
 
-	const sessionExpiryLabel = formatSessionExpiry(sessionExpiresAt);
 	const presenceSummary =
 		presence.length > 0 ? presence.map((u) => u.displayName).join(", ") : null;
 	const connectionLabel = connectionReady
@@ -442,7 +537,7 @@ function ChatClientWithSocket({
 				{isAnonymousGuest ? (
 					<ChatGuestRetentionNotice
 						guestRetentionDays={guestRetentionDays}
-						sessionExpiresAt={sessionExpiryLabel}
+						sessionExpiresAt={<LocalDateTime value={sessionExpiresAt} />}
 					/>
 				) : null}
 				{!isAnonymousGuest && !usesAccountName ? (
@@ -503,6 +598,24 @@ function ChatClientWithSocket({
 					aria-label="Message history"
 					onScroll={updateStuckToBottom}
 				>
+					{committedRoom === chatAttestRoom && initialHistoryStatus === "pending" ? (
+						<Suspense
+							fallback={
+								messages.length === 0 ? (
+									<li className="text-sm text-gray-500">Loading message history…</li>
+								) : null
+							}
+						>
+							<Await
+								resolve={initialMessages}
+								errorElement={<ChatInitialHistoryError onError={markInitialHistoryError} />}
+							>
+								{(history) => (
+									<ChatInitialHistoryResolved messages={history} onResolve={applyInitialMessages} />
+								)}
+							</Await>
+						</Suspense>
+					) : null}
 					{messages.map((m) => (
 						<ChatMessageItem
 							key={m.id}

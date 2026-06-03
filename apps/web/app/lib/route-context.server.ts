@@ -1,4 +1,4 @@
-import type { AuthSession } from "@internal/auth-client";
+import type { AuthSession } from "@internal/auth-client/roles";
 import { createContext, type RouterContextProvider } from "react-router";
 
 export type AuthSessionResolver = () => Promise<AuthSession | null>;

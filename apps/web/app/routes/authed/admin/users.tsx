@@ -3,8 +3,8 @@ import type { RoutePath } from "@firtoz/router-toolkit";
 import type { AdminUserRow } from "@internal/auth-db/api-schemas";
 import { GUEST_SESSION_RETENTION_DAYS } from "@internal/auth-db/constants";
 import { AdminUsersPanel } from "~/components/admin/AdminUsersPanel";
-import { routeAuthClientContext } from "~/lib/route-auth-client";
-import { adminAuthSessionContext } from "~/lib/route-context";
+import { routeAuthClientContext } from "~/lib/route-auth-client.server";
+import { adminAuthSessionContext } from "~/lib/route-context.server";
 import type { Route } from "./+types/users";
 
 export const route: RoutePath<"/admin/users"> = "/admin/users";

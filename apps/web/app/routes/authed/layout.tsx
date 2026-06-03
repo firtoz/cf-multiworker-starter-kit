@@ -1,5 +1,5 @@
 import { Outlet } from "react-router";
-import { routeAuthClientMiddleware } from "~/lib/route-auth-client";
+import { routeAuthClientMiddleware } from "~/lib/route-auth-client.server";
 import type { Route } from "./+types/layout";
 
 export const middleware: Route.MiddlewareFunction[] = [routeAuthClientMiddleware];

@@ -48,6 +48,21 @@ export const chatroomWorkerApp = new Hono<ChatroomHonoContext>()
 			return c.json(body, chatroomAdminDeleteHttpStatus(body));
 		},
 	)
+	.get("/rooms/:room/history", async (c) => {
+		if (c.req.header(CHATROOM_INTERNAL_SECRET_HEADER) !== c.env.CHATROOM_INTERNAL_SECRET) {
+			return c.json({ messages: [] }, 401);
+		}
+		const room = sanitizeChatRoomId(c.req.param("room"));
+		using api = honoDoFetcherWithName(c.env.ChatroomDo, room);
+		const limit = c.req.query("limit");
+		const res = await api.get({
+			url: "/history",
+			...(limit ? { query: { limit } } : {}),
+			init: { headers: c.req.raw.headers },
+		});
+		const body = await res.json();
+		return c.json(body, res.status === 200 ? 200 : 500);
+	})
 	.all("/websocket", async (c) => {
 		const room = sanitizeChatRoomId(c.req.query("room") ?? "lobby");
 		if (c.req.header(CHATROOM_INTERNAL_SECRET_HEADER) !== c.env.CHATROOM_INTERNAL_SECRET) {

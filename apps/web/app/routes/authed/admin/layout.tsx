@@ -2,8 +2,8 @@ import { success } from "@firtoz/maybe-error";
 import type { RoutePath } from "@firtoz/router-toolkit";
 import { href, Link, Outlet } from "react-router";
 import { BackToHomeLink } from "~/components/shared/BackToHomeLink";
-import { requireAdminMiddleware } from "~/lib/admin-auth-middleware";
-import { adminAuthSessionContext } from "~/lib/route-context";
+import { requireAdminMiddleware } from "~/lib/admin-auth-middleware.server";
+import { adminAuthSessionContext } from "~/lib/route-context.server";
 import type { Route } from "./+types/layout";
 
 export const route: RoutePath<"/admin"> = "/admin";

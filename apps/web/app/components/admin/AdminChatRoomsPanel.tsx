@@ -1,6 +1,6 @@
 import type { ChatRoomRow } from "@internal/db";
 import { href, Link } from "react-router";
-import { formatAdminTimestamp } from "./admin-user-dates";
+import { LocalDateTime } from "~/components/shared/LocalDateTime";
 
 type AdminChatRoomsPanelProps = {
 	rooms: ChatRoomRow[];
@@ -41,8 +41,12 @@ export function AdminChatRoomsPanel({ rooms, total, actionError }: AdminChatRoom
 							{rooms.map((room) => (
 								<tr key={room.id} className="border-t border-gray-200 dark:border-gray-700">
 									<td className="px-3 py-2 font-mono">{room.id}</td>
-									<td className="px-3 py-2">{formatAdminTimestamp(room.createdAt)}</td>
-									<td className="px-3 py-2">{formatAdminTimestamp(room.lastActiveAt)}</td>
+									<td className="px-3 py-2">
+										<LocalDateTime value={room.createdAt} />
+									</td>
+									<td className="px-3 py-2">
+										<LocalDateTime value={room.lastActiveAt} />
+									</td>
 									<td className="px-3 py-2">
 										<Link
 											to={`${href("/chat")}?room=${encodeURIComponent(room.id)}`}

@@ -1,5 +1,6 @@
 import type { ChatMessageRow } from "@internal/chat-contract";
 import { chatAuthorNameClassName } from "~/components/chat/chat-display-name-styles";
+import { LocalDateTime } from "~/components/shared/LocalDateTime";
 
 type ChatMessageItemProps = {
 	message: ChatMessageRow;
@@ -7,6 +8,10 @@ type ChatMessageItemProps = {
 	deleteBusy: boolean;
 	onDelete: (messageId: string) => void;
 };
+
+const MESSAGE_TIME_OPTIONS = {
+	timeStyle: "short",
+} satisfies Intl.DateTimeFormatOptions;
 
 export function ChatMessageItem({
 	message,
@@ -18,7 +23,11 @@ export function ChatMessageItem({
 		<li className="text-sm wrap-break-word">
 			<div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
 				<span className={chatAuthorNameClassName(message.isGuest)}>{message.displayName}</span>
-				<span className="text-gray-500 text-xs">{new Date(message.ts).toLocaleTimeString()}</span>
+				<LocalDateTime
+					className="text-gray-500 text-xs"
+					value={message.ts}
+					options={MESSAGE_TIME_OPTIONS}
+				/>
 				{canModerate ? (
 					<button
 						type="button"

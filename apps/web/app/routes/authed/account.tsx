@@ -1,7 +1,8 @@
 import { env } from "cloudflare:workers";
 import { fail, type MaybeError, success } from "@firtoz/maybe-error";
 import { formAction, type RoutePath } from "@firtoz/router-toolkit";
-import { type AuthUser, accountDisplayName } from "@internal/auth-client";
+import { accountDisplayName } from "@internal/auth-client/display-name";
+import type { AuthUser } from "@internal/auth-client/roles";
 import {
 	type AccountSessionRow,
 	type AccountSummary,
@@ -16,11 +17,11 @@ import { AccountPasswordForm } from "~/components/account/AccountPasswordForm";
 import { AccountSessionsSection } from "~/components/account/AccountSessionsSection";
 import { AccountSignInMethods } from "~/components/account/AccountSignInMethods";
 import { BackToHomeLink } from "~/components/shared/BackToHomeLink";
-import { requireSignedInMiddleware } from "~/lib/admin-auth-middleware";
+import { requireSignedInMiddleware } from "~/lib/admin-auth-middleware.server";
 import { accountLinkErrorFromUrl } from "~/lib/auth-link-error";
-import { googleOAuthPortlessWarningForWebEnv } from "~/lib/google-oauth-portless-warning";
-import { routeAuthClientContext } from "~/lib/route-auth-client";
-import { signedInAuthSessionContext } from "~/lib/route-context";
+import { googleOAuthPortlessWarningForWebEnv } from "~/lib/google-oauth-portless-warning.server";
+import { routeAuthClientContext } from "~/lib/route-auth-client.server";
+import { signedInAuthSessionContext } from "~/lib/route-context.server";
 import type { Route } from "./+types/account";
 
 export const route: RoutePath<"/account"> = "/account";

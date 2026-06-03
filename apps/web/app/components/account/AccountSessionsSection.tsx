@@ -6,6 +6,7 @@ import {
 import type { AccountSessionRow } from "@internal/auth-db/api-schemas";
 import { useCallback, useRef, useState } from "react";
 import { useRevalidator } from "react-router";
+import { LocalDateTime } from "~/components/shared/LocalDateTime";
 import { accountFormErrorMessage } from "~/lib/account-form-error";
 import { formatSessionDevice } from "~/lib/format-session-device";
 
@@ -15,14 +16,6 @@ type AccountSessionsSectionProps = {
 	sessions: AccountSessionRow[];
 	currentSessionId: string;
 };
-
-function formatSessionWhen(iso: string): string {
-	const d = new Date(iso);
-	if (Number.isNaN(d.getTime())) {
-		return iso;
-	}
-	return d.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
-}
 
 export function AccountSessionsSection({
 	sessions,
@@ -116,11 +109,11 @@ export function AccountSessionsSection({
 									</p>
 								) : null}
 								<p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-									Last active {formatSessionWhen(session.updatedAt)}
+									Last active <LocalDateTime value={session.updatedAt} />
 									{session.ipAddress ? ` · ${session.ipAddress}` : ""}
 								</p>
 								<p className="text-xs text-gray-500 dark:text-gray-400">
-									Expires {formatSessionWhen(session.expiresAt)}
+									Expires <LocalDateTime value={session.expiresAt} />
 								</p>
 							</div>
 							{isCurrent ? null : (

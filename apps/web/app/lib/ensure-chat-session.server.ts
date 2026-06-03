@@ -1,11 +1,8 @@
-import {
-	type AuthSession,
-	buildAuthBindingHeaders,
-	collectSetCookieHeaders,
-	cookieHeaderAfterSetCookie,
-	getSession,
-} from "@internal/auth-client";
 import { createBindingAuthWorkerHonoClient } from "@internal/auth-client/binding";
+import { buildAuthBindingHeaders } from "@internal/auth-client/binding-headers";
+import { collectSetCookieHeaders, cookieHeaderAfterSetCookie } from "@internal/auth-client/cookies";
+import type { AuthSession } from "@internal/auth-client/roles";
+import { getSession } from "@internal/auth-client/session";
 
 export type EnsureChatSessionResult = {
 	session: AuthSession;

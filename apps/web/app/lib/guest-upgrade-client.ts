@@ -1,5 +1,5 @@
 import type { MaybeError } from "@firtoz/maybe-error";
-import { browserClient } from "@internal/auth-client";
+import { browserClient } from "@internal/auth-client/browser-client";
 import type { GuestUpgradeEmailResponse } from "@internal/auth-db/api-schemas";
 import { setLastLoginMethod } from "~/lib/last-login-method";
 
