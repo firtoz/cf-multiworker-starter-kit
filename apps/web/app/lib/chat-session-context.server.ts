@@ -3,7 +3,7 @@ import { createAuthClient } from "@internal/auth-client/client";
 import { createContext, type RouterContextProvider } from "react-router";
 import { type EnsureChatSessionResult, ensureChatSession } from "./ensure-chat-session.server";
 import { routeAuthClientContext } from "./route-auth-client.server";
-import { setResolvedAuthSession } from "./route-context.server";
+import { resolveAuthSession, setResolvedAuthSession } from "./route-context.server";
 
 export const chatSessionContext = createContext<EnsureChatSessionResult | null>(null);
 
@@ -19,7 +19,8 @@ export async function resolveRouteChatSession({
 		return existing;
 	}
 
-	const ensured = await ensureChatSession(env.AUTH, request);
+	const preloadedSession = await resolveAuthSession(context);
+	const ensured = await ensureChatSession(env.AUTH, request, preloadedSession);
 	context.set(chatSessionContext, ensured);
 	if (ensured) {
 		setResolvedAuthSession(context, ensured.session);
