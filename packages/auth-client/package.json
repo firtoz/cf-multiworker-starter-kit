@@ -6,6 +6,10 @@
 		".": {
 			"types": "./src/index.ts",
 			"default": "./src/index.ts"
+		},
+		"./binding": {
+			"types": "./src/binding/create-binding-hono-client.ts",
+			"default": "./src/binding/create-binding-hono-client.ts"
 		}
 	},
 	"scripts": {

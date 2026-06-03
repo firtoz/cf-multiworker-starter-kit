@@ -1,5 +1,4 @@
 import { createBindingAuthWorkerHonoClient } from "../binding/create-binding-hono-client";
-import { type EnsureChatSessionResult, ensureChatSession } from "../chat-session";
 import { type AuthSession, isAdminUser } from "../roles";
 import { getSession } from "../session";
 import { createAccountApi } from "./account-api";
@@ -40,8 +39,6 @@ export function createAuthClient(auth: Fetcher, request: Request, options?: Auth
 				}
 				return session;
 			},
-			ensureChat: (): Promise<EnsureChatSessionResult | null> =>
-				ensureChatSession(auth, request, preloadedSession),
 		},
 		admin: createAdminApi(hono.admin),
 		account: createAccountApi(hono.account),

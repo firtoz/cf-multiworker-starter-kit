@@ -1,7 +1,7 @@
 import { env } from "cloudflare:workers";
-import type { EnsureChatSessionResult } from "@internal/auth-client";
-import { createAuthClient, ensureChatSession } from "@internal/auth-client";
+import { createAuthClient } from "@internal/auth-client";
 import { createContext, type RouterContextProvider } from "react-router";
+import { type EnsureChatSessionResult, ensureChatSession } from "./ensure-chat-session";
 import { routeAuthClientContext } from "./route-auth-client";
 import { setResolvedAuthSession } from "./route-context";
 
