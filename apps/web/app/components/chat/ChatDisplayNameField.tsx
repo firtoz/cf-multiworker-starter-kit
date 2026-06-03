@@ -1,6 +1,7 @@
 import type { FocusEvent, KeyboardEvent as ReactKeyboardEvent } from "react";
 import { useEffect, useRef, useState } from "react";
 import { chatAuthorNameClassName } from "~/components/chat/chat-display-name-styles";
+import { cn } from "~/lib/cn";
 
 type ChatDisplayNameFieldProps = {
 	value: string;
@@ -94,7 +95,10 @@ export function ChatDisplayNameField({
 			type="button"
 			disabled={!ready}
 			title="Click to rename · Enter to save · Esc to cancel"
-			className={`min-w-0 max-w-full truncate border-b border-dashed border-gray-400 dark:border-gray-500 text-left cursor-text hover:border-blue-500 dark:hover:border-blue-400 disabled:cursor-not-allowed disabled:opacity-50 ${chatAuthorNameClassName(isGuest)}`}
+			className={cn(
+				"min-w-0 max-w-full truncate border-b border-dashed border-gray-400 dark:border-gray-500 text-left cursor-text hover:border-blue-500 dark:hover:border-blue-400 disabled:cursor-not-allowed disabled:opacity-50",
+				chatAuthorNameClassName(isGuest),
+			)}
 			onClick={() => {
 				onBeginEdit();
 				setEditing(true);

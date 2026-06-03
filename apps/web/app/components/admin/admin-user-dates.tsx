@@ -1,5 +1,6 @@
 import type { AdminUserRow } from "@internal/auth-db/api-schemas";
 import { LocalDateTime } from "~/components/shared/LocalDateTime";
+import { cn } from "~/lib/cn";
 
 function toDate(value: Date | string | null | undefined): Date | null {
 	if (value == null) {
@@ -34,7 +35,7 @@ export function AdminUserSessionExpiryCell({ user, guestRetentionDays }: Session
 	if (user.isAnonymous === true) {
 		return (
 			<div className="flex flex-col gap-0.5">
-				<LocalDateTime value={expires} className={expired ? "text-gray-500" : undefined} />
+				<LocalDateTime value={expires} className={cn({ "text-gray-500": expired })} />
 				<span className="text-xs text-gray-500 leading-snug">
 					{expired
 						? `Expired · ${guestRetentionDays}-day sliding window`
@@ -44,5 +45,5 @@ export function AdminUserSessionExpiryCell({ user, guestRetentionDays }: Session
 		);
 	}
 
-	return <LocalDateTime value={expires} className={expired ? "text-gray-500" : undefined} />;
+	return <LocalDateTime value={expires} className={cn({ "text-gray-500": expired })} />;
 }

@@ -337,9 +337,15 @@ function buildLocalGoogleOAuthProxyHooks(
 		}),
 	};
 
-	const updatedStockAfter = stockAfter.map((hook, index) =>
-		index === 0 ? withMatcher(hook, isGoogleOAuthProxyStart) : hook,
-	);
+	const updatedStockAfter = stockAfter.map((hook, index) => {
+		if (index === 0) {
+			return withMatcher(hook, isGoogleOAuthProxyStart);
+		}
+		if (index === stockAfter.length - 1) {
+			return withMatcher(hook, googleCallbackMatcher);
+		}
+		return hook;
+	});
 
 	return {
 		before: [loopbackBaseUrlHook, linkSocialCompletionHook, ...updatedStockBefore],

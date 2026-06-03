@@ -1,6 +1,6 @@
 ---
 name: react-patterns
-description: React patterns for callbacks, event handlers, and module-level constants. Use when writing React components, implementing event handlers, or defining constants.
+description: React patterns for callbacks, event handlers, JSX handler typing, and module-level constants. Use when writing React components, implementing event handlers, typing JSX handlers, or defining constants.
 ---
 
 # React Patterns
@@ -37,9 +37,74 @@ function Component({ onUpdate }) {
       handleUpdate(); // Always calls with latest value
     }, 1000);
     return () => clearInterval(interval);
-  }, []); // No dependencies needed
+}, []); // No dependencies needed
 }
 ```
+
+## Event Handler Types
+
+Prefer the JSX handler aliases for React props instead of deprecated event object aliases.
+
+```typescript
+import type {
+	ChangeEventHandler,
+	FormEventHandler,
+	InputEventHandler,
+	KeyboardEventHandler,
+	MouseEventHandler,
+} from "react";
+
+const handleSubmit: FormEventHandler<HTMLFormElement> = (event) => {
+	event.preventDefault();
+};
+
+const handleTextInput: InputEventHandler<HTMLTextAreaElement> = (event) => {
+	// `onInput` on textareas and inputs uses InputEventHandler.
+};
+
+const handleChange: ChangeEventHandler<HTMLInputElement> = (event) => {
+	// `onChange` uses ChangeEventHandler.
+};
+
+const handleKeyDown: KeyboardEventHandler<HTMLInputElement> = (event) => {
+	// ...
+};
+
+const handleClick: MouseEventHandler<HTMLButtonElement> = (event) => {
+	// ...
+};
+```
+
+- Use the handler alias that matches the JSX prop.
+- Avoid deprecated aliases like `FormEvent` when typing handler parameters.
+- If a handler is only used inline, let JSX infer it instead of importing a type just to repeat it.
+- For textareas, `onInput` and `onKeyDown` are often the right pair for auto-resize and submit-on-Enter behaviors.
+
+## Class Names
+
+Use the local `cn` helper for conditional or dynamic class names instead of string concatenation or template literal interpolation.
+
+```typescript
+import { cn } from "~/lib/cn";
+
+<div
+	className={cn({
+		"base classes": true,
+		active: isActive,
+		"opacity-50": isDisabled,
+	})}
+/>
+<li
+	className={cn({
+		"border-green-300 bg-green-50": isCurrent,
+		"border-gray-200 bg-white": !isCurrent,
+	})}
+/>
+```
+
+- Prefer object syntax with `cn({ "class-a": condition, "class-b": !condition })` for boolean-driven classes and mutually exclusive branches, especially for `checked ? ... : ...` or `isCurrent ? ... : ...` cases.
+- Keep static class strings inline unless the same combination is reused in more than one place.
+- Reach for `cn` whenever a class string depends on props, state, or a boolean branch.
 
 ## Module-Level Constants
 

@@ -5,7 +5,8 @@ import { accountDisplayName } from "@internal/auth-client/display-name";
 import { type AuthUser, isAdminUser } from "@internal/auth-client/roles";
 import { GUEST_SESSION_RETENTION_DAYS } from "@internal/auth-db/constants";
 import {
-	type ChatMessageRow,
+	CHAT_HISTORY_INITIAL_PAGE_SIZE,
+	type ChatHistoryPage,
 	createChatAttestToken,
 	resolveChatAttestedIdentity,
 	sanitizeChatRoomId,
@@ -45,7 +46,7 @@ export type ChatLoaderData = {
 	/** Room-scoped WS attest token — avoids AUTH `getSession` on WebSocket upgrade. */
 	chatAttestToken: string;
 	chatAttestRoom: string;
-	initialMessages: Promise<ChatMessageRow[]>;
+	initialMessages: Promise<ChatHistoryPage>;
 	canModerate: boolean;
 };
 
@@ -61,7 +62,9 @@ export async function loader({ request, context, url }: Route.LoaderArgs) {
 	const pendingAuthCookies = setCookieHeaders.length > 0;
 	const room = roomFromQueryParams(url.searchParams);
 	waitUntil(registerChatRoom(env.DB, room));
-	const initialMessages = listChatRoomHistory(env, room, 200).catch((error: unknown) => {
+	const initialMessages = listChatRoomHistory(env, room, {
+		limit: CHAT_HISTORY_INITIAL_PAGE_SIZE,
+	}).catch((error: unknown) => {
 		throw error;
 	});
 	const identity = resolveChatAttestedIdentity({

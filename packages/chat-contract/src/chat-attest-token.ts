@@ -15,7 +15,7 @@ const DEFAULT_TTL_MS = 5 * 60 * 1000;
 function encodeBase64Url(bytes: Uint8Array): string {
 	let binary = "";
 	for (let i = 0; i < bytes.length; i++) {
-		binary += String.fromCharCode(bytes[i]!);
+		binary += String.fromCharCode(bytes.at(i) ?? 0);
 	}
 	return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }

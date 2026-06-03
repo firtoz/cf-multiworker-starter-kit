@@ -1,20 +1,23 @@
-import type { ChatMessageRow } from "@internal/chat-contract";
-import { Suspense } from "react";
+import type { ChatHistoryPage, ChatMessageRow } from "@internal/chat-contract";
+import { type RefObject, Suspense } from "react";
 import { Await } from "react-router";
 import { ChatInitialHistoryError } from "~/components/chat/ChatInitialHistoryError";
 import { ChatInitialHistoryResolved } from "~/components/chat/ChatInitialHistoryResolved";
-import { ChatMessageItem } from "~/components/chat/ChatMessageItem";
+import { VirtualizedChatMessageList } from "~/components/chat/VirtualizedChatMessageList";
 
 type ChatLiveMessagesProps = {
 	committedRoom: string;
 	chatAttestRoom: string;
 	initialHistoryStatus: "pending" | "ready" | "error";
-	initialMessages: Promise<ChatMessageRow[]>;
+	initialMessages: Promise<ChatHistoryPage>;
 	messages: ChatMessageRow[];
+	messageListRef: RefObject<HTMLDivElement | null>;
 	canModerate: boolean;
 	deleteBusy: boolean;
+	historyLoadingOlder: boolean;
 	onInitialHistoryError: () => void;
-	onInitialHistoryResolve: (history: ChatMessageRow[]) => void;
+	onInitialHistoryResolve: (page: ChatHistoryPage) => void;
+	onStartReached: () => void;
 	onDeleteMessage: (messageId: string) => void;
 };
 
@@ -24,10 +27,13 @@ export function ChatLiveMessages({
 	initialHistoryStatus,
 	initialMessages,
 	messages,
+	messageListRef,
 	canModerate,
 	deleteBusy,
+	historyLoadingOlder,
 	onInitialHistoryError,
 	onInitialHistoryResolve,
+	onStartReached,
 	onDeleteMessage,
 }: ChatLiveMessagesProps) {
 	return (
@@ -36,7 +42,10 @@ export function ChatLiveMessages({
 				<Suspense
 					fallback={
 						messages.length === 0 ? (
-							<li className="text-sm text-gray-500">Loading message history...</li>
+							// biome-ignore lint/a11y/useSemanticElements: Virtualized chat uses ARIA roles on div rows.
+							<div className="text-sm text-gray-500" role="listitem">
+								Loading message history...
+							</div>
 						) : null
 					}
 				>
@@ -45,20 +54,20 @@ export function ChatLiveMessages({
 						errorElement={<ChatInitialHistoryError onError={onInitialHistoryError} />}
 					>
 						{(history) => (
-							<ChatInitialHistoryResolved messages={history} onResolve={onInitialHistoryResolve} />
+							<ChatInitialHistoryResolved page={history} onResolve={onInitialHistoryResolve} />
 						)}
 					</Await>
 				</Suspense>
 			) : null}
-			{messages.map((message) => (
-				<ChatMessageItem
-					key={message.id}
-					message={message}
-					canModerate={canModerate}
-					deleteBusy={deleteBusy}
-					onDelete={onDeleteMessage}
-				/>
-			))}
+			<VirtualizedChatMessageList
+				messages={messages}
+				scrollElementRef={messageListRef}
+				canModerate={canModerate}
+				deleteBusy={deleteBusy}
+				loadingOlder={historyLoadingOlder}
+				onStartReached={onStartReached}
+				onDeleteMessage={onDeleteMessage}
+			/>
 		</>
 	);
 }

@@ -3,11 +3,15 @@ import { PROFILE_NAME_MAX_CHARS } from "@internal/auth-db/constants";
 import { PRODUCT_PREFIX } from "alchemy-utils/worker-peer-scripts";
 import * as z from "zod";
 import type { ChatAttestedIdentity } from "./attested-identity";
-import { CHAT_MESSAGE_TEXT_MAX_CHARS } from "./limits";
+import { CHAT_HISTORY_MAX_PAGE_SIZE, CHAT_MESSAGE_TEXT_MAX_CHARS } from "./limits";
 
 export * from "./attested-identity";
 export * from "./chat-attest-token";
-export { CHAT_MESSAGE_TEXT_MAX_CHARS } from "./limits";
+export {
+	CHAT_HISTORY_INITIAL_PAGE_SIZE,
+	CHAT_HISTORY_MAX_PAGE_SIZE,
+	CHAT_MESSAGE_TEXT_MAX_CHARS,
+} from "./limits";
 export * from "./room-id";
 
 /** Set by the web worker after verifying an admin session (not client-controlled). */
@@ -82,6 +86,21 @@ export const messageRow = z.object({
 
 export type ChatMessageRow = z.infer<typeof messageRow>;
 
+export const chatHistoryCursor = z.object({
+	beforeTs: z.number().int().nonnegative(),
+	beforeId: z.string().min(1),
+});
+
+export type ChatHistoryCursor = z.infer<typeof chatHistoryCursor>;
+
+export const chatHistoryPage = z.object({
+	messages: z.array(messageRow),
+	nextCursor: chatHistoryCursor.optional(),
+	hasMore: z.boolean(),
+});
+
+export type ChatHistoryPage = z.infer<typeof chatHistoryPage>;
+
 const onlineUser = z.object({
 	userId: z.string(),
 	displayName: chatDisplayNameZ,
@@ -91,8 +110,14 @@ const onlineUser = z.object({
 export const chatContract = defineSocka({
 	calls: {
 		listHistory: {
-			input: z.object({ limit: z.number().int().min(1).max(500).optional() }),
-			output: z.object({ messages: z.array(messageRow) }),
+			input: z
+				.object({
+					limit: z.number().int().min(1).max(CHAT_HISTORY_MAX_PAGE_SIZE).optional(),
+					beforeTs: z.number().int().nonnegative().optional(),
+					beforeId: z.string().min(1).optional(),
+				})
+				.optional(),
+			output: chatHistoryPage,
 		},
 		listPresence: {
 			input: z.object({}).optional(),

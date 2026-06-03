@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { href, Link } from "react-router";
+import { cn } from "~/lib/cn";
 
 type ChatGuestRetentionNoticeProps = {
 	guestRetentionDays: number;
@@ -29,14 +30,14 @@ export function ChatGuestRetentionNotice({
 
 	return (
 		<>
-			<details className={`md:hidden ${boxClass}`}>
+			<details className={cn("md:hidden", boxClass)}>
 				<summary className="cursor-pointer list-none px-3 py-2 marker:content-none [&::-webkit-details-marker]:hidden">
 					<span className="font-medium">Guest session</span>
 					<span className="text-sky-800/80 dark:text-sky-200/80"> · {guestRetentionDays} days</span>
 				</summary>
 				<p className="px-3 pb-2 pt-0">{body}</p>
 			</details>
-			<p className={`hidden md:block px-3 py-2 ${boxClass}`}>{body}</p>
+			<p className={cn("hidden md:block px-3 py-2", boxClass)}>{body}</p>
 		</>
 	);
 }

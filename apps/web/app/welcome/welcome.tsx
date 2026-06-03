@@ -58,7 +58,7 @@ function ResourceIcon({ info }: { info: ResourceInfo }) {
 						alt={`${info.text} Documentation`}
 						width={displayWidth}
 						height={displayHeight}
-						className={cn(info.iconImgClassName, darkIconData ? "dark:hidden" : undefined)}
+						className={cn(info.iconImgClassName, { "dark:hidden": darkIconData })}
 					/>
 					{darkIconData && (
 						<img

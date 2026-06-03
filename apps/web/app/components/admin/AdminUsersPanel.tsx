@@ -3,6 +3,7 @@ import { PROFILE_NAME_MAX_CHARS } from "@internal/auth-db/constants";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useFetcher } from "react-router";
 import { LocalDateTime } from "~/components/shared/LocalDateTime";
+import { cn } from "~/lib/cn";
 import type { Route } from "../../routes/authed/admin/+types/users";
 import { AdminUserSessionExpiryCell, formatAdminUserType } from "./admin-user-dates";
 
@@ -217,7 +218,9 @@ export function AdminUsersPanel({
 							return (
 								<tr
 									key={u.id}
-									className={`border-b border-gray-100 dark:border-gray-800 ${checked ? "bg-gray-50/80 dark:bg-gray-900/40" : ""}`}
+									className={cn("border-b border-gray-100 dark:border-gray-800", {
+										"bg-gray-50/80 dark:bg-gray-900/40": checked,
+									})}
 								>
 									<td className="py-2 pr-2 align-top">
 										{isSelf ? (

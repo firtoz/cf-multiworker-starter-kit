@@ -13,8 +13,9 @@ const PROVIDER_LABELS = {
 
 type AccountSignInMethodsProps = {
 	summary: AccountSummary;
-	/** Path only (e.g. `/account`); absolute URL is built from `window.location.origin`. */
+	/** Path only (e.g. `/account`); absolute URL is built from `origin`. */
 	accountPath: string;
+	origin: string;
 	googlePortlessWarning?: string;
 	/** Shown after OAuth link redirect (e.g. provider already on another user). */
 	linkErrorMessage?: string;
@@ -23,6 +24,7 @@ type AccountSignInMethodsProps = {
 export function AccountSignInMethods({
 	summary,
 	accountPath,
+	origin,
 	googlePortlessWarning,
 	linkErrorMessage,
 }: AccountSignInMethodsProps) {
@@ -48,7 +50,7 @@ export function AccountSignInMethods({
 			setError(null);
 			setBusy(provider);
 			try {
-				const result = await linkSocialProvider(provider, authCallbackUrl(accountPath));
+				const result = await linkSocialProvider(provider, authCallbackUrl(accountPath, origin));
 				if (!result.success) {
 					setError(result.error);
 				}
@@ -56,7 +58,7 @@ export function AccountSignInMethods({
 				setBusy(null);
 			}
 		},
-		[accountPath],
+		[accountPath, origin],
 	);
 
 	return (
