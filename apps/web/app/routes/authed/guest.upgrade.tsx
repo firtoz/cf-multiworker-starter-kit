@@ -6,6 +6,7 @@ import { getAuthProviders } from "@internal/auth-client/session";
 import { data, href, redirect } from "react-router";
 import { GuestUpgradePanel } from "~/components/guest/GuestUpgradePanel";
 import { BackToHomeLink } from "~/components/shared/BackToHomeLink";
+import { authCanonicalOrigin } from "~/lib/auth-canonical-origin.server";
 import { accountLinkErrorFromUrl } from "~/lib/auth-link-error";
 import {
 	ensureChatSessionMiddleware,
@@ -53,7 +54,7 @@ export async function loader({ request, context, url }: Route.LoaderArgs) {
 		user: session.user,
 		displayName: accountDisplayName(session.user) ?? "Guest",
 		redirectTo,
-		origin: url.origin,
+		origin: authCanonicalOrigin(url, env),
 		providers,
 		...(googlePortlessWarning ? { googlePortlessWarning } : {}),
 		...(linkErrorMessage ? { linkErrorMessage } : {}),

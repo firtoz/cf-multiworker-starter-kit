@@ -1,13 +1,15 @@
 import { type SubmitEvent, useCallback, useState } from "react";
 import { authCallbackUrl } from "~/lib/auth-callback-url";
 import { signInWithEmail, signUpWithEmail } from "~/lib/auth-email-client";
+import { cn } from "~/lib/cn";
 
 type EmailAuthFormProps = {
 	redirectTo: string;
+	origin?: string;
 };
 
-export function EmailAuthForm({ redirectTo }: EmailAuthFormProps) {
-	const callbackURL = authCallbackUrl(redirectTo);
+export function EmailAuthForm({ redirectTo, origin }: EmailAuthFormProps) {
+	const callbackURL = authCallbackUrl(redirectTo, origin);
 	const [mode, setMode] = useState<"sign-in" | "sign-up">("sign-in");
 	const [name, setName] = useState("");
 	const [email, setEmail] = useState("");
@@ -43,14 +45,22 @@ export function EmailAuthForm({ redirectTo }: EmailAuthFormProps) {
 			<div className="flex gap-2 text-sm">
 				<button
 					type="button"
-					className={`px-3 py-1 rounded-md ${mode === "sign-in" ? "bg-gray-900 text-white dark:bg-gray-100 dark:text-gray-900" : "text-gray-600 dark:text-gray-400"}`}
+					className={cn({
+						"px-3 py-1 rounded-md bg-gray-900 text-white dark:bg-gray-100 dark:text-gray-900":
+							mode === "sign-in",
+						"px-3 py-1 rounded-md text-gray-600 dark:text-gray-400": mode !== "sign-in",
+					})}
 					onClick={() => setMode("sign-in")}
 				>
 					Sign in
 				</button>
 				<button
 					type="button"
-					className={`px-3 py-1 rounded-md ${mode === "sign-up" ? "bg-gray-900 text-white dark:bg-gray-100 dark:text-gray-900" : "text-gray-600 dark:text-gray-400"}`}
+					className={cn({
+						"px-3 py-1 rounded-md bg-gray-900 text-white dark:bg-gray-100 dark:text-gray-900":
+							mode === "sign-up",
+						"px-3 py-1 rounded-md text-gray-600 dark:text-gray-400": mode !== "sign-up",
+					})}
 					onClick={() => setMode("sign-up")}
 				>
 					Create account

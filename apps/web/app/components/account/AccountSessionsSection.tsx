@@ -8,6 +8,7 @@ import { useCallback, useRef, useState } from "react";
 import { useRevalidator } from "react-router";
 import { LocalDateTime } from "~/components/shared/LocalDateTime";
 import { accountFormErrorMessage } from "~/lib/account-form-error";
+import { cn } from "~/lib/cn";
 import { formatSessionDevice } from "~/lib/format-session-device";
 import { formatSessionIpAddress } from "~/lib/format-session-ip-address";
 
@@ -88,11 +89,14 @@ export function AccountSessionsSection({
 					return (
 						<li
 							key={session.id}
-							className={`rounded-lg border px-3 py-2 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between ${
-								isCurrent
-									? "border-green-300 bg-green-50/80 dark:border-green-800 dark:bg-green-950/30"
-									: "border-gray-200 dark:border-gray-700"
-							}`}
+							className={cn(
+								"rounded-lg border px-3 py-2 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between",
+								{
+									"border-green-300 bg-green-50/80 dark:border-green-800 dark:bg-green-950/30":
+										isCurrent,
+									"border-gray-200 dark:border-gray-700": !isCurrent,
+								},
+							)}
 						>
 							<div className="min-w-0 flex-1">
 								<div className="flex flex-wrap items-center gap-x-2 gap-y-1">

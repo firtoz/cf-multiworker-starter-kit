@@ -2,11 +2,14 @@ import { fail, success } from "@firtoz/maybe-error";
 import { type SockaDoSessionConfigInput, SockaWebSocketDO } from "@firtoz/socka/do";
 import { PROFILE_NAME_MAX_CHARS } from "@internal/auth-db/constants";
 import {
+	CHAT_HISTORY_INITIAL_PAGE_SIZE,
+	CHAT_HISTORY_MAX_PAGE_SIZE,
 	CHATROOM_AUTH_DISPLAY_NAME_HEADER,
 	CHATROOM_AUTH_IS_GUEST_HEADER,
 	CHATROOM_AUTH_USER_ID_HEADER,
 	CHATROOM_INTERNAL_SECRET_HEADER,
-	type ChatMessageRow,
+	type ChatHistoryCursor,
+	type ChatHistoryPage,
 	chatContract,
 } from "@internal/chat-contract";
 import {
@@ -15,7 +18,7 @@ import {
 	chatroomAdminDeleteHttpStatus,
 	checkChatroomAdminAllowed,
 } from "@internal/chat-contract/admin-http";
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq, lt, or } from "drizzle-orm";
 import { type DrizzleSqliteDODatabase, drizzle } from "drizzle-orm/durable-sqlite";
 import { migrate } from "drizzle-orm/durable-sqlite/migrator";
 import type { Context, TypedResponse } from "hono";
@@ -31,7 +34,7 @@ type SessionData = {
 };
 type ChatroomDb = DrizzleSqliteDODatabase<typeof schema>;
 
-const TTL_MS = 15 * 60 * 1000;
+const MESSAGE_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
 
 function sortPresence(users: { userId: string; displayName: string; isGuest: boolean }[]) {
 	return [...users].sort(
@@ -56,12 +59,24 @@ function isGuestFromAttestedHeader(raw: string | null | undefined): boolean {
 	return raw?.trim().toLowerCase() === "true";
 }
 
-function historyLimit(raw: string | null | undefined): number {
-	const parsed = Number(raw ?? "");
+function historyLimit(raw: number | string | null | undefined): number {
+	const parsed = typeof raw === "number" ? raw : Number(raw ?? "");
 	if (!Number.isFinite(parsed)) {
-		return 200;
+		return CHAT_HISTORY_INITIAL_PAGE_SIZE;
 	}
-	return Math.min(500, Math.max(1, Math.trunc(parsed)));
+	return Math.min(CHAT_HISTORY_MAX_PAGE_SIZE, Math.max(1, Math.trunc(parsed)));
+}
+
+function historyCursor(
+	beforeTs: number | string | null | undefined,
+	beforeId: string | null | undefined,
+): ChatHistoryCursor | undefined {
+	const parsedTs = typeof beforeTs === "number" ? beforeTs : Number(beforeTs ?? "");
+	const id = beforeId?.trim();
+	if (!Number.isFinite(parsedTs) || !id) {
+		return undefined;
+	}
+	return { beforeTs: Math.trunc(parsedTs), beforeId: id };
 }
 
 function attestedWebSocketDenied(headers: Headers, internalSecret: string): Response | undefined {
@@ -89,12 +104,15 @@ export class ChatroomDo extends SockaWebSocketDO<typeof chatContract, SessionDat
 	protected readonly contract = chatContract;
 
 	readonly app = this.getBaseApp()
-		.get("/history", async (c): Promise<TypedResponse<{ messages: ChatMessageRow[] }>> => {
+		.get("/history", async (c): Promise<TypedResponse<ChatHistoryPage>> => {
 			if (c.req.header(CHATROOM_INTERNAL_SECRET_HEADER) !== this.env.CHATROOM_INTERNAL_SECRET) {
-				return c.json({ messages: [] }, 401);
+				return c.json({ messages: [], hasMore: false }, 401);
 			}
-			const messages = await this.listHistory(historyLimit(c.req.query("limit")));
-			return c.json({ messages });
+			const page = await this.listHistory({
+				limit: historyLimit(c.req.query("limit")),
+				cursor: historyCursor(c.req.query("beforeTs"), c.req.query("beforeId")),
+			});
+			return c.json(page);
 		})
 		.delete(
 			"/admin/messages/:messageId",
@@ -129,13 +147,33 @@ export class ChatroomDo extends SockaWebSocketDO<typeof chatContract, SessionDat
 		return this.db;
 	}
 
-	private async listHistory(limit: number): Promise<ChatMessageRow[]> {
+	private async listHistory({
+		limit,
+		cursor,
+	}: {
+		limit: number;
+		cursor?: ChatHistoryCursor | undefined;
+	}): Promise<ChatHistoryPage> {
+		const whereOlderThanCursor = cursor
+			? or(
+					lt(chatMessagesTable.ts, cursor.beforeTs),
+					and(eq(chatMessagesTable.ts, cursor.beforeTs), lt(chatMessagesTable.id, cursor.beforeId)),
+				)
+			: undefined;
 		const rows = await this.getDb()
 			.select()
 			.from(chatMessagesTable)
-			.orderBy(desc(chatMessagesTable.ts))
-			.limit(limit);
-		return rows.reverse();
+			.where(whereOlderThanCursor)
+			.orderBy(desc(chatMessagesTable.ts), desc(chatMessagesTable.id))
+			.limit(limit + 1);
+		const hasMore = rows.length > limit;
+		const messages = rows.slice(0, limit).reverse();
+		const oldest = messages[0];
+		return {
+			messages,
+			hasMore,
+			...(hasMore && oldest ? { nextCursor: { beforeTs: oldest.ts, beforeId: oldest.id } } : {}),
+		};
 	}
 
 	async deleteMessageForAdmin(messageId: string): Promise<ChatroomAdminDeleteResult> {
@@ -192,11 +230,13 @@ export class ChatroomDo extends SockaWebSocketDO<typeof chatContract, SessionDat
 				await session.broadcastPush("presenceUpdated", { users }, false);
 			},
 			handlers: {
-				listHistory: async (input: unknown, _session) => {
+				listHistory: async (input, _session) => {
 					this.touchActivityTtl();
-					const { limit } = input as { limit?: number };
-					const messages = await this.listHistory(historyLimit(String(limit ?? "")));
-					return { messages };
+					const { limit, beforeTs, beforeId } = input ?? {};
+					return this.listHistory({
+						limit: historyLimit(limit),
+						cursor: historyCursor(beforeTs, beforeId),
+					});
 				},
 				listPresence: async (_input, session) => {
 					this.touchActivityTtl();
@@ -253,7 +293,7 @@ export class ChatroomDo extends SockaWebSocketDO<typeof chatContract, SessionDat
 	}
 
 	private touchActivityTtl(): void {
-		void this.ctx.storage.setAlarm(Date.now() + TTL_MS);
+		void this.ctx.storage.setAlarm(Date.now() + MESSAGE_RETENTION_MS);
 	}
 
 	override async webSocketMessage(ws: WebSocket, message: string | ArrayBuffer): Promise<void> {
@@ -271,6 +311,7 @@ export class ChatroomDo extends SockaWebSocketDO<typeof chatContract, SessionDat
 	}
 
 	override async alarm(): Promise<void> {
+		// This DO stores one room; after a month of inactivity, purge that room's persisted messages.
 		await this.ctx.storage.deleteAll();
 	}
 }

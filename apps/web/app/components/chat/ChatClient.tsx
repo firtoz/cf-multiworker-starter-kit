@@ -1,7 +1,7 @@
 import { waitForBrowserSession } from "@internal/auth-client/browser-client";
 import { accountDisplayName } from "@internal/auth-client/display-name";
 import type { AuthUser } from "@internal/auth-client/roles";
-import type { ChatMessageRow } from "@internal/chat-contract";
+import type { ChatHistoryPage } from "@internal/chat-contract";
 import { type KeyboardEvent as ReactKeyboardEvent, useEffect, useState } from "react";
 import { ChatClientWithSocket } from "~/components/chat/ChatClientWithSocket";
 import { ChatView, type ChatViewToolbarProps } from "~/components/chat/ChatView";
@@ -15,7 +15,7 @@ export type ChatClientProps = {
 	pendingAuthCookies: boolean;
 	chatAttestToken: string;
 	chatAttestRoom: string;
-	initialMessages: Promise<ChatMessageRow[]>;
+	initialMessages: Promise<ChatHistoryPage>;
 	canModerate: boolean;
 	saveNameError?: string;
 };
@@ -97,7 +97,7 @@ export function ChatClient(props: ChatClientProps) {
 			messageInputDisabled={true}
 			sendDisabled={true}
 		>
-			<ChatWaitingMessages initialMessages={props.initialMessages} onError={noop} />
+			<ChatWaitingMessages />
 		</ChatView>
 	);
 }

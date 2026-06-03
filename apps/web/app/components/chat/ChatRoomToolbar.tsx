@@ -1,5 +1,6 @@
 import type { KeyboardEvent as ReactKeyboardEvent } from "react";
 import { ChatDisplayNameField } from "~/components/chat/ChatDisplayNameField";
+import { cn } from "~/lib/cn";
 
 type ChatRoomToolbarProps = {
 	nameDraft: string;
@@ -82,7 +83,7 @@ export function ChatRoomToolbar({
 			<div className="flex shrink-0 items-center gap-1.5">
 				<span className={labelClass}>Room:</span>
 				<input
-					className={`${roomInputClass}${roomInputInvalid ? " border-red-500 dark:border-red-400" : ""}`}
+					className={cn(roomInputClass, { "border-red-500 dark:border-red-400": roomInputInvalid })}
 					value={roomInput}
 					onChange={(e) => onRoomChange(e.target.value)}
 					onKeyDown={onRoomKeyDown}

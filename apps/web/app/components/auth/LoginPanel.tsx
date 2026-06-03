@@ -124,7 +124,9 @@ export function LoginPanel({
 							{busyProvider === "github" ? "Redirecting…" : "Continue with GitHub"}
 						</button>
 					) : null}
-					{lastUsedAvailable === "email" ? <EmailAuthForm redirectTo={redirectTo} /> : null}
+					{lastUsedAvailable === "email" ? (
+						<EmailAuthForm redirectTo={redirectTo} origin={origin} />
+					) : null}
 				</div>
 			) : null}
 
@@ -155,12 +157,12 @@ export function LoginPanel({
 							{busyProvider === "github" ? "Redirecting…" : "Continue with GitHub"}
 						</button>
 					) : null}
-					{showOtherEmail ? <EmailAuthForm redirectTo={redirectTo} /> : null}
+					{showOtherEmail ? <EmailAuthForm redirectTo={redirectTo} origin={origin} /> : null}
 				</>
 			) : null}
 
 			{!lastUsedAvailable && !showOtherSocial && !showOtherEmail && providers.email ? (
-				<EmailAuthForm redirectTo={redirectTo} />
+				<EmailAuthForm redirectTo={redirectTo} origin={origin} />
 			) : null}
 
 			{error ? <p className="text-sm text-red-600">{error}</p> : null}

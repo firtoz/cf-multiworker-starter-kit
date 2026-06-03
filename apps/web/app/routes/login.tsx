@@ -5,6 +5,7 @@ import { type AuthProviders, getAuthProviders } from "@internal/auth-client/sess
 import { href, redirect } from "react-router";
 import { LoginPanel } from "~/components/auth/LoginPanel";
 import { BackToHomeLink } from "~/components/shared/BackToHomeLink";
+import { authCanonicalOrigin } from "~/lib/auth-canonical-origin.server";
 import { accountLinkErrorFromUrl } from "~/lib/auth-link-error";
 import { googleOAuthPortlessWarningForWebEnv } from "~/lib/google-oauth-portless-warning.server";
 import { resolveAuthSession } from "~/lib/route-context.server";
@@ -43,7 +44,7 @@ export async function loader({ context, url }: Route.LoaderArgs): Promise<
 	const oauthErrorMessage = accountLinkErrorFromUrl(url);
 	return success({
 		redirectTo,
-		origin: url.origin,
+		origin: authCanonicalOrigin(url, env),
 		providers,
 		...(googlePortlessWarning ? { googlePortlessWarning } : {}),
 		...(oauthErrorMessage ? { oauthErrorMessage } : {}),

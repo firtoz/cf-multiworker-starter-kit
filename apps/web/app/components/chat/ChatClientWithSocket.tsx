@@ -1,7 +1,13 @@
 import type { InferSockaPushHandlers } from "@firtoz/socka";
 import { useSockaSession } from "@firtoz/socka/react";
 import { accountDisplayName } from "@internal/auth-client/display-name";
-import { type ChatMessageRow, chatContract } from "@internal/chat-contract";
+import {
+	CHAT_HISTORY_INITIAL_PAGE_SIZE,
+	type ChatHistoryCursor,
+	type ChatHistoryPage,
+	type ChatMessageRow,
+	chatContract,
+} from "@internal/chat-contract";
 import {
 	type KeyboardEvent as ReactKeyboardEvent,
 	useCallback,
@@ -29,6 +35,7 @@ type ChatAttestResponse = { ok: true; room: string; token: string } | { ok: fals
 
 /** Treat as pinned when within a few CSS px of the true bottom (avoids subpixel / rounding drift). */
 const BOTTOM_STICKY_PX = 4;
+const TOP_PAGE_LOAD_PX = 120;
 
 function mergeMessages(
 	history: ChatMessageRow[],
@@ -107,10 +114,13 @@ export function ChatClientWithSocket({
 	const [initialHistoryStatus, setInitialHistoryStatus] = useState<"pending" | "ready" | "error">(
 		"pending",
 	);
+	const [historyCursor, setHistoryCursor] = useState<ChatHistoryCursor | null>(null);
+	const [historyHasMore, setHistoryHasMore] = useState(false);
+	const [historyLoadingOlder, setHistoryLoadingOlder] = useState(false);
 	/** `useLayoutEffect` needs self in deps; ref alone can lag behind first `messages` paint. */
 	const [selfUserId, setSelfUserId] = useState<string | null>(null);
 	const selfUserIdRef = useRef<string | null>(null);
-	const messageListRef = useRef<HTMLUListElement | null>(null);
+	const messageListRef = useRef<HTMLDivElement | null>(null);
 	const deletedMessageIdsRef = useRef(new Set<string>());
 	/** True if the user is at (or we just snapped to) the true bottom. */
 	const stuckToBottomRef = useRef(true);
@@ -145,7 +155,7 @@ export function ChatClientWithSocket({
 	const pushHandlers = useMemo<InferSockaPushHandlers<typeof chatContract>>(
 		() => ({
 			roomMessage: (message: ChatMessageRow) => {
-				setMessages((prev) => [...prev, message]);
+				setMessages((prev) => mergeMessages([message], prev, deletedMessageIdsRef.current));
 			},
 			presenceUpdated: (presenceUpdate: {
 				users: { userId: string; displayName: string; isGuest: boolean }[];
@@ -164,6 +174,10 @@ export function ChatClientWithSocket({
 				void 0;
 			},
 			historyCleared: () => {
+				deletedMessageIdsRef.current = new Set();
+				setHistoryCursor(null);
+				setHistoryHasMore(false);
+				setHistoryLoadingOlder(false);
 				setMessages([]);
 			},
 			messageDeleted: ({ id }: { id: string }) => {
@@ -206,6 +220,12 @@ export function ChatClientWithSocket({
 		stuckToBottomRef.current = distanceToBottom <= BOTTOM_STICKY_PX;
 	}, []);
 
+	const applyHistoryPage = useCallback((page: ChatHistoryPage) => {
+		setHistoryCursor(page.nextCursor ?? null);
+		setHistoryHasMore(page.hasMore);
+		setMessages((current) => mergeMessages(page.messages, current, deletedMessageIdsRef.current));
+	}, []);
+
 	const loadInitial = useCallback(async () => {
 		stuckToBottomRef.current = true;
 		markChatPerformance("initial-load-start");
@@ -213,9 +233,9 @@ export function ChatClientWithSocket({
 			committedRoom === chatAttestRoom && initialHistoryStatus !== "error";
 		const historyPromise = canUseLoaderHistory
 			? Promise.resolve()
-			: send.listHistory({ limit: 200 }).then(({ messages: history }) => {
+			: send.listHistory({ limit: CHAT_HISTORY_INITIAL_PAGE_SIZE }).then((page) => {
 					markChatPerformance("history-fallback-loaded");
-					setMessages((current) => mergeMessages(history, current, deletedMessageIdsRef.current));
+					applyHistoryPage(page);
 				});
 		const presencePromise = send.listPresence({}).then(({ selfUserId, users }) => {
 			markChatPerformance("presence-loaded");
@@ -224,23 +244,25 @@ export function ChatClientWithSocket({
 		await Promise.all([historyPromise, presencePromise]);
 		markChatPerformance("initial-load-complete");
 		measureChatPerformance("initial-load", "initial-load-start", "initial-load-complete");
-	}, [send, applyPresence, committedRoom, chatAttestRoom, initialHistoryStatus]);
+	}, [send, applyPresence, applyHistoryPage, committedRoom, chatAttestRoom, initialHistoryStatus]);
 
 	const applyInitialMessages = useCallback(
-		(history: ChatMessageRow[]) => {
+		(page: ChatHistoryPage) => {
 			setInitialHistoryStatus("ready");
 			markChatPerformance("initial-history-state-applied");
 			if (committedRoom !== chatAttestRoom) {
 				return;
 			}
 			stuckToBottomRef.current = true;
-			setMessages((current) => mergeMessages(history, current, deletedMessageIdsRef.current));
+			applyHistoryPage(page);
 		},
-		[committedRoom, chatAttestRoom],
+		[applyHistoryPage, committedRoom, chatAttestRoom],
 	);
 
 	const markInitialHistoryError = useCallback(() => {
 		setInitialHistoryStatus("error");
+		setHistoryCursor(null);
+		setHistoryHasMore(false);
 	}, []);
 
 	useEffect(() => {
@@ -261,6 +283,9 @@ export function ChatClientWithSocket({
 		setSelfUserId(null);
 		setSocketError(null);
 		setInitialHistoryStatus("pending");
+		setHistoryCursor(null);
+		setHistoryHasMore(false);
+		setHistoryLoadingOlder(false);
 		selfUserIdRef.current = null;
 		deletedMessageIdsRef.current = new Set();
 		stuckToBottomRef.current = true;
@@ -275,6 +300,32 @@ export function ChatClientWithSocket({
 			setSocketError("Could not load chat room state. Try reconnecting.");
 		});
 	}, [connectionReady, loadInitial]);
+
+	const loadOlderHistory = useCallback(() => {
+		if (!connectionReady || historyLoadingOlder || !historyHasMore || historyCursor === null) {
+			return;
+		}
+		const element = messageListRef.current;
+		if (!element || element.scrollTop > TOP_PAGE_LOAD_PX) {
+			return;
+		}
+		setHistoryLoadingOlder(true);
+		void send
+			.listHistory({
+				limit: CHAT_HISTORY_INITIAL_PAGE_SIZE,
+				beforeTs: historyCursor.beforeTs,
+				beforeId: historyCursor.beforeId,
+			})
+			.then((page) => {
+				applyHistoryPage(page);
+			})
+			.catch(() => {
+				setSocketError("Could not load older messages. Try again.");
+			})
+			.finally(() => {
+				setHistoryLoadingOlder(false);
+			});
+	}, [applyHistoryPage, connectionReady, historyCursor, historyHasMore, historyLoadingOlder, send]);
 
 	/** After history or a new `roomMessage` render: snap to real bottom if pinned, or the latest row is your own. */
 	useLayoutEffect(() => {
@@ -480,10 +531,13 @@ export function ChatClientWithSocket({
 				initialHistoryStatus={initialHistoryStatus}
 				initialMessages={initialMessages}
 				messages={messages}
+				messageListRef={messageListRef}
 				canModerate={canModerate}
 				deleteBusy={deleteBusy}
+				historyLoadingOlder={historyLoadingOlder}
 				onInitialHistoryError={markInitialHistoryError}
 				onInitialHistoryResolve={applyInitialMessages}
+				onStartReached={loadOlderHistory}
 				onDeleteMessage={requestDeleteMessage}
 			/>
 		</ChatView>

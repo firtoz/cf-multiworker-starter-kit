@@ -55,9 +55,16 @@ export const chatroomWorkerApp = new Hono<ChatroomHonoContext>()
 		const room = sanitizeChatRoomId(c.req.param("room"));
 		using api = honoDoFetcherWithName(c.env.ChatroomDo, room);
 		const limit = c.req.query("limit");
+		const beforeTs = c.req.query("beforeTs");
+		const beforeId = c.req.query("beforeId");
+		const query = {
+			...(limit ? { limit } : {}),
+			...(beforeTs ? { beforeTs } : {}),
+			...(beforeId ? { beforeId } : {}),
+		};
 		const res = await api.get({
 			url: "/history",
-			...(limit ? { query: { limit } } : {}),
+			...(Object.keys(query).length > 0 ? { query } : {}),
 			init: { headers: c.req.raw.headers },
 		});
 		const body = await res.json();

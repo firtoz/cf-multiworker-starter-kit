@@ -18,6 +18,7 @@ import { AccountSessionsSection } from "~/components/account/AccountSessionsSect
 import { AccountSignInMethods } from "~/components/account/AccountSignInMethods";
 import { BackToHomeLink } from "~/components/shared/BackToHomeLink";
 import { requireSignedInMiddleware } from "~/lib/admin-auth-middleware.server";
+import { authCanonicalOrigin } from "~/lib/auth-canonical-origin.server";
 import { accountLinkErrorFromUrl } from "~/lib/auth-link-error";
 import { googleOAuthPortlessWarningForWebEnv } from "~/lib/google-oauth-portless-warning.server";
 import { routeAuthClientContext } from "~/lib/route-auth-client.server";
@@ -74,6 +75,7 @@ export async function loader({ context, url }: Route.LoaderArgs) {
 		sessions,
 		currentSessionId: sessions.find((s) => s.isCurrent)?.id ?? session.session.id,
 		accountPath,
+		origin: authCanonicalOrigin(url, env),
 		...(googlePortlessWarning ? { googlePortlessWarning } : {}),
 		...(linkErrorMessage ? { linkErrorMessage } : {}),
 	});
@@ -202,6 +204,7 @@ export default function AccountRoute({ loaderData }: Route.ComponentProps) {
 		sessions,
 		currentSessionId,
 		accountPath,
+		origin,
 		googlePortlessWarning,
 		linkErrorMessage,
 	} = loaderData.result;
@@ -223,6 +226,7 @@ export default function AccountRoute({ loaderData }: Route.ComponentProps) {
 			<AccountSignInMethods
 				summary={summary}
 				accountPath={accountPath}
+				origin={origin}
 				{...(googlePortlessWarning ? { googlePortlessWarning } : {})}
 				{...(linkErrorMessage ? { linkErrorMessage } : {})}
 			/>
