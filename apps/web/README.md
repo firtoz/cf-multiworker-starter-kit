@@ -12,7 +12,7 @@ React Router 7 application deployed on Cloudflare Workers.
 
 **Durable Objects / services:** `auth-worker` (plain Worker under `workers/`), `chatroom-do` (WebSockets / Socka; `/chat` and `/api/ws/*`), optional `posthog-proxy`.
 
-**Packages:** `@internal/db` (app D1 for `/visitors`), `@internal/auth-db` + `@internal/auth-client` (sessions, `ensureChatSession`, admin helpers), `@internal/chat-contract` (Socka types + WS attestation headers).
+**Packages:** `@internal/db` (app D1 for `/visitors`), `@internal/auth-db` + `@internal/auth-client` (sessions, admin helpers), `@internal/chat-contract` (Socka types + WS attestation). Guest chat: `app/lib/ensure-chat-session.ts`.
 
 **How bindings work:** **`apps/web/alchemy.run.ts`** declares app bindings and imports worker/DO resources from dependency packages' `./alchemy` exports. Types: **`types/env.d.ts`** (`typeof web["Env"]`). After route edits, **`bun run typegen`** from the repo root.
 
@@ -20,7 +20,7 @@ React Router 7 application deployed on Cloudflare Workers.
 
 - Browser hits **`/api/auth/*`** on the web worker; it forwards to the **`AUTH`** service binding (`auth-worker`).
 - Public auth URL is computed at deploy/dev time (no dotfile key) — see [cf-auth-setup](../../.agents/skills/cf-auth-setup/SKILL.md).
-- **`/chat`** uses `ensureChatSession` from `@internal/auth-client` so guests get a Better Auth anonymous session (random display name, 7-day sliding expiry). Only this route forwards auth `Set-Cookie` to the browser.
+- **`/chat`** uses `ensureChatSession` from `app/lib/ensure-chat-session.ts` so guests get a Better Auth anonymous session (random display name, 7-day sliding expiry). Only this route forwards auth `Set-Cookie` to the browser.
 - WebSocket upgrades: web worker calls `env.AUTH.getSession`, then proxies the upgrade to chatroom-do with attested headers (see `@internal/chat-contract`). One `CHATROOM.fetch` per connection, not a separate resolve hop.
 - OAuth (Google/GitHub): [`docs/oauth-setup.md`](../../docs/oauth-setup.md).
 - Fork setup: [`.agents/skills/cf-auth-setup/SKILL.md`](../../.agents/skills/cf-auth-setup/SKILL.md).

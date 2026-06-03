@@ -1,8 +1,11 @@
-import { createBindingAuthWorkerHonoClient } from "./binding/create-binding-hono-client";
-import { buildAuthBindingHeaders } from "./binding-headers";
-import { collectSetCookieHeaders, cookieHeaderAfterSetCookie } from "./cookies";
-import type { AuthSession } from "./roles";
-import { getSession } from "./session";
+import {
+	type AuthSession,
+	buildAuthBindingHeaders,
+	collectSetCookieHeaders,
+	cookieHeaderAfterSetCookie,
+	getSession,
+} from "@internal/auth-client";
+import { createBindingAuthWorkerHonoClient } from "@internal/auth-client/binding";
 
 export type EnsureChatSessionResult = {
 	session: AuthSession;
@@ -19,7 +22,7 @@ function requestWithCookieHeader(pageRequest: Request, cookie: string | null): R
 
 /**
  * Ensures the browser has an auth session for chat (anonymous sign-in when logged out).
- * Call from the `/chat` loader so WebSocket attestation can use a stable `user.id`.
+ * Call from chat routes so WebSocket attestation can use a stable `user.id`.
  */
 export async function ensureChatSession(
 	auth: Fetcher,

@@ -195,7 +195,7 @@ Bindings and route wiring: [`apps/web/alchemy.run.ts`](apps/web/alchemy.run.ts),
 │   └── chatroom-do/
 ├── packages/
 │   ├── alchemy-utils/          # PRODUCT_PREFIX, app ids, alchemy-cli
-│   ├── auth-client/            # getSession, ensureChatSession, binding headers for AUTH.fetch
+│   ├── auth-client/            # getSession, createAuthClient, binding headers for AUTH.fetch
 │   ├── auth-db/                # Better Auth D1 schema + migrations
 │   ├── chat-contract/
 │   ├── db/                     # App D1 schema + Drizzle migrations (/visitors)

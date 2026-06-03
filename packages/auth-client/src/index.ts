@@ -1,5 +1,4 @@
 export * from "./binding-headers";
-export * from "./chat-session";
 export * from "./client";
 export * from "./constants";
 export * from "./cookies";
