@@ -44,7 +44,7 @@ export const ENV_SETUP_CATEGORY_NAV = [
 		id: "local-dev",
 		label: "Local dev HTTPS (Portless)",
 		description:
-			"`bun run dev` settings: HTTPS `*.localhost` via `portless` (default on). See CONTRIBUTING.",
+			"`bun run dev` HTTPS via Portless (default). Set LOCAL_PORTLESS=off for local Google OAuth — docs/oauth-setup.md.",
 	},
 	{
 		id: "core-secrets",
@@ -341,6 +341,23 @@ export function buildGitHubOptionalVariablePayload(
  * Deploy preflight: required GitHub-sync secrets + required GitHub-sync variables (except deploy gate).
  * `ALCHEMY_STATE_TOKEN` is validated only when `requiresAlchemyStateToken` (typically CI).
  */
+/** Dev preflight: keys with `requiredIn` including `local` (auth base URL is an Alchemy local default). */
+export function missingLocalDevConfigurationKeysFromRequirements(
+	requirements: readonly EnvRequirement[],
+	env: Record<string, string | undefined>,
+): string[] {
+	const missing: string[] = [];
+	for (const r of requirements) {
+		if (!isRequiredInSetupMode(r, "local")) {
+			continue;
+		}
+		if (!valueFromEnv(env, r.key)) {
+			missing.push(r.key);
+		}
+	}
+	return missing;
+}
+
 export function missingDeployConfigurationKeysFromRequirements(
 	requirements: readonly EnvRequirement[],
 	env: Record<string, string | undefined>,

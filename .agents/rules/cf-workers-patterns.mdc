@@ -1,0 +1,70 @@
+---
+alwaysApply: true
+---
+# Cloudflare Workers + routes — avoid common agent mistakes
+
+Skim this on every task that touches workers, env, routes, or bindings.
+
+## Worker `env` (bindings, secrets, vars)
+
+- **Use** the Workers virtual module: `import { env } from "cloudflare:workers";`
+- **Do not** read bindings from React Router or loader/action context (e.g. `context.cloudflare.env`). That pattern is wrong here; types and runtime expect `cloudflare:workers`.
+
+After changing `alchemy.run.ts` bindings, `apps/web/types/env.d.ts` (or a durable-object `env.d.ts`), or `.env.local` / `.env.production`, run `bun run typegen` from the repo root (see [../skills/multiworker-workflow/SKILL.md](../skills/multiworker-workflow/SKILL.md)).
+
+## Package Alchemy apps
+
+- Add new Workers/DOs through package-local `alchemy.run.ts` files and export consumed resources through `./alchemy`.
+- Root `dev`, `deploy`, and `destroy` run Turbo graphs; package scripts call `alchemy dev/deploy/destroy --app <package-id>`.
+- DO providers export namespaces/workers; consumers import those resources in their own `alchemy.run.ts`.
+- Put typed Hono routes on a public `readonly app` so consumers can use `honoDoFetcherWithName(env.MyDo, "name")` (DO) or `bindingHonoClient(env.CHATROOM)` (service binding HTTP) — see [cf-binding-hono-client](../skills/cf-binding-hono-client/SKILL.md).
+- Use explicit `DurableObjectNamespace<MyDoRpc>` / `WorkerRef<MyWorkerRpc>` types for typed RPC/Hono surfaces. Use a branded-only namespace when a heavy base class causes recursive inference.
+
+## Route modules (`apps/web/app/routes/`)
+
+- For each route file, export the pathname for type-safe toolkit usage, matching the URL registered in `app/routes.ts`:
+  - `import { type RoutePath } from "@firtoz/router-toolkit";`
+  - `export const route: RoutePath<"/your-path"> = "/your-path";`
+- Required for `formAction` / `useDynamicSubmitter` flows; omitting it breaks typed submissions. See [../skills/routing/SKILL.md](../skills/routing/SKILL.md) and [../skills/form-submissions/SKILL.md](../skills/form-submissions/SKILL.md).
+
+## Typegen and typecheck cadence
+
+Run from the **repository root** often while building (not only at the end):
+
+- `bun run typegen` — after `routes.ts` changes, new routes, Alchemy/env changes
+- `bun run typecheck` — after substantive edits
+- `bun run lint` — before considering work done
+
+CI runs these; running locally catches the same failures early.
+
+## Generated artifacts and Drizzle migrations
+
+- Do not manually author generated files. Edit the source-of-truth file and run the generator.
+- Drizzle source of truth:
+  - D1: `packages/db/src/schema.ts`
+  - DO SQLite: `durable-objects/<name>/src/schema.ts`
+- Generate migrations with `bun run db:generate` (root D1) or the package-local `db:generate`.
+- Do not hand-edit `drizzle/*.sql`, `drizzle/meta/_journal.json`, Drizzle snapshot JSON, or driver-specific migration wrappers such as Durable Object `drizzle/migrations.js`. PR review should flag migration output changes that were not generated from schema changes.
+- Never add runtime `CREATE TABLE` fallbacks in app loaders/actions to compensate for missed migrations; fix the schema/generator/Alchemy migration path instead.
+
+## Loaders and actions: `Promise<MaybeError<...>>`
+
+Prefer **typed success/error** from [`@firtoz/maybe-error`](https://www.npmjs.com/package/@firtoz/maybe-error) — import `success`, `fail`, and the `MaybeError` type directly from that package (they are **not** re-exported by `@firtoz/router-toolkit`):
+
+- **Loaders:** `export async function loader(...): Promise<MaybeError<YourData>>` — return `success({ ... })` or `fail("...")` so `loaderData` narrows with `loaderData.success` / `loaderData.result`.
+- **Actions:** use `formAction` from `@firtoz/router-toolkit` (handler already returns `Promise<MaybeError<...>>`). For non-`formAction` actions, still return `success` / `fail` the same way.
+- **Components:** do not use raw `useFetcher()` + manual `fetcher.data as …` for internal forms; use `useDynamicSubmitter` + `await submitter.submitJson(...)` per [form-submissions/SKILL.md](../skills/form-submissions/SKILL.md).
+
+See [../skills/routing/SKILL.md](../skills/routing/SKILL.md) and [../skills/form-submissions/SKILL.md](../skills/form-submissions/SKILL.md).
+
+## Imports (no cross-package re-exports)
+
+Import each symbol from the module that **defines** it. Package `index.ts` files may barrel **same-package** `./` modules only — not other workspace packages. Auth example: client code from `@internal/auth-client`, wire schemas from `@internal/auth-db/api-schemas`. Details: [typescript-imports.mdc](typescript-imports.mdc).
+
+## Realtime WebSockets (optional)
+
+For **`@firtoz/socka`**, Durable Object WebSocket RPC, and SSR-safe client URL patterns, see [cf-realtime-websockets.mdc](cf-realtime-websockets.mdc) and [../skills/cf-socka-realtime/SKILL.md](../skills/cf-socka-realtime/SKILL.md).
+
+## More context
+
+Longer lists: [../skills/multiworker-gotchas/SKILL.md](../skills/multiworker-gotchas/SKILL.md), [../skills/multiworker-workflow/SKILL.md](../skills/multiworker-workflow/SKILL.md). Index: [AGENTS.md](../../AGENTS.md).

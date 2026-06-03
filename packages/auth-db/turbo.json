@@ -1,0 +1,71 @@
+{
+	"$schema": "../../node_modules/turbo/schema.json",
+	"extends": ["//"],
+	"tasks": {
+		"dev": {
+			"dependsOn": ["scripts#dev:preflight", "db:generate", "typegen"],
+			"inputs": ["alchemy.run.ts", "src/**/*.ts", "package.json", "$TURBO_ROOT$/.env.local"],
+			"persistent": true,
+			"cache": false
+		},
+		"db:generate": {
+			"inputs": ["src/schema.ts", "drizzle.config.ts"],
+			"outputs": ["drizzle/**"]
+		},
+		"lint": {
+			"dependsOn": ["typecheck"],
+			"inputs": ["src/**/*.ts", "tsconfig.json", "biome.json"],
+			"outputs": []
+		},
+		"lint:format": {
+			"inputs": ["src/**/*.ts", "tsconfig.json", "biome.json"],
+			"outputs": []
+		},
+		"typecheck": {
+			"dependsOn": ["typegen", "^typecheck"],
+			"inputs": [
+				"alchemy.run.ts",
+				"src/**/*.ts",
+				"tsconfig.json",
+				"package.json",
+				"$TURBO_ROOT$/tsconfig.base.json"
+			],
+			"outputs": []
+		},
+		"typegen": {
+			"dependsOn": ["^typegen"],
+			"inputs": ["src/**/*.ts", "package.json"],
+			"outputs": []
+		},
+		"deploy:prod": {
+			"dependsOn": ["^deploy:prod", "typecheck"],
+			"cache": false,
+			"inputs": ["alchemy.run.ts", "src/**/*.ts", "package.json", "tsconfig.json"],
+			"outputs": []
+		},
+		"deploy:staging": {
+			"dependsOn": ["^deploy:staging", "typecheck"],
+			"cache": false,
+			"inputs": ["alchemy.run.ts", "src/**/*.ts", "package.json", "tsconfig.json"],
+			"outputs": []
+		},
+		"deploy:preview": {
+			"dependsOn": ["^deploy:preview", "typecheck"],
+			"cache": false,
+			"inputs": ["alchemy.run.ts", "src/**/*.ts", "package.json", "tsconfig.json"],
+			"outputs": []
+		},
+		"destroy:prod": {
+			"cache": false,
+			"outputs": []
+		},
+		"destroy:staging": {
+			"cache": false,
+			"outputs": []
+		},
+		"destroy:preview": {
+			"cache": false,
+			"outputs": []
+		}
+	}
+}

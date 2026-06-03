@@ -1,0 +1,1 @@
+ALTER TABLE `chat_messages` ADD `is_guest` integer DEFAULT false NOT NULL;

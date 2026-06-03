@@ -6,10 +6,21 @@
 		".": {
 			"types": "./src/contract.ts",
 			"default": "./src/contract.ts"
+		},
+		"./limits": {
+			"types": "./src/limits.ts",
+			"default": "./src/limits.ts"
+		},
+		"./admin-http": {
+			"types": "./src/admin-http.ts",
+			"default": "./src/admin-http.ts"
 		}
 	},
 	"dependencies": {
+		"@firtoz/maybe-error": "catalog:",
 		"@firtoz/socka": "catalog:",
+		"@internal/auth-db": "workspace:*",
+		"alchemy-utils": "workspace:*",
 		"zod": "catalog:"
 	},
 	"scripts": {

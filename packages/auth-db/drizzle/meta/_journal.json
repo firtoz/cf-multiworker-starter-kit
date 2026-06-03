@@ -1,0 +1,41 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1779825834374,
+      "tag": "0000_careless_bedlam",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1779828326673,
+      "tag": "0001_military_stature",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1779957260630,
+      "tag": "0002_naive_ricochet",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1779957307240,
+      "tag": "0003_tearful_strong_guy",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1780005102736,
+      "tag": "0004_modern_silver_centurion",
+      "breakpoints": true
+    }
+  ]
+}

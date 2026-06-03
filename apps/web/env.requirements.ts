@@ -68,7 +68,7 @@ const localDevRequirements: readonly EnvRequirement[] = [
 		githubSync: "never",
 		title: "Wrap local dev with Portless (HTTPS `*.localhost`)",
 		description:
-			"`on` or omit (default): `alchemy dev` runs Vite behind `portless run` (`--name` = `PRODUCT_PREFIX` + SSR `web` in `alchemy.run.ts`, e.g. `starter-web`). `off`: plain `http://localhost:<port>` only.",
+			"`on` or omit (default): Portless HTTPS `*.localhost` (Google OAuth uses loopback proxy). `off`: plain `http://127.0.0.1:<port>`. See docs/oauth-setup.md.",
 		plaintextInSetup: true,
 	},
 ];
@@ -97,9 +97,33 @@ const posthogRequirements: readonly EnvRequirement[] = [
 		requiredIn: [],
 		optionalSetupModes: ["local", "staging", "prod"],
 		githubSync: "optional",
-		title: "PostHog ingest host (optional)",
+		title: "PostHog upstream ingest (proxy Worker only)",
 		description:
-			"e.g. `https://us.i.posthog.com` or `https://eu.i.posthog.com` · GitHub Environment **variable**",
+			"Optional override for **`workers/posthog-proxy`** upstream — e.g. `https://eu.i.posthog.com`. Omit to use **`POSTHOG_REGION`** default. **Not** the browser URL.",
+		plaintextInSetup: true,
+	},
+	{
+		key: "POSTHOG_REGION",
+		setupCategory: "analytics",
+		kind: "variable",
+		requiredIn: [],
+		optionalSetupModes: ["local", "staging", "prod"],
+		githubSync: "optional",
+		title: "PostHog Cloud region (optional)",
+		description:
+			"`eu` (default) or `us` — proxy upstream when **`POSTHOG_HOST`** is unset; default **`ui_host`**",
+		plaintextInSetup: true,
+	},
+	{
+		key: "POSTHOG_UI_HOST",
+		setupCategory: "analytics",
+		kind: "variable",
+		requiredIn: [],
+		optionalSetupModes: ["local", "staging", "prod"],
+		githubSync: "optional",
+		title: "PostHog app URL (optional)",
+		description:
+			"Toolbar / dashboard links — e.g. `https://eu.posthog.com` · inferred from **`POSTHOG_REGION`** when unset",
 		plaintextInSetup: true,
 	},
 	{
@@ -154,6 +178,17 @@ const posthogRequirements: readonly EnvRequirement[] = [
 /** Keys declared here must match bindings in {@link ./alchemy.run.ts}. */
 export const WEB_APP_ENV_REQUIREMENTS: readonly EnvRequirement[] = [
 	...localDevRequirements,
+	{
+		key: "AUTH_ADMIN_SECRET",
+		setupCategory: "core-secrets",
+		kind: "secret",
+		requiredIn: ["local", "staging", "prod"],
+		githubSync: "required",
+		title: "Auth admin API secret",
+		description:
+			"Validates machine-admin requests on the web worker (bootstrap sync); same value as auth-worker",
+		canAutoGenerate: true,
+	},
 	...webHostnameRequirements,
 	...posthogRequirements,
 ];

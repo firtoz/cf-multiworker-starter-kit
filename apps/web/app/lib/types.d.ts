@@ -18,3 +18,8 @@ declare module "*&as=metadata" {
 	const metadata: OutputMetadata;
 	export default metadata;
 }
+
+declare module "*.sql" {
+	const sql: string;
+	export default sql;
+}

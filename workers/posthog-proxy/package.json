@@ -1,0 +1,35 @@
+{
+	"name": "posthog-proxy",
+	"private": true,
+	"type": "module",
+	"alchemy": {
+		"app": "posthog-proxy"
+	},
+	"exports": {
+		"./alchemy": "./alchemy.run.ts"
+	},
+	"scripts": {
+		"deploy:prod": "alchemy-cli --stage prod deploy",
+		"deploy:staging": "alchemy-cli --stage staging deploy",
+		"deploy:preview": "alchemy-cli --stage preview deploy",
+		"destroy:prod": "alchemy-cli --stage prod destroy",
+		"destroy:staging": "alchemy-cli --stage staging destroy",
+		"destroy:preview": "alchemy-cli --stage preview destroy",
+		"dev": "alchemy-cli --stage local dev",
+		"typegen": "node -e \"process.exit(0)\"",
+		"typecheck": "tsgo --noEmit -p ./tsconfig.json",
+		"lint": "biome check --write .",
+		"lint:format": "biome format --write ."
+	},
+	"packageManager": "bun@1.3.13",
+	"devDependencies": {
+		"state-hub": "workspace:*",
+		"alchemy-utils": "workspace:*",
+		"@cloudflare/workers-types": "catalog:",
+		"@typescript/native-preview": "catalog:",
+		"@biomejs/biome": "catalog:",
+		"@types/node": "catalog:",
+		"alchemy": "catalog:",
+		"typescript": "catalog:"
+	}
+}

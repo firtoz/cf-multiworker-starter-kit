@@ -1,12 +1,13 @@
 import { WorkerEntrypoint } from "cloudflare:workers";
+import { chatroomWorkerApp } from "../src/hono-app";
 import { ChatroomDo } from "./chatroom-do";
 
 export { ChatroomDo };
 
 export default class ChatroomWorker extends WorkerEntrypoint<Env> {
-	async fetch(_request: Request): Promise<Response> {
-		return new Response("starter-chatroom-do", {
-			headers: { "Content-Type": "text/plain" },
-		});
+	readonly app = chatroomWorkerApp;
+
+	async fetch(request: Request): Promise<Response> {
+		return chatroomWorkerApp.fetch(request, this.env, this.ctx);
 	}
 }

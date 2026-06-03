@@ -33,6 +33,13 @@ import {
 	setupCategoryRequiredSatisfied,
 	setupNavigableKeysByCategory,
 } from "alchemy-utils/env-requirements";
+import {
+	GOOGLE_CLIENT_ID_ENV_KEY,
+	GOOGLE_CLIENT_SECRET_ENV_KEY,
+	GOOGLE_PORTLESS_CONFLICT_SETUP_NOTE,
+	isLocalGoogleOAuthPortlessConflictInEnvText,
+} from "alchemy-utils/local-google-oauth-dev";
+import { LOCAL_PORTLESS_ENV_KEY } from "alchemy-utils/local-portless-dev";
 import { ALL_REPO_ENV_REQUIREMENTS } from "./collected-env-requirements";
 import { setupCommandLabelForDotfileRel } from "./github-environment-secrets";
 import { GITHUB_POLICY_HINT_LINES } from "./github-policy-hints";
@@ -116,6 +123,21 @@ function keyLine(key: string): string {
 
 function canAutoGenerateKey(key: string): boolean {
 	return REQ_BY_KEY.get(key)?.canAutoGenerate === true;
+}
+
+const BOOTSTRAP_ADMIN_EMAILS_KEY = "AUTH_BOOTSTRAP_ADMIN_EMAILS";
+
+function warnBootstrapAdminsUnset(envText: string, mode: EnvSetupMode): void {
+	const req = REQ_BY_KEY.get(BOOTSTRAP_ADMIN_EMAILS_KEY);
+	if (!req || !isOptionalInSetupMode(req, mode)) {
+		return;
+	}
+	if (hasValue(envText, BOOTSTRAP_ADMIN_EMAILS_KEY)) {
+		return;
+	}
+	console.warn(
+		"[setup] AUTH_BOOTSTRAP_ADMIN_EMAILS is unset — no bootstrap admin. Add it in the stage dotfile (or GitHub Environment variable), then run `bun run auth:sync-bootstrap-admins` after deploy (or restart local auth worker + that command locally).",
+	);
 }
 
 function isMaskedKey(key: string): boolean {
@@ -231,8 +253,8 @@ function rowLabelWhenSet(text: string): string {
 	return `\u001b[22m${styleText("green", text)}\u001b[0m`;
 }
 
-function rowLabelWhenIncomplete(text: string): string {
-	return `\u001b[22m${styleText("yellow", text)}\u001b[0m`;
+function rowLabelWhenMissingRequired(text: string): string {
+	return `\u001b[22m${styleText("red", text)}\u001b[0m`;
 }
 
 function emptyKeyDisplayForSetupList(defaultIfUnset: string | undefined): string {
@@ -247,7 +269,7 @@ const SETUP_LIST_EMPTY_DEFAULT_HINT: Readonly<Record<string, string>> = {
 	GITHUB_SYNC_PUSH_SECRETS: "true (= push secrets & Environment vars to GitHub)",
 	GITHUB_SYNC_STAGING_FORK_REVIEWERS_PRIVATE:
 		'false (= no actor reviewer on private repos when policy reviewerFallbackToActor is "auto")',
-	LOCAL_PORTLESS: "(empty or on · Portless HTTPS; off = plain localhost)",
+	LOCAL_PORTLESS: "(empty or on · Portless HTTPS; off = loopback only)",
 	AUTO_PRODUCTION_PR:
 		'omit → github:sync defaults true on Environment "staging"; set false to disable auto main→production PR',
 };
@@ -271,7 +293,7 @@ function categorySummaryLine(raw: string, group: SetupCategoryGroup, mode: Setup
 	const title = ENV_SETUP_CATEGORY_LABEL[category];
 	const frac = `${set}/${total}`;
 	const line = requiredOk ? `${title} · ${frac}` : `${title} · ${frac} (incomplete)`;
-	return requiredOk ? rowLabelWhenSet(line) : rowLabelWhenIncomplete(line);
+	return requiredOk ? rowLabelWhenSet(line) : rowLabelWhenMissingRequired(line);
 }
 
 function navGroupById(groupId: string): EnvSetupCategoryNavGroup | undefined {
@@ -298,7 +320,7 @@ function navGroupSummaryLine(
 	const title = nav.label;
 	const frac = `${set}/${total}`;
 	const line = requiredOk ? `${title} · ${frac}` : `${title} · ${frac} (incomplete)`;
-	return requiredOk ? rowLabelWhenSet(line) : rowLabelWhenIncomplete(line);
+	return requiredOk ? rowLabelWhenSet(line) : rowLabelWhenMissingRequired(line);
 }
 
 function setupMainCategoryPicks(
@@ -366,21 +388,93 @@ function parseMainCategoryPick(
 	return null;
 }
 
+const GOOGLE_PORTLESS_SETUP_KEYS = new Set([
+	LOCAL_PORTLESS_ENV_KEY,
+	GOOGLE_CLIENT_ID_ENV_KEY,
+	GOOGLE_CLIENT_SECRET_ENV_KEY,
+]);
+
+function googlePortlessConflictRowSuffix(raw: string, key: string, mode: SetupMode): string {
+	if (mode !== "local" || !isLocalGoogleOAuthPortlessConflictInEnvText(raw, mode)) {
+		return "";
+	}
+	if (key === LOCAL_PORTLESS_ENV_KEY) {
+		return " · ⚠ blocks local Google sign-in";
+	}
+	if (key === GOOGLE_CLIENT_ID_ENV_KEY || key === GOOGLE_CLIENT_SECRET_ENV_KEY) {
+		return " · ⚠ register 127.0.0.1 callback in Google";
+	}
+	return "";
+}
+
 function rowLabel(raw: string, key: string, mode: SetupMode): string {
 	const set = hasValue(raw, key);
 	const box = set ? "[x]" : "[ ]";
 	const reqWord = isOptionalSetupKey(key, mode) ? "optional" : "required";
+	const optional = isOptionalSetupKey(key, mode);
+	const conflictSuffix = googlePortlessConflictRowSuffix(raw, key, mode);
 	if (!isMaskedKey(key)) {
 		const v = captureEnvAssignmentLine(raw, key) ?? "";
 		const emptyHint = SETUP_LIST_EMPTY_DEFAULT_HINT[key];
 		const show = set
 			? truncateForList(v, 42)
 			: truncateForList(emptyKeyDisplayForSetupList(emptyHint), 72);
-		const line = `${box} ${key} · ${reqWord} · ${show}`;
-		return set ? rowLabelWhenSet(line) : line;
+		const line = `${box} ${key} · ${reqWord} · ${show}${conflictSuffix}`;
+		if (set && !conflictSuffix) {
+			return rowLabelWhenSet(line);
+		}
+		if (conflictSuffix) {
+			return rowLabelWhenMissingRequired(line);
+		}
+		return optional ? line : rowLabelWhenMissingRequired(line);
 	}
-	const line = `${box} ${key} · ${reqWord} · ${set ? "set (masked)" : "unset"}`;
-	return set ? rowLabelWhenSet(line) : line;
+	const line = `${box} ${key} · ${reqWord} · ${set ? "set (masked)" : "unset"}${conflictSuffix}`;
+	if (set && !conflictSuffix) {
+		return rowLabelWhenSet(line);
+	}
+	if (conflictSuffix) {
+		return rowLabelWhenMissingRequired(line);
+	}
+	return optional ? line : rowLabelWhenMissingRequired(line);
+}
+
+function noteGooglePortlessConflictIfAny(raw: string, mode: SetupMode, editedKey: string): void {
+	if (mode !== "local" || !GOOGLE_PORTLESS_SETUP_KEYS.has(editedKey)) {
+		return;
+	}
+	if (!isLocalGoogleOAuthPortlessConflictInEnvText(raw, mode)) {
+		return;
+	}
+	note(GOOGLE_PORTLESS_CONFLICT_SETUP_NOTE, "Google + Portless");
+}
+
+/** Keep the cursor on the last-edited row when returning to a category key list. */
+function selectInitialValueForKeyList(
+	keys: readonly string[],
+	resumeAtKey?: string,
+): string | undefined {
+	return resumeAtKey && keys.includes(resumeAtKey) ? resumeAtKey : undefined;
+}
+
+async function promptCategoryEnvKey(
+	group: SetupCategoryGroup,
+	raw: string,
+	mode: SetupMode,
+	backLabel: string,
+	resumeAtKey?: string,
+): Promise<string | typeof BACK_TO_CATEGORIES> {
+	const initialValue = selectInitialValueForKeyList(group.keys, resumeAtKey);
+	return select<string | typeof BACK_TO_CATEGORIES>({
+		message: setupCategoryKeySelectMessage(group.category),
+		options: [
+			...group.keys.map((k) => ({
+				value: k,
+				label: rowLabel(raw, k, mode),
+			})),
+			{ value: BACK_TO_CATEGORIES, label: backLabel },
+		],
+		...(initialValue ? { initialValue } : {}),
+	});
 }
 
 /**
@@ -436,17 +530,17 @@ async function variableBrowserLoop(
 			if (!group) {
 				continue;
 			}
+			let resumeAtKey: string | undefined;
 			while (true) {
 				raw = reloadFileRaw(file, raw);
-				const picks = group.keys.map((k) => ({
-					value: k,
-					label: rowLabel(raw, k, mode),
-				}));
-
-				const keySel = await select<string | typeof BACK_TO_CATEGORIES>({
-					message: setupCategoryKeySelectMessage(group.category),
-					options: [...picks, { value: BACK_TO_CATEGORIES, label: "« Back to categories »" }],
-				});
+				const keySel = await promptCategoryEnvKey(
+					group,
+					raw,
+					mode,
+					"« Back to categories »",
+					resumeAtKey,
+				);
+				resumeAtKey = undefined;
 				if (isCancel(keySel)) {
 					if (cancelWasEscape()) {
 						break;
@@ -462,6 +556,7 @@ async function variableBrowserLoop(
 				raw = existsSync(file) ? readFileSync(file, "utf8") : raw;
 				const updated = await editOneVariableInteractive(file, raw, mode, keySel);
 				raw = reloadFileRaw(file, updated ?? raw);
+				resumeAtKey = keySel;
 			}
 			continue;
 		}
@@ -500,17 +595,17 @@ async function variableBrowserLoop(
 				continue;
 			}
 
+			let resumeAtKey: string | undefined;
 			while (true) {
 				raw = reloadFileRaw(file, raw);
-				const picks = group.keys.map((k) => ({
-					value: k,
-					label: rowLabel(raw, k, mode),
-				}));
-
-				const keySel = await select<string | typeof BACK_TO_CATEGORIES>({
-					message: setupCategoryKeySelectMessage(group.category),
-					options: [...picks, { value: BACK_TO_CATEGORIES, label: `« Back · ${nav.label} »` }],
-				});
+				const keySel = await promptCategoryEnvKey(
+					group,
+					raw,
+					mode,
+					`« Back · ${nav.label} »`,
+					resumeAtKey,
+				);
+				resumeAtKey = undefined;
 				if (isCancel(keySel)) {
 					if (cancelWasEscape()) {
 						break;
@@ -526,6 +621,7 @@ async function variableBrowserLoop(
 				raw = existsSync(file) ? readFileSync(file, "utf8") : raw;
 				const updated = await editOneVariableInteractive(file, raw, mode, keySel);
 				raw = reloadFileRaw(file, updated ?? raw);
+				resumeAtKey = keySel;
 			}
 		}
 	}
@@ -591,6 +687,7 @@ async function editOneVariableInteractive(
 			if (key === "ALCHEMY_PASSWORD") {
 				note(`Updated ${key}.${alchemyPasswordStateHint()}`, path.basename(file));
 			}
+			noteGooglePortlessConflictIfAny(nextRaw, mode, key);
 			return nextRaw;
 		}
 
@@ -606,6 +703,7 @@ async function editOneVariableInteractive(
 				`${key} copied from ${path.basename(DOT_ENV_LOCAL)} → ${path.basename(file)}.`,
 				path.basename(file),
 			);
+			noteGooglePortlessConflictIfAny(nextRaw, mode, key);
 			return nextRaw;
 		}
 
@@ -641,6 +739,7 @@ async function editOneVariableInteractive(
 			if (key === "ALCHEMY_PASSWORD") {
 				note(`Updated ${key}.${alchemyPasswordStateHint()}`, path.basename(file));
 			}
+			noteGooglePortlessConflictIfAny(nextRaw, mode, key);
 			return nextRaw;
 		}
 
@@ -729,10 +828,10 @@ function rowLabelAccount(raw: string, key: string): string {
 		const v = captureEnvAssignmentLine(raw, key) ?? "";
 		const show = set ? truncateForList(v, 42) : "unset";
 		const line = `${box} ${key} · ${reqWord} · ${show}`;
-		return set ? rowLabelWhenSet(line) : line;
+		return set ? rowLabelWhenSet(line) : rowLabelWhenMissingRequired(line);
 	}
 	const line = `${box} ${key} · ${reqWord} · ${set ? "set (masked)" : "unset"}`;
-	return set ? rowLabelWhenSet(line) : line;
+	return set ? rowLabelWhenSet(line) : rowLabelWhenMissingRequired(line);
 }
 
 async function runInteractiveCloudflareAlchemyAccountSession(
@@ -740,8 +839,14 @@ async function runInteractiveCloudflareAlchemyAccountSession(
 	file: string,
 ): Promise<void> {
 	let raw = startRaw;
+	let resumeAtKey: string | undefined;
 	while (true) {
 		raw = existsSync(file) ? readFileSync(file, "utf8") : raw;
+		const accountInitial = selectInitialValueForKeyList(
+			CLOUDFLARE_ALCHEMY_ACCOUNT_ENV_KEYS,
+			resumeAtKey,
+		);
+		resumeAtKey = undefined;
 		const sel = await select<string | typeof ACCOUNT_SETUP_DONE>({
 			message: `${path.basename(file)} — shared Cloudflare / Alchemy account keys`,
 			options: [
@@ -751,6 +856,7 @@ async function runInteractiveCloudflareAlchemyAccountSession(
 				})),
 				{ value: ACCOUNT_SETUP_DONE, label: "« Done »" },
 			],
+			...(accountInitial ? { initialValue: accountInitial } : {}),
 		});
 		if (isCancel(sel)) {
 			if (cancelWasEscape()) {
@@ -772,6 +878,7 @@ async function runInteractiveCloudflareAlchemyAccountSession(
 		}
 		const updated = await editOneVariableInteractive(file, raw, "staging", sel);
 		raw = existsSync(file) ? readFileSync(file, "utf8") : (updated ?? raw);
+		resumeAtKey = sel;
 		accountEnvRawCache = undefined;
 		loadCloudflareAlchemyAccountEnvIntoProcess();
 	}
@@ -894,6 +1001,9 @@ async function interactiveMain(
 	const setupCli = setupCommandLabelForDotfileRel(rel);
 	const title = `${setupCli} — ${path.basename(file)}`;
 	intro(flagEdit ? `env · ${title}` : `env · ${title}`);
+	if (mode === "local" && isLocalGoogleOAuthPortlessConflictInEnvText(raw, mode)) {
+		note(GOOGLE_PORTLESS_CONFLICT_SETUP_NOTE, "Google + Portless");
+	}
 	if (mode !== "local") {
 		const extra =
 			mode === "staging"
@@ -1016,6 +1126,7 @@ async function main(): Promise<void> {
 		if (missing.length > 0) {
 			if (forceNonInteractive) {
 				maybeProvisionNoninteractive(missing, body, file);
+				warnBootstrapAdminsUnset(existsSync(file) ? readFileSync(file, "utf8") : "", mode);
 				return;
 			}
 			console.error(
@@ -1058,6 +1169,7 @@ async function main(): Promise<void> {
 		for (const line of lines) {
 			console.log(line);
 		}
+		warnBootstrapAdminsUnset(body, mode);
 		return;
 	}
 

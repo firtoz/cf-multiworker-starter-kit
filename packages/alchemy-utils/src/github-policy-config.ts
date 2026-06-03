@@ -227,10 +227,7 @@ export const DEFAULT_GITHUB_POLICY: GitHubPolicyConfig = {
 					includeRefs: ["refs/heads/main"],
 					requirePullRequestBeforeMerge: true,
 					allowRepositoryAdminBypassOnMain: true,
-					requiredStatusCheckContexts: [
-						"Quality checks",
-						"Actions security (zizmor)",
-					],
+					requiredStatusCheckContexts: ["Quality checks", "Actions security (zizmor)"],
 					strictRequiredStatusChecks: true,
 				},
 				production: {

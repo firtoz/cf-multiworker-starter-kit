@@ -80,15 +80,25 @@ jobs:
       CHATROOM_INTERNAL_SECRET: ${{ secrets.CHATROOM_INTERNAL_SECRET }}
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+      BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET }}
+      AUTH_ADMIN_SECRET: ${{ secrets.AUTH_ADMIN_SECRET }}
+      AUTH_BOOTSTRAP_ADMIN_EMAILS: ${{ vars.AUTH_BOOTSTRAP_ADMIN_EMAILS }}
+      GOOGLE_CLIENT_ID: ${{ vars.GOOGLE_CLIENT_ID }}
+      GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+      GH_CLIENT_ID: ${{ vars.GH_CLIENT_ID }}
+      GH_CLIENT_SECRET: ${{ secrets.GH_CLIENT_SECRET }}
+      AUTH_DOMAINS: ${{ vars.AUTH_DOMAINS }}
       WEB_DOMAINS: ${{ vars.WEB_DOMAINS }}
       WEB_ROUTES: ${{ vars.WEB_ROUTES }}
       WEB_ZONE_ID: ${{ vars.WEB_ZONE_ID }}
       WEB_DOMAIN_OVERRIDE_EXISTING_ORIGIN: ${{ vars.WEB_DOMAIN_OVERRIDE_EXISTING_ORIGIN }}
       POSTHOG_KEY: ${{ vars.POSTHOG_KEY }}
       POSTHOG_HOST: ${{ vars.POSTHOG_HOST }}
+      POSTHOG_REGION: ${{ vars.POSTHOG_REGION }}
+      POSTHOG_UI_HOST: ${{ vars.POSTHOG_UI_HOST }}
       POSTHOG_SITE: ${{ vars.POSTHOG_SITE }}
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           ref: ${{ github.event.pull_request.base.ref }}
           persist-credentials: false
@@ -380,7 +390,7 @@ jobs:
       summary_line: ${{ steps.preview_outputs.outputs.summary_line }}
 
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           persist-credentials: false
@@ -461,6 +471,8 @@ jobs:
           CHATROOM_INTERNAL_SECRET: ${{ secrets.CHATROOM_INTERNAL_SECRET }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET }}
+          AUTH_ADMIN_SECRET: ${{ secrets.AUTH_ADMIN_SECRET }}
         run: bun run deploy:preflight:preview
 
       - name: Preview — GitHub deployment (registered)
@@ -517,12 +529,22 @@ jobs:
           CHATROOM_INTERNAL_SECRET: ${{ secrets.CHATROOM_INTERNAL_SECRET }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET }}
+          AUTH_ADMIN_SECRET: ${{ secrets.AUTH_ADMIN_SECRET }}
+          AUTH_BOOTSTRAP_ADMIN_EMAILS: ${{ vars.AUTH_BOOTSTRAP_ADMIN_EMAILS }}
+          GOOGLE_CLIENT_ID: ${{ vars.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          GH_CLIENT_ID: ${{ vars.GH_CLIENT_ID }}
+          GH_CLIENT_SECRET: ${{ secrets.GH_CLIENT_SECRET }}
+          AUTH_DOMAINS: ${{ vars.AUTH_DOMAINS }}
           WEB_DOMAINS: ${{ vars.WEB_DOMAINS }}
           WEB_ROUTES: ${{ vars.WEB_ROUTES }}
           WEB_ZONE_ID: ${{ vars.WEB_ZONE_ID }}
           WEB_DOMAIN_OVERRIDE_EXISTING_ORIGIN: ${{ vars.WEB_DOMAIN_OVERRIDE_EXISTING_ORIGIN }}
           POSTHOG_KEY: ${{ vars.POSTHOG_KEY }}
           POSTHOG_HOST: ${{ vars.POSTHOG_HOST }}
+          POSTHOG_REGION: ${{ vars.POSTHOG_REGION }}
+          POSTHOG_UI_HOST: ${{ vars.POSTHOG_UI_HOST }}
           POSTHOG_SITE: ${{ vars.POSTHOG_SITE }}
           POSTHOG_CLI_TOKEN: ${{ secrets.POSTHOG_CLI_TOKEN }}
           POSTHOG_CLI_ENV_ID: ${{ vars.POSTHOG_CLI_ENV_ID }}
@@ -539,6 +561,14 @@ jobs:
           fi
           echo "web_url=$WEB_URL" >> "$GITHUB_OUTPUT"
           exit "$deploy_status"
+
+      - name: Sync bootstrap admins
+        if: steps.preflight.outputs.deploy_enabled == 'true' && steps.deploy.outcome == 'success'
+        env:
+          STAGE: pr-${{ github.event.pull_request.number }}
+          AUTH_ADMIN_SECRET: ${{ secrets.AUTH_ADMIN_SECRET }}
+          AUTH_BOOTSTRAP_ADMIN_EMAILS: ${{ vars.AUTH_BOOTSTRAP_ADMIN_EMAILS }}
+        run: bun run auth:sync-bootstrap-admins
 
       - name: Deploy summary
         if: always()

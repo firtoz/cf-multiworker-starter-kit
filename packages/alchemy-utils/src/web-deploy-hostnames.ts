@@ -3,6 +3,15 @@
  * Used by `apps/web/alchemy.run.ts` and synced to GitHub Environments via env requirements in `apps/web/env.requirements.ts` + `packages/scripts/src/collected-env-requirements.ts`.
  */
 
+import { computeWorkerDevDomain, createCloudflareApi } from "alchemy/cloudflare";
+import { isPrStage } from "./deployment-stage";
+import {
+	isPortlessLocalDevEnabled,
+	LOCAL_WEB_DEV_PORT,
+	localWebPortlessHostname,
+} from "./local-portless-dev";
+import { physicalWebScriptName } from "./worker-peer-scripts";
+
 /** Comma-separated hostnames — e.g. `example.com,www.example.com` */
 export const WEB_DOMAINS_ENV_KEY = "WEB_DOMAINS" as const;
 /** Comma-separated route patterns — e.g. `example.com/*` (escape hatch vs {@link WEB_DOMAINS_ENV_KEY}) */
@@ -104,4 +113,64 @@ export function reactRouterRoutesFromProcessEnv(
 		});
 	}
 	return out;
+}
+
+export type ResolveWebBaseUrlOptions = {
+	readonly env?: NodeJS.ProcessEnv;
+	readonly stage: string;
+};
+
+function httpsOriginFromHostname(hostname: string): string {
+	return `https://${hostname}`;
+}
+
+/**
+ * Public web app origin (SSR + API routes). Used by CI bootstrap sync and deploy summaries.
+ *
+ * Ladder: local Portless / Vite → **`WEB_DOMAINS`** → web worker **workers.dev** (Cloudflare API).
+ */
+export function resolveWebBaseUrlFromProcessEnv(
+	env: NodeJS.ProcessEnv = process.env,
+	stage = env["STAGE"]?.trim() ?? "",
+): string | undefined {
+	if (stage === "local") {
+		if (isPortlessLocalDevEnabled(stage, env)) {
+			return `https://${localWebPortlessHostname(env)}`;
+		}
+		const portRaw = Number(env["PORT"]?.trim());
+		const port = Number.isFinite(portRaw) && portRaw > 0 ? Math.floor(portRaw) : LOCAL_WEB_DEV_PORT;
+		return `http://127.0.0.1:${port}`;
+	}
+
+	if (!isPrStage(stage)) {
+		const webHost = commaSeparatedEnvSegments(env[WEB_DOMAINS_ENV_KEY])[0];
+		if (webHost) {
+			return httpsOriginFromHostname(webHost);
+		}
+	}
+
+	return undefined;
+}
+
+export async function resolveWebBaseUrl(options: ResolveWebBaseUrlOptions): Promise<string> {
+	const env = options.env ?? process.env;
+	const sync = resolveWebBaseUrlFromProcessEnv(env, options.stage);
+	if (sync) {
+		return sync;
+	}
+
+	const accountId = env["CLOUDFLARE_ACCOUNT_ID"]?.trim();
+	const apiToken = env["CLOUDFLARE_API_TOKEN"]?.trim();
+	if (!accountId || !apiToken) {
+		throw new Error(
+			[
+				"Missing web public URL: set WEB_DOMAINS, or ensure CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_API_TOKEN",
+				"are set so Alchemy can infer the web workers.dev URL (see .env.example).",
+			].join(" "),
+		);
+	}
+
+	const api = await createCloudflareApi({ accountId });
+	const host = await computeWorkerDevDomain(api, physicalWebScriptName(options.stage));
+	return `https://${host}`;
 }

@@ -6,7 +6,12 @@
 		"app": "chatroom"
 	},
 	"exports": {
-		"./alchemy": "./alchemy.run.ts"
+		"./alchemy": "./alchemy.run.ts",
+		"./hono-app": {
+			"types": "./src/hono-app.ts",
+			"default": "./src/hono-app.ts"
+		},
+		"./workers/rpc": "./workers/rpc.ts"
 	},
 	"scripts": {
 		"db:generate": "drizzle-kit generate",
@@ -24,8 +29,12 @@
 	},
 	"packageManager": "bun@1.3.13",
 	"dependencies": {
+		"@firtoz/hono-fetcher": "catalog:",
+		"@firtoz/maybe-error": "catalog:",
 		"@firtoz/socka": "catalog:",
-		"@firtoz/websocket-do": "^13.0.2",
+		"@firtoz/websocket-do": "catalog:",
+		"@internal/auth-client": "workspace:*",
+		"@internal/auth-db": "workspace:*",
 		"@internal/chat-contract": "workspace:*",
 		"drizzle-orm": "catalog:",
 		"hono": "catalog:"

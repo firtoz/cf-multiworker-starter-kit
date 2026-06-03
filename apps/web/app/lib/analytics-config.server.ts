@@ -1,4 +1,9 @@
 import { parsePrNumberFromStage } from "alchemy-utils/deployment-stage";
+import {
+	defaultPosthogUiHostForRegion,
+	POSTHOG_BROWSER_API_PATH,
+	posthogRegionFromProcessEnv,
+} from "alchemy-utils/posthog-host";
 
 import type { PostHogRuntimeTags } from "~/lib/posthog-runtime-tags";
 import { defaultPosthogReleaseName } from "../../posthog/release-names";
@@ -12,7 +17,8 @@ import { posthogLogsServiceVersion } from "../../posthog/release-version";
 export type PostHogWorkerEnvSlice = {
 	STAGE?: string;
 	POSTHOG_KEY?: string;
-	POSTHOG_HOST?: string;
+	POSTHOG_UI_HOST?: string;
+	POSTHOG_REGION?: string;
 	POSTHOG_SITE?: string;
 	/** Bound in **`alchemy.run.ts`** from **`STAGE`** + git (not dotenv). */
 	POSTHOG_RELEASE_NAME?: string;
@@ -21,8 +27,13 @@ export type PostHogWorkerEnvSlice = {
 	POSTHOG_RELEASE_BUILD?: string;
 };
 
-/** Default PostHog ingest host (US). */
-export const POSTHOG_DEFAULT_INGEST_HOST = "https://us.i.posthog.com";
+function resolvePosthogUiHost(workerEnv: PostHogWorkerEnvSlice): string {
+	const explicit = (workerEnv.POSTHOG_UI_HOST ?? "").trim();
+	if (explicit) {
+		return explicit;
+	}
+	return defaultPosthogUiHostForRegion(posthogRegionFromProcessEnv(workerEnv));
+}
 
 /** OTel-style value for PostHog **`logs.environment`** from Alchemy **`STAGE`** slug. */
 export function posthogDeploymentEnvironment(stageSlug: string): string {
@@ -59,11 +70,9 @@ export function getPostHogClientConfig(workerEnv: PostHogWorkerEnvSlice): {
 	enabled: boolean;
 	key: string;
 	host: string;
+	uiHost: string;
 	site: string;
-	assetsPreconnectHref: string | null;
-	/** Derived release id for symbol sets / `logs.serviceName` — same formula as **`posthog-cli` `--release-name`**. */
 	releaseName: string;
-	/** Packed for PostHog — **`--release-version`** and, when set, **`--build`** as **`version+build`**. */
 	releaseVersion: string;
 } {
 	const key = (workerEnv.POSTHOG_KEY ?? "").trim();
@@ -80,16 +89,20 @@ export function getPostHogClientConfig(workerEnv: PostHogWorkerEnvSlice): {
 			enabled: false,
 			key: "",
 			host: "",
+			uiHost: "",
 			site: "",
-			assetsPreconnectHref: null,
 			releaseName,
 			releaseVersion,
 		};
 	}
-	const host = (workerEnv.POSTHOG_HOST ?? "").trim() || POSTHOG_DEFAULT_INGEST_HOST;
-	const assetsPreconnectHref =
-		host.includes("eu.i.posthog") || host.includes("eu.posthog.com")
-			? "https://eu-assets.i.posthog.com"
-			: "https://us-assets.i.posthog.com";
-	return { enabled: true, key, host, site, assetsPreconnectHref, releaseName, releaseVersion };
+	const uiHost = resolvePosthogUiHost(workerEnv);
+	return {
+		enabled: true,
+		key,
+		host: POSTHOG_BROWSER_API_PATH,
+		uiHost,
+		site,
+		releaseName,
+		releaseVersion,
+	};
 }
