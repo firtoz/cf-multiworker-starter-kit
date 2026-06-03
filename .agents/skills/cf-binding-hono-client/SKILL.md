@@ -49,7 +49,7 @@ declare global {
   namespace WorkerBindingRegistry {
     interface HonoClients {
       CHATROOM: ChatroomWorkerHonoClientApp;
-      // OTHER: OtherWorkerHonoClientApp;
+      // YOUR_BINDING: YourWorkerHonoClientApp;
     }
   }
 }
@@ -145,8 +145,8 @@ export default class ChatroomWorker extends WorkerEntrypoint<Env> {
 | `YourWorkerRpc` with `app` + `clientApp` | same file or `workers/rpc.ts` |
 | `Worker<typeof bindings, YourWorkerRpc>` | worker `alchemy.run.ts` |
 | Export `./hono-app` + `./workers/rpc` | worker `package.json` |
-| `OTHER: otherWorker` binding | `apps/web/alchemy.run.ts` |
-| Registry row `OTHER: OtherWorkerHonoClientApp` | `apps/web/types/worker-binding-registry.d.ts` |
+| `YOUR_BINDING: yourWorker` binding | `apps/web/alchemy.run.ts` |
+| Registry row `YOUR_BINDING: YourWorkerHonoClientApp` | `apps/web/types/worker-binding-registry.d.ts` |
 | `bun run typegen` + `bun run typecheck` | repo root |
 
 ## Common mistakes

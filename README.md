@@ -82,7 +82,7 @@ You need a Cloudflare **API token** and **Account ID** from the dashboard (this 
 2. **`bun run setup:staging`** then **`bun run github:sync:staging`** (or **`bun run onboard:staging`**).
 3. **`bun run setup:prod`** then **`bun run github:sync:prod`** (or **`bun run onboard:prod`**).
 
-Per-environment secrets (**`ALCHEMY_PASSWORD`**, **`CHATROOM_INTERNAL_SECRET`**, **`BETTER_AUTH_SECRET`**, **`AUTH_ADMIN_SECRET`**, optional **`AUTH_BOOTSTRAP_ADMIN_EMAILS`**, optional **`WEB_*`**) stay in each stage dotfile (or GitHub Environments after sync). **No auth URL env var** — Alchemy derives the public auth URL from **`AUTH_DOMAINS`**, **`WEB_DOMAINS`**, or web **workers.dev** (see [cf-auth-setup](.agents/skills/cf-auth-setup/SKILL.md)).
+Per-environment secrets (**`ALCHEMY_PASSWORD`**, **`CHATROOM_INTERNAL_SECRET`**, **`BETTER_AUTH_SECRET`**, **`AUTH_ADMIN_SECRET`**, optional **`AUTH_BOOTSTRAP_ADMIN_EMAILS`**, optional **`WEB_*`**) stay in each stage dotfile (or GitHub Environments after sync). **No auth URL env var** — Alchemy derives the public auth URL from the local web origin, **`WEB_DOMAINS`**, or web **workers.dev** (see [cf-auth-setup](.agents/skills/cf-auth-setup/SKILL.md)).
 
 With [`gh`](https://cli.github.com/) authenticated and repo admin rights, from a trusted machine:
 
@@ -132,7 +132,7 @@ Each command runs the **full** Turbo graph (shared Alchemy state, D1 + migration
 
 ## Architecture
 
-Only **`apps/web`** faces the internet. Every other worker is a **service binding** ([`apps/web/alchemy.run.ts`](apps/web/alchemy.run.ts)). **`chatroom-do`** also calls **`auth-worker`** for session checks.
+Only **`apps/web`** faces the internet. Every other worker is a **service binding** ([`apps/web/alchemy.run.ts`](apps/web/alchemy.run.ts)). The web worker gates chat sessions with **`auth-worker`**, then forwards WebSocket upgrades to **`chatroom-do`** with attested headers.
 
 ```mermaid
 ---
@@ -179,7 +179,7 @@ flowchart TB
 | Flow | Path |
 |------|------|
 | **Auth / sessions** | Browser → web `/api/auth/*` → `AUTH.fetch` → auth-worker (Better Auth + auth D1). Loaders use `env.AUTH` via `@internal/auth-client`. |
-| **Chat WebSocket** | Browser → web `/api/ws/*` → session or attest token check → `CHATROOM.fetch` with attestation headers → chatroom-do (may call `AUTH` again). |
+| **Chat WebSocket** | Browser → web `/api/ws/*` → session or attest token check in web → `CHATROOM.fetch` with attestation headers → chatroom-do verifies the worker-to-worker request. |
 
 Bindings and route wiring: [`apps/web/alchemy.run.ts`](apps/web/alchemy.run.ts), [`apps/web/workers/hono-app.ts`](apps/web/workers/hono-app.ts). Adding a worker: [Adding workers](#adding-workers) below.
 

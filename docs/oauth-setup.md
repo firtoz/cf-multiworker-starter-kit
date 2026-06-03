@@ -66,11 +66,10 @@ Alchemy sets the auth worker **`AUTH_BASE_URL`** binding to that public web URL 
 
 1. **Local dev + Portless (default)** — `https://<PRODUCT_PREFIX>-web.localhost` (GitHub ✅ · Google ✅ with loopback callback in Google — see [Local dev: Portless + Google](#local-dev-portless--google-loopback-oauth-proxy))
 2. **Local dev + `LOCAL_PORTLESS=off`** — `http://127.0.0.1:<port>` (Google ✅)
-3. **`AUTH_DOMAINS`** — first hostname (optional dedicated auth host, e.g. `auth.example.com`)
-4. **`WEB_DOMAINS`** — first hostname (typical custom-domain setup; auth is proxied on the web worker at `/api/auth/*`)
-5. **workers.dev** — inferred web worker URL when no custom domains are set (needs Cloudflare API creds at deploy)
+3. **`WEB_DOMAINS`** — first hostname (typical custom-domain setup; auth is proxied on the web worker at `/api/auth/*`)
+4. **workers.dev** — inferred web worker URL when no custom domains are set (needs Cloudflare API creds at deploy)
 
-**Default recommendation:** use the **web-proxy** pattern — set `WEB_DOMAINS` for production, or rely on workers.dev for staging-only stacks. Skip `AUTH_DOMAINS` unless you intentionally split auth onto its own hostname.
+**Default recommendation:** use the **web-proxy** pattern — set `WEB_DOMAINS` for production, or rely on workers.dev for staging-only stacks. `AUTH_DOMAINS` is ignored because `auth-worker` is service-binding only; register OAuth callbacks on the web origin.
 
 ### Callback URL pattern
 
@@ -83,14 +82,12 @@ https://<auth-base-host>/api/auth/callback/github
 
 Examples:
 
-| Environment | Auth base URL | Google callback |
+| Environment | Auth base URL | Callback notes |
 | --- | --- | --- |
 | Local + Portless (default) | `https://starter-web.localhost` | GitHub ✅ · Google ✅ (proxy; register loopback callback in Google) |
 | Local + `LOCAL_PORTLESS=off` | `http://127.0.0.1:5173` | Google ✅ · GitHub ✅ (single origin) |
 | Staging / production | `https://app.example.com` or workers.dev | Google ✅ and GitHub ✅ |
 | Custom domain | `https://app.example.com` | `https://app.example.com/api/auth/callback/google` |
-| Dedicated auth host | `https://auth.example.com` | `https://auth.example.com/api/auth/callback/google` |
-
 Replace `google` with `github` for GitHub.
 
 **Important:** Browsers and OAuth consoles must use the **web** origin in local dev — **not** the auth worker’s direct bind address (e.g. `http://127.0.0.1:8784`). Auth is forwarded from the web worker at `/api/auth/*`.
@@ -478,14 +475,14 @@ The login and guest-upgrade pages show a short notice when passthrough OAuth is 
 ## Staging & production checklist
 
 1. Core auth secrets in the stage dotfile (`BETTER_AUTH_SECRET`, `AUTH_ADMIN_SECRET`, `AUTH_BOOTSTRAP_ADMIN_EMAILS`).
-2. **`GOOGLE_*` and `GITHUB_*`** in that stage’s dotfile (both ID and secret for each provider you want).
+2. **`GOOGLE_*` and `GH_*`** in that stage’s dotfile (both ID and secret for each provider you want).
 3. Provider console: redirect/callback URLs for **that stage’s live web host** (not `127.0.0.1` on staging/prod — loopback is local-only).
 4. Google **Audience**: **Test users** while validating staging; **In production** when opening to all Google users.
 5. `bun run github:sync:staging` or `github:sync:prod` so CI deploy jobs receive secrets.
 6. `bun run deploy:staging` or `bun run deploy:prod`, then smoke-test `/login` and `/account` on the live URL.
 7. **Connect provider** on `/account` — link errors should return to `/account?error=...` with a readable message (not `/api/auth/error`).
 
-**No auth URL is synced to GitHub** — Alchemy derives it from `WEB_DOMAINS`, `AUTH_DOMAINS`, or workers.dev at deploy time. See [Multi-environment setup](#multi-environment-setup-local-staging-production) if the URL was unknown before the first deploy.
+**No auth URL is synced to GitHub** — Alchemy derives it from the deployed web origin (`WEB_DOMAINS` or workers.dev) at deploy time. See [Multi-environment setup](#multi-environment-setup-local-staging-production) if the URL was unknown before the first deploy.
 
 ---
 
@@ -494,7 +491,7 @@ The login and guest-upgrade pages show a short notice when passthrough OAuth is 
 | Symptom | Likely cause | Fix |
 | --- | --- | --- |
 | No Google/GitHub button on `/login` | Missing or empty `*_CLIENT_ID` / `*_CLIENT_SECRET` | Set both keys; restart `bun run dev` |
-| Provider error: redirect URI mismatch | Callback URL in console ≠ resolved auth URL | Fix console URL; check `WEB_DOMAINS` / `AUTH_DOMAINS` / Portless hostname |
+| Provider error: redirect URI mismatch | Callback URL in console ≠ resolved auth URL | Fix console URL; check `WEB_DOMAINS`, workers.dev, or the Portless hostname |
 | **403** on sign-in (especially anonymous → OAuth) | Untrusted `Origin` | Add origin in `/admin/origins` or `AUTH_SEED_ORIGINS`; see [cf-auth-setup](../.agents/skills/cf-auth-setup/SKILL.md) |
 | Google “Access blocked” / app not verified | Consent screen still in **Testing** | **Audience → Test users** — add your Google account, or publish the app |
 | OAuth overview: “no OAuth clients yet” | Only finished Getting started / branding | **Overview → Create OAuth client** or **Clients → Create client** (Web application) — see [§3](#3-create-the-oauth-client-required--fixes-no-oauth-clients-on-overview) |

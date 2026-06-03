@@ -22,11 +22,11 @@ Use when configuring authentication for a fork of this starter kit: env secrets,
    - **Local dev** defaults to the web Portless URL (`https://<PRODUCT_PREFIX>-web.localhost`)
    - **workers.dev-only** staging/prod — Alchemy infers the web worker URL from Cloudflare API (no extra env)
    - **`AUTH_DOMAINS`** — **ignored** (auth worker is service-binding only; do not set)
-   - Optional: `GOOGLE_*`, `GITHUB_*` — [`docs/oauth-setup.md`](../../docs/oauth-setup.md). **Local Portless + Google:** register `http://127.0.0.1:5173/api/auth/callback/google`; Better Auth `oAuthProxy` keeps browsing on `https://<prefix>-web.localhost`. **GitHub:** one **OAuth App** per stage (single callback URL each). **PR previews:** OAuth (GitHub + Google) proxies through the **staging** callback — staging stack must stay deployed; see [`docs/oauth-setup.md` § PR previews](../../docs/oauth-setup.md#pr-previews). **Staging/production:** [`§ Multi-environment`](../../docs/oauth-setup.md#multi-environment-setup-local-staging-production) (`github:sync:*`).
+   - Optional: `GOOGLE_*`, `GH_*` — [`docs/oauth-setup.md`](../../docs/oauth-setup.md). **Local Portless + Google:** register `http://127.0.0.1:5173/api/auth/callback/google`; Better Auth `oAuthProxy` keeps browsing on `https://<prefix>-web.localhost`. **GitHub:** one **OAuth App** per stage (single callback URL each). **PR previews:** OAuth (GitHub + Google) proxies through the **staging** callback — staging stack must stay deployed; see [`docs/oauth-setup.md` § PR previews](../../docs/oauth-setup.md#pr-previews). **Staging/production:** [`§ Multi-environment`](../../docs/oauth-setup.md#multi-environment-setup-local-staging-production) (`github:sync:*`).
 3. Run **`bun run setup:local`** (or staging/prod) so secrets flow into dotfiles and GitHub sync.
 4. **OAuth consoles** — register callback URLs (see [`docs/oauth-setup.md`](../../docs/oauth-setup.md)):
-   - `https://<auth-host>/api/auth/callback/google`
-   - `https://<auth-host>/api/auth/callback/github`
+   - `https://<web-origin>/api/auth/callback/google`
+   - `https://<web-origin>/api/auth/callback/github`
    - Must match the resolved **web** auth base URL exactly (Portless hostname, `WEB_DOMAINS`, or workers.dev)
 5. **`bun run dev`** — includes `@internal/auth-db`, `auth-worker`, web, chatroom-do.
 6. **First deploy** — auth-db migrations apply via Alchemy; trusted origins seed from the web auth URL and `WEB_DOMAINS` on first auth-worker request.

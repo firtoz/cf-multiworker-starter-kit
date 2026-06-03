@@ -79,7 +79,7 @@ The sync does not delete old GitHub variables. You can remove stale **`MULTIWORK
 The React Router app is the **frontend** Worker in [`apps/web/alchemy.run.ts`](../apps/web/alchemy.run.ts). Default deploys use **`workers.dev`** only.
 
 1. Run **`bun run setup:prod`** or **`bun run setup:staging`** and use the **optional** menu entries at the bottom — or set the same keys in **`.env.production`** / **`.env.staging`** (see [`.env.example`](../.env.example)).
-2. Typical: **`WEB_DOMAINS=example.com,www.example.com`**. Use **`WEB_ROUTES`** only if you need explicit patterns (e.g. `example.com/*`). When **`AUTH_DOMAINS`** is unset, the first **`WEB_DOMAINS`** hostname also becomes the public auth URL (web-proxy pattern at `/api/auth/*` — see [cf-auth-setup](../.agents/skills/cf-auth-setup/SKILL.md)).
+2. Typical: **`WEB_DOMAINS=example.com,www.example.com`**. Use **`WEB_ROUTES`** only if you need explicit patterns (e.g. `example.com/*`). The first **`WEB_DOMAINS`** hostname also becomes the public auth URL (web-proxy pattern at `/api/auth/*`; **`AUTH_DOMAINS`** is ignored because `auth-worker` is service-binding only — see [cf-auth-setup](../.agents/skills/cf-auth-setup/SKILL.md)).
 3. Optional: **`WEB_ZONE_ID`** (one zone for every entry), **`WEB_DOMAIN_OVERRIDE_EXISTING_ORIGIN=true`** when moving a hostname already bound elsewhere.
 4. After editing dotfiles, run **`bun run github:sync:staging`** / **`github:sync:prod`** (or **`bun run github:sync`** if both exist) so GitHub Environment **variables** include **`WEB_*`** (plaintext vars — not secrets). The stock workflows also pass these values into deploy steps; if you add another env var, update the workflow **`env:`** blocks too.
 

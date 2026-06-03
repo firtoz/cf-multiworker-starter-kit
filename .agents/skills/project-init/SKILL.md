@@ -29,7 +29,7 @@ Ask the user (or infer from context):
 - **Product slug / prefix** — short literal used in **`alchemy("myslug-frontend")`** style (**not** `$VAR + "-frontend"`). Example: **`skybook`** → **`skybook-frontend`**, **`skybook-database`**, … (see root README — **Name your product** → **Code-first infra names**).
 - **Workspace package names (`package.json` `name`)** — often **`skybook-web`**, **`skybook-db`**, … — separate from Alchemy **`--app`** — used mainly for **`turbo run … --filter=…`**.
 - **One-line description** — README, meta tags, home hero copy.
-- **Chatroom DO** — `durable-objects/chatroom-do`; web binds **`ChatroomDo`**; internal secret **`CHATROOM_INTERNAL_SECRET`** (already in env flows).
+- **Chatroom DO** — `durable-objects/chatroom-do`; web binds the **`CHATROOM`** worker service, and that package owns the **`ChatroomDo`** namespace; internal secret **`CHATROOM_INTERNAL_SECRET`** (already in env flows).
 - **D1** — `packages/db` + optional **`D1_DATABASE_NAME`** / **`D1_DATABASE_ID`** in **`.env.local`** / **`.env.production`** for remote/local debugging; **`ALCHEMY_APP_IDS.database`** (**[`packages/db/alchemy.run.ts`](../../packages/db/alchemy.run.ts)**) drives migrations (**`alchemy-cli --stage prod deploy`** from **`packages/db`**, etc.).
 
 ## 2. Code-first Alchemy ids and Workers

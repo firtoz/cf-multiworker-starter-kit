@@ -30,7 +30,8 @@ React Router 7 application deployed on Cloudflare Workers.
 - `app/routes/` - Route components (home, visitors, chat, login, account, admin, …)
 - `app/root.tsx` - Root layout with dark mode support
 - `app/entry.server.tsx` - SSR entry + 103 Early Hints for CSS
-- `workers/app.ts` - Cloudflare Worker (SSR + WebSocket forward to `ChatroomDo`)
+- `workers/app.ts` - Cloudflare Worker entrypoint
+- `workers/hono-app.ts` - Hono routes for SSR, `/api/auth/*`, `/api/ws/*`, and PostHog `/d/*`
 - `alchemy.run.ts` - Web Alchemy app, D1 binding, and imported worker/DO bindings
 - `types/env.d.ts` - Cloudflare `env` types from the exported `web` resource
 
@@ -99,7 +100,7 @@ Do not duplicate the monorepo checklist here. After **`bunx turbo gen durable-ob
 - [.agents/skills/cf-durable-object-package/SKILL.md](../../.agents/skills/cf-durable-object-package/SKILL.md) — package layout and `alchemy.run.ts`
 - [.agents/skills/cf-web-alchemy-bindings/SKILL.md](../../.agents/skills/cf-web-alchemy-bindings/SKILL.md) — `apps/web/package.json` workspace dep, `alchemy.run.ts` bindings, `bun run typegen`
 
-Example: call a DO’s Hono surface with `honoDoFetcherWithName(env.ChatroomDo, "lobby")` after binding the namespace in `apps/web/alchemy.run.ts`.
+For service-bound workers, register the worker client type and call it with `bindingHonoClient(env.CHATROOM)`. Use `honoDoFetcherWithName(env.MyDo, name)` only when the web worker binds a Durable Object namespace directly.
 
 ### 4. Add a WebSocket-backed route
 
