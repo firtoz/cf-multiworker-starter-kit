@@ -1,56 +1,71 @@
-import { accountDisplayName, hasAccountDisplayName } from "@internal/auth-client/display-name";
+import { hasAccountDisplayName } from "@internal/auth-client/display-name";
 import type { AuthUser } from "@internal/auth-client/roles";
-import type { ChatMessageRow } from "@internal/chat-contract";
-import type { KeyboardEvent as ReactKeyboardEvent } from "react";
-import { Suspense, useEffect } from "react";
-import { Await, href, Link } from "react-router";
+import type { KeyboardEvent as ReactKeyboardEvent, ReactNode, Ref } from "react";
+import { href, Link } from "react-router";
 import { ChatGuestRetentionNotice } from "~/components/chat/ChatGuestRetentionNotice";
-import { ChatInitialHistoryError } from "~/components/chat/ChatInitialHistoryError";
-import { ChatInitialHistoryItems } from "~/components/chat/ChatInitialHistoryItems";
 import { ChatRoomToolbar } from "~/components/chat/ChatRoomToolbar";
 import { LocalDateTime } from "~/components/shared/LocalDateTime";
-import { markChatPerformance } from "~/lib/chat-performance";
 
-type ChatServerShellProps = {
+export type ChatViewToolbarProps = {
+	nameDraft: string;
+	ready: boolean;
+	roomInput: string;
+	committedRoom: string;
+	canSwitchRoom: boolean;
+	roomInputInvalid: boolean;
+	joinIsRedundant: boolean;
+	onNameChange: (value: string) => void;
+	onSaveName: () => void;
+	onRevertName: () => void;
+	onBeginEditName: () => void;
+	onRoomChange: (value: string) => void;
+	onRoomKeyDown: (event: ReactKeyboardEvent<HTMLInputElement>) => void;
+	onJoin: () => void;
+};
+
+type ChatViewProps = {
 	user: AuthUser;
 	sessionExpiresAt: string;
 	guestRetentionDays: number;
-	room: string;
 	status: string;
-	initialMessages: Promise<ChatMessageRow[]>;
+	room: string;
+	presenceSummary?: string | null;
+	saveNameError?: string | undefined;
+	deleteError?: string | undefined;
+	socketError?: string | null | undefined;
 	canModerate: boolean;
-	saveNameError?: string;
+	toolbar: ChatViewToolbarProps;
+	messageListRef?: Ref<HTMLUListElement>;
+	onMessageListScroll?: () => void;
+	messageInputDisabled?: boolean;
+	sendDisabled?: boolean;
+	onMessageSubmit?: (text: string) => void;
+	children: ReactNode;
 };
 
-const noop = () => {
-	// Static shell controls become interactive after hydration.
-};
+const CHAT_MESSAGE_LIST_MIN_H_CLASS = "min-h-[150px]" as const;
 
-const noopString = (_value: string) => {
-	// Static shell controls become interactive after hydration.
-};
-
-const noopKeyDown = (_event: ReactKeyboardEvent<HTMLInputElement>) => {
-	// Static shell controls become interactive after hydration.
-};
-
-export function ChatServerShell({
+export function ChatView({
 	user,
 	sessionExpiresAt,
 	guestRetentionDays,
-	room,
 	status,
-	initialMessages,
-	canModerate,
+	room,
+	presenceSummary,
 	saveNameError,
-}: ChatServerShellProps) {
+	deleteError,
+	socketError,
+	canModerate,
+	toolbar,
+	messageListRef,
+	onMessageListScroll,
+	messageInputDisabled = false,
+	sendDisabled = false,
+	onMessageSubmit,
+	children,
+}: ChatViewProps) {
 	const isAnonymousGuest = user.isAnonymous === true;
 	const usesAccountName = !isAnonymousGuest && hasAccountDisplayName(user);
-	const displayName = accountDisplayName(user) ?? "Guest";
-
-	useEffect(() => {
-		markChatPerformance("static-shell-mounted");
-	}, []);
 
 	return (
 		<div className="max-w-2xl mx-auto w-full min-h-full flex flex-col gap-2 px-4 py-2 sm:gap-3 sm:py-3 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
@@ -59,6 +74,13 @@ export function ChatServerShell({
 					<h1 className="text-lg font-bold text-gray-900 dark:text-gray-100 sm:text-2xl">Chat</h1>
 					<p className="text-xs text-gray-500 min-w-0 text-right">
 						{status} · <span className="font-mono">{room}</span>
+						{presenceSummary ? (
+							<>
+								<span className="hidden sm:inline"> · Online: </span>
+								<span className="sm:hidden"> · </span>
+								<span className="text-gray-600 dark:text-gray-400">{presenceSummary}</span>
+							</>
+						) : null}
 					</p>
 				</div>
 				<p className="hidden md:block text-sm text-gray-600 dark:text-gray-400">
@@ -102,55 +124,71 @@ export function ChatServerShell({
 						Admin moderation: use Delete on any message (you will be asked to confirm).
 					</p>
 				) : null}
+				{deleteError ? (
+					<p className="text-sm text-red-700 dark:text-red-300">{deleteError}</p>
+				) : null}
+				{socketError ? (
+					<p className="text-sm text-red-700 dark:text-red-300">{socketError}</p>
+				) : null}
 			</header>
 
 			<div className="sticky top-0 z-10 shrink-0 -mx-4 border-b border-gray-200 bg-white/95 px-4 py-2 backdrop-blur-sm dark:border-gray-800 dark:bg-gray-950/95">
 				<ChatRoomToolbar
-					nameDraft={displayName}
+					nameDraft={toolbar.nameDraft}
 					isGuest={isAnonymousGuest}
-					ready={false}
-					roomInput={room}
-					committedRoom={room}
-					canSwitchRoom={false}
-					roomInputInvalid={false}
-					joinIsRedundant={true}
-					onNameChange={noopString}
-					onSaveName={noop}
-					onRevertName={noop}
-					onBeginEditName={noop}
-					onRoomChange={noopString}
-					onRoomKeyDown={noopKeyDown}
-					onJoin={noop}
+					ready={toolbar.ready}
+					roomInput={toolbar.roomInput}
+					committedRoom={toolbar.committedRoom}
+					canSwitchRoom={toolbar.canSwitchRoom}
+					roomInputInvalid={toolbar.roomInputInvalid}
+					joinIsRedundant={toolbar.joinIsRedundant}
+					onNameChange={toolbar.onNameChange}
+					onSaveName={toolbar.onSaveName}
+					onRevertName={toolbar.onRevertName}
+					onBeginEditName={toolbar.onBeginEditName}
+					onRoomChange={toolbar.onRoomChange}
+					onRoomKeyDown={toolbar.onRoomKeyDown}
+					onJoin={toolbar.onJoin}
 				/>
 			</div>
 
-			<div className="flex-1 flex flex-col min-h-[150px]">
-				<ul className="flex min-h-0 flex-1 flex-col list-none gap-2 overflow-y-auto overscroll-contain border border-gray-200 dark:border-gray-700 rounded-lg p-3 bg-gray-50 dark:bg-gray-900/50">
-					<Suspense
-						fallback={<li className="text-sm text-gray-500">Loading message history...</li>}
-					>
-						<Await
-							resolve={initialMessages}
-							errorElement={<ChatInitialHistoryError onError={noop} />}
-						>
-							{(messages) => <ChatInitialHistoryItems messages={messages} />}
-						</Await>
-					</Suspense>
+			<div className={`flex-1 flex flex-col ${CHAT_MESSAGE_LIST_MIN_H_CLASS}`}>
+				<ul
+					ref={messageListRef}
+					className="flex min-h-0 flex-1 flex-col list-none gap-2 overflow-y-auto overscroll-contain border border-gray-200 dark:border-gray-700 rounded-lg p-3 bg-gray-50 dark:bg-gray-900/50"
+					aria-label="Message history"
+					onScroll={onMessageListScroll}
+				>
+					{children}
 				</ul>
 			</div>
 
 			<footer className="shrink-0 border-t border-gray-200 dark:border-gray-700 pt-2">
-				<form className="flex gap-2">
+				<form
+					className="flex gap-2"
+					onSubmit={(event) => {
+						event.preventDefault();
+						if (!onMessageSubmit) {
+							return;
+						}
+						const text = String(new FormData(event.currentTarget).get("text") ?? "").trim();
+						if (!text) {
+							return;
+						}
+						onMessageSubmit(text);
+						event.currentTarget.reset();
+					}}
+				>
 					<input
 						name="text"
 						className="flex-1 border border-gray-300 dark:border-gray-600 rounded-lg px-2.5 sm:px-3 py-1.5 sm:py-2 bg-white dark:bg-gray-900 text-sm"
 						placeholder="Message..."
 						autoComplete="off"
-						disabled
+						disabled={messageInputDisabled}
 					/>
 					<button
 						type="submit"
-						disabled
+						disabled={sendDisabled}
 						className="shrink-0 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg text-sm"
 					>
 						Send
