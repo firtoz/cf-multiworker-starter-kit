@@ -9,6 +9,7 @@ import { useRevalidator } from "react-router";
 import { LocalDateTime } from "~/components/shared/LocalDateTime";
 import { accountFormErrorMessage } from "~/lib/account-form-error";
 import { formatSessionDevice } from "~/lib/format-session-device";
+import { formatSessionIpAddress } from "~/lib/format-session-ip-address";
 
 type RouteMod = typeof import("~/routes/authed/account");
 
@@ -83,6 +84,7 @@ export function AccountSessionsSection({
 				{sessions.map((session) => {
 					const isCurrent = isCurrentSession(session);
 					const device = formatSessionDevice(session.userAgent);
+					const ipAddress = formatSessionIpAddress(session.ipAddress);
 					return (
 						<li
 							key={session.id}
@@ -110,7 +112,7 @@ export function AccountSessionsSection({
 								) : null}
 								<p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
 									Last active <LocalDateTime value={session.updatedAt} />
-									{session.ipAddress ? ` · ${session.ipAddress}` : ""}
+									{ipAddress ? ` · ${ipAddress}` : ""}
 								</p>
 								<p className="text-xs text-gray-500 dark:text-gray-400">
 									Expires <LocalDateTime value={session.expiresAt} />
