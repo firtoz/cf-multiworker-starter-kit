@@ -19,8 +19,8 @@ A production-minded starter for full-stack Cloudflare apps: React Router on Work
 
 - **React Router 7 on Workers** — streaming SSR, Tailwind, typed loaders/actions, form actions.
 - **Durable Object example** — Socka WebSockets + DO SQLite on `/chat` (`chatroom-do`), with auth session gating via service bindings.
-- **Better Auth (`auth-worker`)** — email/password + optional Google/GitHub, admin UI (`/admin`), account display names; anonymous guests on `/chat` (7-day sliding session, random names like `Coastal-Falcon`).
-- **D1 + Drizzle** — root app DB (`/visitors`) plus separate auth D1 (`@internal/auth-db`).
+- **Better Auth (`auth-worker`)** — email/password + optional Google/GitHub, account display names, and admin APIs used by the web admin UI (`/admin`); anonymous guests on `/chat` (7-day sliding session, random names like `Coastal-Falcon`).
+- **D1 + Drizzle** — root app DB (`/visitors` counter + chat room registry) plus separate auth D1 (`@internal/auth-db`).
 - **Typed bindings** — package-local `alchemy.run.ts` → Worker `env` types.
 - **Deploy story** — Turbo + Alchemy, staging/production, PR previews (details below only when you need them).
 
@@ -145,7 +145,7 @@ flowchart TB
   PostHog["PostHog ingest"]
 
   subgraph webLayer["apps/web"]
-    AppDB[("App D1<br>site visit counter")]
+    AppDB[("App D1<br>visits · chat room registry")]
     Web["React Router"]
   end
 
@@ -165,7 +165,8 @@ flowchart TB
 
   Web --> AppDB & AUTH & CHAT & PH
   AUTH --> AuthDB & AuthKV
-  CHAT --> AUTH & ChatDO --> ChatSQL
+  CHAT --> ChatDO --> ChatSQL
+  CHAT -. service probe .-> AUTH
 
   Browser -- HTTPS --> Web
   PH -- forward /d/* --> PostHog
@@ -180,6 +181,8 @@ flowchart TB
 |------|------|
 | **Auth / sessions** | Browser → web `/api/auth/*` → `AUTH.fetch` → auth-worker (Better Auth + auth D1). Loaders use `env.AUTH` via `@internal/auth-client`. |
 | **Chat WebSocket** | Browser → web `/api/ws/*` → session or attest token check in web → `CHATROOM.fetch` with attestation headers → chatroom-do verifies the worker-to-worker request. |
+
+`chatroom-do` also has an `AUTH` binding for the `/service-ack` provider probe; normal chat WebSocket identity is resolved by the web worker before forwarding.
 
 Bindings and route wiring: [`apps/web/alchemy.run.ts`](apps/web/alchemy.run.ts), [`apps/web/workers/hono-app.ts`](apps/web/workers/hono-app.ts). Adding a worker: [Adding workers](#adding-workers) below.
 
@@ -198,7 +201,7 @@ Bindings and route wiring: [`apps/web/alchemy.run.ts`](apps/web/alchemy.run.ts),
 │   ├── auth-client/            # getSession, createAuthClient, binding headers for AUTH.fetch
 │   ├── auth-db/                # Better Auth D1 schema + migrations
 │   ├── chat-contract/
-│   ├── db/                     # App D1 schema + Drizzle migrations (/visitors)
+│   ├── db/                     # App D1 schema + Drizzle migrations (/visitors + chat room registry)
 │   ├── scripts/                # quickstart, setup, onboard, GitHub sync helpers
 │   └── state-hub/              # shared remote Alchemy state (non-local STAGE)
 ├── stacks/                     # admin / GitHub sync (Alchemy)

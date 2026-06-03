@@ -55,6 +55,9 @@ export const chatroomWorker = await Worker<typeof chatroomWorkerBindings, Chatro
 		observability: workerObservabilityWithTraces,
 		dev: { port: 8783 },
 		adopt: true,
+		url: false,
+		previewSubdomains: false,
+		domains: [],
 		bindings: chatroomWorkerBindings,
 	},
 );

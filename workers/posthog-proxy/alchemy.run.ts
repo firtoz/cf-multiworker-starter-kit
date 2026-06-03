@@ -28,6 +28,9 @@ export const posthogProxyWorker = await Worker(DEFAULT_WORKER_RESOURCE_ID, {
 	observability: workerObservabilityWithTraces,
 	dev: { port: LOCAL_POSTHOG_PROXY_DEV_PORT },
 	adopt: true,
+	url: false,
+	previewSubdomains: false,
+	domains: [],
 	bindings: {
 		POSTHOG_REGION: posthogRegion,
 		POSTHOG_HOST: posthogUpstreamHost,
