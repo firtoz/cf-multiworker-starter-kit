@@ -35,7 +35,7 @@ export const guestUpgrade = new Hono<AuthWorkerAppEnv>()
 			.from(userTable)
 			.where(eq(userTable.id, session.user.id))
 			.limit(1);
-		if (!guestRow || guestRow.isAnonymous !== true) {
+		if (guestRow?.isAnonymous !== true) {
 			return c.json({ error: "You already have a full account" }, 400);
 		}
 

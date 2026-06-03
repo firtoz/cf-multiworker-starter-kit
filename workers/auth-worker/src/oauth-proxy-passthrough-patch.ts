@@ -125,8 +125,7 @@ function buildPassthroughOAuthProxyHooks(
 			}
 			const statePackage = await decryptOAuthProxyStatePackage(ctx, state);
 			if (
-				!statePackage ||
-				statePackage["isOAuthProxy"] !== true ||
+				statePackage?.["isOAuthProxy"] !== true ||
 				typeof statePackage["stateCookie"] !== "string"
 			) {
 				return;
@@ -220,10 +219,11 @@ function buildPassthroughOAuthProxyHooks(
 		}),
 	};
 
+	const [firstBefore, ...restBefore] = before;
 	const beforeWithStaging =
-		before.length > 0
-			? [before[0]!, stagingCallbackHook, ...before.slice(1)]
-			: [stagingCallbackHook];
+		firstBefore === undefined
+			? [stagingCallbackHook]
+			: [firstBefore, stagingCallbackHook, ...restBefore];
 
 	const updatedAfter = isClientPassthrough
 		? after.map((hook, index) =>

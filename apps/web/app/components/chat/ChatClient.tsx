@@ -139,6 +139,7 @@ function ChatClientWithSocket({
 	const [nameDraft, setNameDraft] = useState(profileName);
 	const [messages, setMessages] = useState<ChatMessageRow[]>([]);
 	const [presence, setPresence] = useState<PresenceLine[]>([]);
+	const [socketError, setSocketError] = useState<string | null>(null);
 	const [roomAttest, setRoomAttest] = useState<{ room: string; token: string } | null>(null);
 	const [joinPending, setJoinPending] = useState(false);
 	const [openedRoom, setOpenedRoom] = useState<string | null>(null);
@@ -247,6 +248,7 @@ function ChatClientWithSocket({
 		setMessages([]);
 		setPresence([]);
 		setSelfUserId(null);
+		setSocketError(null);
 		selfUserIdRef.current = null;
 		stuckToBottomRef.current = true;
 		setOpenedRoom((current) => (current === committedRoom ? null : current));
@@ -256,7 +258,9 @@ function ChatClientWithSocket({
 		if (!connectionReady) {
 			return;
 		}
-		void loadInitial();
+		void loadInitial().catch(() => {
+			setSocketError("Could not load chat room state. Try reconnecting.");
+		});
 	}, [connectionReady, loadInitial]);
 
 	/** After history or a new `roomMessage` render: snap to real bottom if pinned, or the latest row is your own. */
@@ -330,10 +334,15 @@ function ChatClientWithSocket({
 		}
 		pendingSockaDisplayName.current = null;
 		const saved = data.result.displayName;
-		void send.setDisplayName({ displayName: saved }).then(() => {
-			nameFieldSnap.current = saved;
-			setNameDraft(saved);
-		});
+		void send
+			.setDisplayName({ displayName: saved })
+			.then(() => {
+				nameFieldSnap.current = saved;
+				setNameDraft(saved);
+			})
+			.catch(() => {
+				setSocketError("Could not update your chat display name. Try reconnecting.");
+			});
 	}, [saveNameFetcher.state, saveNameFetcher.data, send]);
 
 	const revertDisplayName = useCallback(() => {
@@ -456,6 +465,9 @@ function ChatClientWithSocket({
 				{deleteError ? (
 					<p className="text-sm text-red-700 dark:text-red-300">{deleteError}</p>
 				) : null}
+				{socketError ? (
+					<p className="text-sm text-red-700 dark:text-red-300">{socketError}</p>
+				) : null}
 			</header>
 
 			<div className="sticky top-0 z-10 shrink-0 -mx-4 border-b border-gray-200 bg-white/95 px-4 py-2 backdrop-blur-sm dark:border-gray-800 dark:bg-gray-950/95">
@@ -513,7 +525,10 @@ function ChatClientWithSocket({
 						if (!text || !connectionReady) {
 							return;
 						}
-						void send.sendMessage({ text });
+						setSocketError(null);
+						void send.sendMessage({ text }).catch(() => {
+							setSocketError("Could not send that message. Try reconnecting.");
+						});
 						e.currentTarget.reset();
 					}}
 				>

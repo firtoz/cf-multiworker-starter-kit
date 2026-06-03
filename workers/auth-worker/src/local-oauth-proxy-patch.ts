@@ -194,8 +194,7 @@ function buildLocalGoogleOAuthProxyHooks(
 				return;
 			}
 			if (
-				!statePackage ||
-				statePackage["isOAuthProxy"] !== true ||
+				statePackage?.["isOAuthProxy"] !== true ||
 				typeof statePackage["state"] !== "string" ||
 				typeof statePackage["stateCookie"] !== "string"
 			) {
