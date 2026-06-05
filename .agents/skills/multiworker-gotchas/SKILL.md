@@ -7,7 +7,7 @@ description: Fork and template gotchas (env import, routes, typegen, forms, D1, 
 
 These trip up new contributors and agents most often. For commands and checklists, see [multiworker-workflow](../multiworker-workflow/SKILL.md).
 
-1. **Worker bindings and env** — Import the typed `env` from the Workers virtual module, not from React Router context: `import { env } from "cloudflare:workers"`. **Do not** use `context.cloudflare.env` (or similar) for Cloudflare bindings in this stack. More: [cf-workers-patterns.mdc](../../rules/cf-workers-patterns.mdc).
+1. **Worker bindings and env** — Import the typed `env` from the Workers virtual module, not from React Router context: `import { env } from "cloudflare:workers"`. **Do not** use `context.cloudflare.env` (or similar) for Cloudflare bindings in this stack. More: [workers-patterns.mdc](../../rules/workers-patterns.mdc).
 
 1b. **Imports — no cross-package re-exports** — Import each symbol from the module that **defines** it. **`@internal/auth-client`** = session/client/binding code; **`@internal/auth-db/api-schemas`** = wire types and Zod schemas; **`@internal/auth-db/constants`** = shared auth constants. Do **not** re-export auth-db (or any other package) from auth-client’s `index.ts` for convenience. Full rule: [typescript-imports.mdc](../../rules/typescript-imports.mdc).
 
@@ -64,16 +64,16 @@ These trip up new contributors and agents most often. For commands and checklist
    - **`WorkerRef` / cross-worker:** one direction uses **`workspace:*`**; the other uses a relative **`../<pkg>/workers/rpc`** import to avoid Turbo cycles.
    - **New Alchemy app:** root [package.json](../../../package.json) **`dev`** filter.
    - **Destroy graph:** [turbo.json](../../../turbo.json) **`<pkg>#destroy:*`** with **`dependsOn`** **→** matching **`@internal/web#destroy:*`**.
-   - **Wire web:** **`apps/web`** workspace dep; [apps/web/alchemy.run.ts](../../../apps/web/alchemy.run.ts) binding; [apps/web/workers/app.ts](../../../apps/web/workers/app.ts) forwarder if WebSockets. Typed HTTP over the binding: [cf-binding-hono-client](../cf-binding-hono-client/SKILL.md) (`bindingHonoClient`, `BindingClientApp` map).
+   - **Wire web:** **`apps/web`** workspace dep; [apps/web/alchemy.run.ts](../../../apps/web/alchemy.run.ts) binding; [apps/web/workers/app.ts](../../../apps/web/workers/app.ts) forwarder if WebSockets. Typed HTTP over the binding: [binding-hono-client](../binding-hono-client/SKILL.md) (`bindingHonoClient`, `BindingClientApp` map).
    - **DO SQLite:** `src/schema.ts`, **`drizzle.config.ts`** with **`driver: "durable-sqlite"`**, package **`db:generate`**; never hand-edit generated migrations.
    - **Do not** add another package’s **`workers/app.ts`** to [tsconfig.cloudflare.json](../../../apps/web/tsconfig.cloudflare.json) **`include`**—it can break web **`Env`**.
-   - Step-by-step: [cf-durable-object-package](../cf-durable-object-package/SKILL.md), [cf-web-alchemy-bindings](../cf-web-alchemy-bindings/SKILL.md), [cf-worker-rpc-turbo](../cf-worker-rpc-turbo/SKILL.md), [cf-binding-hono-client](../cf-binding-hono-client/SKILL.md) (service-binding HTTP).
+   - Step-by-step: [durable-object-package](../durable-object-package/SKILL.md), [web-alchemy-bindings](../web-alchemy-bindings/SKILL.md), [worker-rpc-turbo](../worker-rpc-turbo/SKILL.md), [binding-hono-client](../binding-hono-client/SKILL.md) (service-binding HTTP).
 
 16. **WebSocket forwarding**
    - Handle Worker **upgrade** paths **before** React Router.
    - Keep **client URL prefix** and **worker route prefix** the same (e.g. **`/api/my-feature/ws/`**).
    - Don’t break **Vite HMR** WebSockets; forward the DO subpath to **`/websocket`** on the DO.
-   - **Socka** RPC + push: [cf-socka-realtime](../cf-socka-realtime/SKILL.md) + **`@firtoz/socka`** (`chatroom-do`, **`packages/chat-contract`**). Avoid hand-rolled JSON wire protocols unless the user wants raw WS.
+   - **Socka** RPC + push: [socka-realtime](../socka-realtime/SKILL.md) + **`@firtoz/socka`** (`chatroom-do`, **`packages/chat-contract`**). Avoid hand-rolled JSON wire protocols unless the user wants raw WS.
 
 17. **SSR / browser boundary** — Routes run on the **server** first.
    - **Never** in module scope, loaders/actions, render, or SSR **`useMemo`:** `window`, `document`, `WebSocket`, `canvas`, `localStorage`, other DOM APIs.
@@ -95,7 +95,7 @@ These trip up new contributors and agents most often. For commands and checklist
    - Must be **one** Cloudflare account—swapped or mismatched values → **`[CloudflareStateStore]`** **404** **`text/html`**, wrong **`workers.dev`** subdomain, confusing deploy failures.
    - Align dashboard **Account ID**, token **Account Resources**, and **`.env.staging`** / **`.env.production`**.
    - On GitHub: **`CLOUDFLARE_ACCOUNT_ID`** = Environment **variable** (workflows use **`vars`**); token = **Secret**.
-   - More: [cf-workers-env-local](../cf-workers-env-local/SKILL.md).
+   - More: [workers-env-local](../workers-env-local/SKILL.md).
 
 21. **Optional PostHog / analytics**
    - **`POSTHOG_*`** — optional like **`WEB_*`**; empty → no analytics.
@@ -118,6 +118,6 @@ These trip up new contributors and agents most often. For commands and checklist
 
 ## Also load
 
-- [cf-workers-patterns.mdc](../../rules/cf-workers-patterns.mdc) — short always-on reminder for workers, env, routes.
-- [cf-realtime-websockets.mdc](../../rules/cf-realtime-websockets.mdc) — Socka default, no fake WebSocket hosts (when working on `durable-objects/*`, `apps/web`, or `/api/ws`).
-- [cf-socka-realtime/SKILL.md](../cf-socka-realtime/SKILL.md) — end-to-end Socka + DO + web checklist.
+- [workers-patterns.mdc](../../rules/workers-patterns.mdc) — short always-on reminder for workers, env, routes.
+- [realtime-websockets.mdc](../../rules/realtime-websockets.mdc) — Socka default, no fake WebSocket hosts (when working on `durable-objects/*`, `apps/web`, or `/api/ws`).
+- [socka-realtime/SKILL.md](../socka-realtime/SKILL.md) — end-to-end Socka + DO + web checklist.

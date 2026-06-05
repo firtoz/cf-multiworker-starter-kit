@@ -1,5 +1,5 @@
 ---
-name: cf-worker-rpc-turbo
+name: worker-rpc-turbo
 description: workers/rpc.ts for WorkerRef or DO RPC types, package exports, cross-worker type imports without Turbo cycles, and root dev/destroy wiring. Use when adding WorkerRef, WorkerStub, workers/rpc.ts, turbo circular dependency warnings, or a new app missing from root bun run dev.
 ---
 
@@ -20,7 +20,7 @@ description: workers/rpc.ts for WorkerRef or DO RPC types, package exports, cros
 
 3. **Alchemy** — Use the exported RPC type: `DurableObjectNamespace<YourDoRpc>`, `WorkerRef<OtherWorkerRpc>`, `Worker<typeof bindings, YourWorkerRpc>`, etc.
 
-4. **Worker HTTP + hono-fetcher (web consumer)** — For a worker entrypoint with a Hono `app`, export `YourWorkerHonoClientApp` and put `app` + `clientApp` on `YourWorkerRpc`. Web calls use `bindingHonoClient(env.YOUR_BINDING)` — full checklist in [cf-binding-hono-client](../cf-binding-hono-client/SKILL.md). Do **not** expect `Fetcher<infer RPC>` to preserve `clientApp` for inference.
+4. **Worker HTTP + hono-fetcher (web consumer)** — For a worker entrypoint with a Hono `app`, export `YourWorkerHonoClientApp` and put `app` + `clientApp` on `YourWorkerRpc`. Web calls use `bindingHonoClient(env.YOUR_BINDING)` — full checklist in [binding-hono-client](../binding-hono-client/SKILL.md). Do **not** expect `Fetcher<infer RPC>` to preserve `clientApp` for inference.
 
 ## Peer stubs / refs (`chatroom-do` → `auth-worker`)
 
@@ -42,6 +42,6 @@ When a worker package **`WorkerRef`** / **`WorkerStub`** a peer to avoid `./alch
 
 ## See also
 
-- [cf-durable-object-package](../cf-durable-object-package/SKILL.md) — alchemy + env inside one package.
-- [cf-web-alchemy-bindings](../cf-web-alchemy-bindings/SKILL.md) — web `ReactRouter` bindings and `apps/web/alchemy.run.ts`.
-- [cf-binding-hono-client](../cf-binding-hono-client/SKILL.md) — typed HTTP clients for bound workers.
+- [durable-object-package](../durable-object-package/SKILL.md) — alchemy + env inside one package.
+- [web-alchemy-bindings](../web-alchemy-bindings/SKILL.md) — web `ReactRouter` bindings and `apps/web/alchemy.run.ts`.
+- [binding-hono-client](../binding-hono-client/SKILL.md) — typed HTTP clients for bound workers.

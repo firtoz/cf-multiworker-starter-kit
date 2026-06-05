@@ -18,9 +18,9 @@ Use this skill when someone is building **their** app on top of this starter kit
 
 **Adding** a DO package or worker binding after fork setup — use the small focused skills, not one giant doc:
 
-- [cf-durable-object-package](../cf-durable-object-package/SKILL.md) — **`durable-objects/*`**, Alchemy + Hono.
-- [cf-web-alchemy-bindings](../cf-web-alchemy-bindings/SKILL.md) — web **`alchemy.run.ts`**, workspace deps.
-- [cf-worker-rpc-turbo](../cf-worker-rpc-turbo/SKILL.md) — **`workers/rpc`**, Turbo **`dev` / `destroy:*`**, cyclic **`WorkerStub` / `WorkerRef`**.
+- [durable-object-package](../durable-object-package/SKILL.md) — **`durable-objects/*`**, Alchemy + Hono.
+- [web-alchemy-bindings](../web-alchemy-bindings/SKILL.md) — web **`alchemy.run.ts`**, workspace deps.
+- [worker-rpc-turbo](../worker-rpc-turbo/SKILL.md) — **`workers/rpc`**, Turbo **`dev` / `destroy:*`**, cyclic **`WorkerStub` / `WorkerRef`**.
 
 ## 1. Gather information
 
@@ -51,7 +51,7 @@ Ask the user (or infer from context):
 | `packages/state-hub` | **`${PRODUCT_PREFIX}-state-hub`** (**`ALCHEMY_APP_IDS.stateHub`**) | `state-hub` |
 
 - **Resource ids (short):** **`Worker(DEFAULT_WORKER_RESOURCE_ID)`** with **`DEFAULT_WORKER_RESOURCE_ID = "worker"`**; **`ReactRouter`** uses **`DEFAULT_REACT_ROUTER_WEB_RESOURCE_ID` (`"web"`)**; D1 **`D1Database(DEFAULT_D1_DATABASE_RESOURCE_ID)`** with **`db`**. Omit explicit **`name:`** so Cloudflare script names derive from **`${alchemyAppId}-${resource}-${stage}`**.
-- **Peer stubs** (e.g. **`chatroom-do` → `auth-worker`**): **`omitDefaultPhysicalWorkerScriptName(<peer-alchemy-app>, app.stage)`** feeds **`WorkerRef.service`** / **`WorkerStub.name`**, matching omit-default **`Worker("worker")`** physical names — see [cf-worker-rpc-turbo](../cf-worker-rpc-turbo/SKILL.md).
+- **Peer stubs** (e.g. **`chatroom-do` → `auth-worker`**): **`omitDefaultPhysicalWorkerScriptName(<peer-alchemy-app>, app.stage)`** feeds **`WorkerRef.service`** / **`WorkerStub.name`**, matching omit-default **`Worker("worker")`** physical names — see [worker-rpc-turbo](../worker-rpc-turbo/SKILL.md).
 
 Cross-package consumers still **`import`** provider **`./alchemy`** exports (**hub** bindings from web). **`className`** on **`DurableObjectNamespace`** must match your TS exported class (**`ChatroomDo`**…).
 
@@ -71,7 +71,7 @@ Rewrite [`README.md`](../../README.md) for the **product**:
 
 - Title, description, **`bun install`**, **`bun run dev`**, **`bun run deploy:prod`** (and **`deploy:staging`** / **`deploy:preview`** as needed).
 - Update or shorten template links/marketing unless you keep attribution.
-- Keep CI, scripts, **`ALCHEMY_PASSWORD`/`CHATROOM_INTERNAL_SECRET`** — [cf-workers-env-local](../cf-workers-env-local/SKILL.md).
+- Keep CI, scripts, **`ALCHEMY_PASSWORD`/`CHATROOM_INTERNAL_SECRET`** — [workers-env-local](../workers-env-local/SKILL.md).
 - Mention **liter Alchemy **`--app`** IDs** (`starter-*` (with your PRODUCT_PREFIX) → your slug) alongside **workspace **`name`****.
 
 ## 5. UI and meta copy

@@ -1,5 +1,5 @@
 ---
-name: cf-web-alchemy-bindings
+name: web-alchemy-bindings
 description: Wire @internal/web to durable-objects workers—workspace dep, alchemy.run.ts ReactRouter bindings, and env patterns. Use when adding `workspace:*` for a worker, editing apps/web/alchemy.run.ts, or debugging missing worker types after a new package.
 ---
 
@@ -18,17 +18,17 @@ description: Wire @internal/web to durable-objects workers—workspace dep, alch
 
 3. **Bindings** — Pass each binding into `ReactRouter("…", { bindings: { …, CHATROOM: chatroomWorker, … } })` using the names your [workers/app.ts](apps/web/workers/app.ts) reads from `this.env` (e.g. `this.env.CHATROOM`). **D1:** import `mainDb` from `@internal/db/alchemy` and set `DB: mainDb` (D1 is defined in [packages/db/alchemy.run.ts](../../packages/db/alchemy.run.ts), not inlined in web).
 
-4. **In route code** — Prefer `import { env } from "cloudflare:workers"` for bindings, not React Router `context` ([multiworker-gotchas](../multiworker-gotchas/SKILL.md), [cf-workers-patterns.mdc](../../rules/cf-workers-patterns.mdc)).
+4. **In route code** — Prefer `import { env } from "cloudflare:workers"` for bindings, not React Router `context` ([multiworker-gotchas](../multiworker-gotchas/SKILL.md), [workers-patterns.mdc](../../rules/workers-patterns.mdc)).
 
 5. **If you are tempted to** add `include` lines in [tsconfig.cloudflare.json](apps/web/tsconfig.cloudflare.json) that point at another package’s **`workers/app.ts`**, don’t—multiple `declare global { type Env }` sources break the web `Env`. Types follow your normal imports; no need to list `durable-objects/…` in `include`.
 
 6. **Verify** — `bun run typegen` and `bun run typecheck` from root.
 
-7. **Typed HTTP from web** — Add `WorkerBindingRegistry.HonoClients` row + `bindingHonoClient(env.YOUR_BINDING)` — [cf-binding-hono-client](../cf-binding-hono-client/SKILL.md).
+7. **Typed HTTP from web** — Add `WorkerBindingRegistry.HonoClients` row + `bindingHonoClient(env.YOUR_BINDING)` — [binding-hono-client](../binding-hono-client/SKILL.md).
 
 ## See also
 
-- [cf-binding-hono-client](../cf-binding-hono-client/SKILL.md) — `bindingHonoClient`, `WorkerBindingRegistry`, worker `clientApp` RPC.
+- [binding-hono-client](../binding-hono-client/SKILL.md) — `bindingHonoClient`, `WorkerBindingRegistry`, worker `clientApp` RPC.
 
-- [cf-durable-object-package](../cf-durable-object-package/SKILL.md) — worker package layout.
-- [cf-worker-rpc-turbo](../cf-worker-rpc-turbo/SKILL.md) — `workers/rpc.ts`, Turbo `dev` / `destroy`, cross-worker types.
+- [durable-object-package](../durable-object-package/SKILL.md) — worker package layout.
+- [worker-rpc-turbo](../worker-rpc-turbo/SKILL.md) — `workers/rpc.ts`, Turbo `dev` / `destroy`, cross-worker types.

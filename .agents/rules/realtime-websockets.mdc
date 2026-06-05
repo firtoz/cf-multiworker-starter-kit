@@ -17,6 +17,6 @@ ws.send(JSON.stringify({ t: "op", op }));
 
 - **SSR-safe WebSocket URL:** Never read `window` / `window.location` during SSR or in render for URLs used by hooks. Build `wss://` / `ws://` from `new URL(window.location.href)` in **client-only** code (`useEffect`, event handlers, or a client-only child). See [apps/web/app/lib/chat-ws-url.ts](apps/web/app/lib/chat-ws-url.ts) and the skill below.
 
-- **Details, draft vs commit, canvas checklists, fire-and-forget `.catch`:** [../skills/cf-socka-realtime/SKILL.md](../skills/cf-socka-realtime/SKILL.md)
+- **Details, draft vs commit, canvas checklists, fire-and-forget `.catch`:** [../skills/socka-realtime/SKILL.md](../skills/socka-realtime/SKILL.md)
 
-- **See also:** [cf-workers-patterns.mdc](cf-workers-patterns.mdc) for workers/env/routes.
+- **See also:** [workers-patterns.mdc](workers-patterns.mdc) for workers/env/routes.

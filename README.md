@@ -29,9 +29,9 @@ A production-minded starter for full-stack Cloudflare apps: React Router on Work
 | Goal | Where |
 |------|--------|
 | Web routes, SSR, bindings, forms | [`apps/web/README.md`](apps/web/README.md) |
-| Auth, OAuth, admin, anonymous chat guests | [`docs/oauth-setup.md`](docs/oauth-setup.md) (Google/GitHub) · [`.agents/skills/cf-auth-setup/SKILL.md`](.agents/skills/cf-auth-setup/SKILL.md) · [`.env.example`](.env.example) |
+| Auth, OAuth, admin, anonymous chat guests | [`docs/oauth-setup.md`](docs/oauth-setup.md) (Google/GitHub) · [`.agents/skills/auth-setup/SKILL.md`](.agents/skills/auth-setup/SKILL.md) · [`.env.example`](.env.example) |
 | GitHub Environments, rulesets, what runs in CI, custom domains | [`docs/github-admin.md`](docs/github-admin.md) |
-| `.env.local` / staging / prod secrets | [`.env.example`](.env.example) · [`.agents/skills/cf-workers-env-local/SKILL.md`](.agents/skills/cf-workers-env-local/SKILL.md) |
+| `.env.local` / staging / prod secrets | [`.env.example`](.env.example) · [`.agents/skills/workers-env-local/SKILL.md`](.agents/skills/workers-env-local/SKILL.md) |
 | Full rebrand (package names, UI copy) | [`.agents/skills/project-init/SKILL.md`](.agents/skills/project-init/SKILL.md) |
 | Typegen cadence, Turbo deploy order, generated artifacts | [`.agents/skills/multiworker-workflow/SKILL.md`](.agents/skills/multiworker-workflow/SKILL.md) |
 | Cursor / IDE rules look wrong after clone | `bun run agents:link` · [`.agents/README.md`](.agents/README.md) |
@@ -82,7 +82,7 @@ You need a Cloudflare **API token** and **Account ID** from the dashboard (this 
 2. **`bun run setup:staging`** then **`bun run github:sync:staging`** (or **`bun run onboard:staging`**).
 3. **`bun run setup:prod`** then **`bun run github:sync:prod`** (or **`bun run onboard:prod`**).
 
-Per-environment secrets (**`ALCHEMY_PASSWORD`**, **`CHATROOM_INTERNAL_SECRET`**, **`BETTER_AUTH_SECRET`**, **`AUTH_ADMIN_SECRET`**, optional **`AUTH_BOOTSTRAP_ADMIN_EMAILS`**, optional **`WEB_*`**) stay in each stage dotfile (or GitHub Environments after sync). **No auth URL env var** — Alchemy derives the public auth URL from the local web origin, **`WEB_DOMAINS`**, or web **workers.dev** (see [cf-auth-setup](.agents/skills/cf-auth-setup/SKILL.md)).
+Per-environment secrets (**`ALCHEMY_PASSWORD`**, **`CHATROOM_INTERNAL_SECRET`**, **`BETTER_AUTH_SECRET`**, **`AUTH_ADMIN_SECRET`**, optional **`AUTH_BOOTSTRAP_ADMIN_EMAILS`**, optional **`WEB_*`**) stay in each stage dotfile (or GitHub Environments after sync). **No auth URL env var** — Alchemy derives the public auth URL from the local web origin, **`WEB_DOMAINS`**, or web **workers.dev** (see [auth-setup](.agents/skills/auth-setup/SKILL.md)).
 
 With [`gh`](https://cli.github.com/) authenticated and repo admin rights, from a trusted machine:
 
@@ -241,7 +241,7 @@ bunx turbo gen durable-object
 
 Then: add the package to root **`dev`** filters if it should run locally; fix **`turbo.json`** deploy/destroy order as needed; add a workspace dep from **`apps/web`** if the web app uses it; import its **`./alchemy`** from **`apps/web/alchemy.run.ts`**; run **`bun run typegen`** and **`bun run typecheck`**.
 
-Details: [`.agents/skills/cf-durable-object-package/SKILL.md`](.agents/skills/cf-durable-object-package/SKILL.md), [`.agents/skills/cf-web-alchemy-bindings/SKILL.md`](.agents/skills/cf-web-alchemy-bindings/SKILL.md), [`.agents/skills/cf-worker-rpc-turbo/SKILL.md`](.agents/skills/cf-worker-rpc-turbo/SKILL.md).
+Details: [`.agents/skills/durable-object-package/SKILL.md`](.agents/skills/durable-object-package/SKILL.md), [`.agents/skills/web-alchemy-bindings/SKILL.md`](.agents/skills/web-alchemy-bindings/SKILL.md), [`.agents/skills/worker-rpc-turbo/SKILL.md`](.agents/skills/worker-rpc-turbo/SKILL.md).
 
 ## Common scripts
 
@@ -265,7 +265,7 @@ More context: [`.agents/skills/multiworker-workflow/SKILL.md`](.agents/skills/mu
 
 ## Security posture
 
-Real infra + demo routes: treat as a starting point. **This** repository’s stock workflows use GitHub Environments for **same-repo** PR previews (**`staging`**), production deploys from **`production`**, and guardrails so **fork** PRs never receive preview deploy secrets. Auth is included for demonstration (Better Auth + admin UI + anonymous chat guests)—harden for production (CSP, rate limits, OAuth review, least-privilege tokens). See [`.agents/skills/cf-auth-setup/SKILL.md`](.agents/skills/cf-auth-setup/SKILL.md), [`docs/github-admin.md`](docs/github-admin.md), and [`.agents/skills/cf-workers-env-local/SKILL.md`](.agents/skills/cf-workers-env-local/SKILL.md).
+Real infra + demo routes: treat as a starting point. **This** repository’s stock workflows use GitHub Environments for **same-repo** PR previews (**`staging`**), production deploys from **`production`**, and guardrails so **fork** PRs never receive preview deploy secrets. Auth is included for demonstration (Better Auth + admin UI + anonymous chat guests)—harden for production (CSP, rate limits, OAuth review, least-privilege tokens). See [`.agents/skills/auth-setup/SKILL.md`](.agents/skills/auth-setup/SKILL.md), [`docs/github-admin.md`](docs/github-admin.md), and [`.agents/skills/workers-env-local/SKILL.md`](.agents/skills/workers-env-local/SKILL.md).
 
 ## Contributing
 

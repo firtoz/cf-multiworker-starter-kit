@@ -1,6 +1,6 @@
 ---
-name: cf-durable-object-package
-description: Add or change a Durable Object worker package under durable-objects/ (Alchemy, env.d.ts, Hono on the DO). Use when scaffolding with turbo gen durable-object, editing durable-objects/*/alchemy.run.ts, workers/app.ts, or env.d.ts for a DO. Not for web app bindings or cross-worker rpc—see cf-web-alchemy-bindings and cf-worker-rpc-turbo.
+name: durable-object-package
+description: Add or change a Durable Object worker package under durable-objects/ (Alchemy, env.d.ts, Hono on the DO). Use when scaffolding with turbo gen durable-object, editing durable-objects/*/alchemy.run.ts, workers/app.ts, or env.d.ts for a DO. Not for web app bindings or cross-worker rpc—see web-alchemy-bindings and worker-rpc-turbo.
 ---
 
 # Durable Object package (Alchemy + Hono)
@@ -18,14 +18,14 @@ description: Add or change a Durable Object worker package under durable-objects
 
    Examples: [chatroom-do](../../../durable-objects/chatroom-do) (Socka + DO SQLite + [chat-contract](../../../packages/chat-contract)).
 
-   For **WebSocket RPC + server push**, prefer **Socka + contract** over ad hoc **`WebSocket`** JSON — [cf-socka-realtime](../cf-socka-realtime/SKILL.md).
+   For **WebSocket RPC + server push**, prefer **Socka + contract** over ad hoc **`WebSocket`** JSON — [socka-realtime](../socka-realtime/SKILL.md).
 
 2. **`alchemy.run.ts`**
 
    - **`await alchemy(…)`** string must match **`alchemy-cli`** / **`package.json` → `alchemy.app`** (**`${PRODUCT_PREFIX}-<suffix>`** from **`ALCHEMY_APP_IDS`** → **`alchemy-utils/worker-peer-scripts`**).
    - **`requireAlchemyPassword(app)`** from **`alchemy-utils`**.
    - Export **`DurableObjectNamespace<YourDoRpc>`** (types from **`./workers/rpc`**).
-   - **`Worker(...)`**: use **`DEFAULT_WORKER_RESOURCE_ID`** (**`worker`**); omit **`name:`** unless you need an override. Cyclic **`WorkerRef`** pairs: **`omitDefaultPhysicalWorkerScriptName`** ([cf-worker-rpc-turbo](../cf-worker-rpc-turbo/SKILL.md)).
+    - **`Worker(...)`**: use **`DEFAULT_WORKER_RESOURCE_ID`** (**`worker`**); omit **`name:`** unless you need an override. Cyclic **`WorkerRef`** pairs: **`omitDefaultPhysicalWorkerScriptName`** ([worker-rpc-turbo](../worker-rpc-turbo/SKILL.md)).
 
 3. **SQLite / Drizzle (persisted DO state)**
 
@@ -51,9 +51,9 @@ description: Add or change a Durable Object worker package under durable-objects
 
 ## Next (outside this skill)
 
-- Wire the web app: [cf-web-alchemy-bindings](../cf-web-alchemy-bindings/SKILL.md).
-- Typed HTTP from web over a worker binding: [cf-binding-hono-client](../cf-binding-hono-client/SKILL.md).
-- `workers/rpc.ts`, `WorkerRef`, root `dev` / `destroy:*`: [cf-worker-rpc-turbo](../cf-worker-rpc-turbo/SKILL.md).
+- Wire the web app: [web-alchemy-bindings](../web-alchemy-bindings/SKILL.md).
+- Typed HTTP from web over a worker binding: [binding-hono-client](../binding-hono-client/SKILL.md).
+- `workers/rpc.ts`, `WorkerRef`, root `dev` / `destroy:*`: [worker-rpc-turbo](../worker-rpc-turbo/SKILL.md).
 
 ## Optional web / WebSocket checklist
 
@@ -66,6 +66,6 @@ If this new DO should be reachable from the web app, complete these follow-up ed
 5. **WebSocket / Socka**
 
    - In **`apps/web/workers/app.ts`**: upgrades **before** React Router; same URL prefix as client; skip Vite HMR; forward to DO **`/websocket`**.
-   - **`@firtoz/socka`**: [cf-socka-realtime/SKILL.md](../cf-socka-realtime/SKILL.md) — contract, **`SockaWebSocketDO`**, **`useSockaSession`**, SSR-safe **`wss://`**.
+    - **`@firtoz/socka`**: [socka-realtime/SKILL.md](../socka-realtime/SKILL.md) — contract, **`SockaWebSocketDO`**, **`useSockaSession`**, SSR-safe **`wss://`**.
 
 6. Verify from repo root: `bun run typegen`, `bun run typecheck`, `bun run lint`.

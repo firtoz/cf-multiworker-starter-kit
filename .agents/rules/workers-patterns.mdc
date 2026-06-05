@@ -17,7 +17,7 @@ After changing `alchemy.run.ts` bindings, `apps/web/types/env.d.ts` (or a durabl
 - Add new Workers/DOs through package-local `alchemy.run.ts` files and export consumed resources through `./alchemy`.
 - Root `dev`, `deploy`, and `destroy` run Turbo graphs; package scripts call `alchemy dev/deploy/destroy --app <package-id>`.
 - DO providers export namespaces/workers; consumers import those resources in their own `alchemy.run.ts`.
-- Put typed Hono routes on a public `readonly app` so consumers can use `honoDoFetcherWithName(env.MyDo, "name")` (DO) or `bindingHonoClient(env.CHATROOM)` (service binding HTTP) — see [cf-binding-hono-client](../skills/cf-binding-hono-client/SKILL.md).
+- Put typed Hono routes on a public `readonly app` so consumers can use `honoDoFetcherWithName(env.MyDo, "name")` (DO) or `bindingHonoClient(env.CHATROOM)` (service binding HTTP) — see [binding-hono-client](../skills/binding-hono-client/SKILL.md).
 - Use explicit `DurableObjectNamespace<MyDoRpc>` / `WorkerRef<MyWorkerRpc>` types for typed RPC/Hono surfaces. Use a branded-only namespace when a heavy base class causes recursive inference.
 
 ## Route modules (`apps/web/app/routes/`)
@@ -63,7 +63,7 @@ Import each symbol from the module that **defines** it. Package `index.ts` files
 
 ## Realtime WebSockets (optional)
 
-For **`@firtoz/socka`**, Durable Object WebSocket RPC, and SSR-safe client URL patterns, see [cf-realtime-websockets.mdc](cf-realtime-websockets.mdc) and [../skills/cf-socka-realtime/SKILL.md](../skills/cf-socka-realtime/SKILL.md).
+For **`@firtoz/socka`**, Durable Object WebSocket RPC, and SSR-safe client URL patterns, see [realtime-websockets.mdc](realtime-websockets.mdc) and [../skills/socka-realtime/SKILL.md](../skills/socka-realtime/SKILL.md).
 
 ## More context
 

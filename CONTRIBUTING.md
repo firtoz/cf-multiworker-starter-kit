@@ -103,7 +103,7 @@ Optionally `bun run dev` to exercise the app locally.
 
 ## Adding a Durable Object or worker package
 
-The generator and post-steps (root `dev` filter, web bindings, `turbo` destroy, `bun run typegen`) are documented in the root README (**Adding workers**) and in [.agents/skills/cf-durable-object-package/SKILL.md](.agents/skills/cf-durable-object-package/SKILL.md) / [.agents/skills/cf-web-alchemy-bindings/SKILL.md](.agents/skills/cf-web-alchemy-bindings/SKILL.md).
+The generator and post-steps (root `dev` filter, web bindings, `turbo` destroy, `bun run typegen`) are documented in the root README (**Adding workers**) and in [.agents/skills/durable-object-package/SKILL.md](.agents/skills/durable-object-package/SKILL.md) / [.agents/skills/web-alchemy-bindings/SKILL.md](.agents/skills/web-alchemy-bindings/SKILL.md).
 
 ## Dependency changes
 

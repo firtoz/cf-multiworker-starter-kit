@@ -19,11 +19,11 @@ React Router 7 application deployed on Cloudflare Workers.
 ### Auth and chat identity
 
 - Browser hits **`/api/auth/*`** on the web worker; it forwards to the **`AUTH`** service binding (`auth-worker`).
-- Public auth URL is computed at deploy/dev time (no dotfile key) — see [cf-auth-setup](../../.agents/skills/cf-auth-setup/SKILL.md).
+- Public auth URL is computed at deploy/dev time (no dotfile key) — see [auth-setup](../../.agents/skills/auth-setup/SKILL.md).
 - **`/chat`** uses `ensureChatSession` from `app/lib/ensure-chat-session.ts` so guests get a Better Auth anonymous session (random display name, 7-day sliding expiry). Only this route forwards auth `Set-Cookie` to the browser.
 - WebSocket upgrades: web worker calls `env.AUTH.getSession`, then proxies the upgrade to chatroom-do with attested headers (see `@internal/chat-contract`). One `CHATROOM.fetch` per connection, not a separate resolve hop.
 - OAuth (Google/GitHub): [`docs/oauth-setup.md`](../../docs/oauth-setup.md).
-- Fork setup: [`.agents/skills/cf-auth-setup/SKILL.md`](../../.agents/skills/cf-auth-setup/SKILL.md).
+- Fork setup: [`.agents/skills/auth-setup/SKILL.md`](../../.agents/skills/auth-setup/SKILL.md).
 
 ## Key files
 
@@ -97,8 +97,8 @@ Avoid teaching new app features to POST plain forms to index routes. Prefer a no
 
 Do not duplicate the monorepo checklist here. After **`bunx turbo gen durable-object`** (or copying an existing `durable-objects/*` package), follow the root [README.md](../../README.md) section **Adding workers**, then:
 
-- [.agents/skills/cf-durable-object-package/SKILL.md](../../.agents/skills/cf-durable-object-package/SKILL.md) — package layout and `alchemy.run.ts`
-- [.agents/skills/cf-web-alchemy-bindings/SKILL.md](../../.agents/skills/cf-web-alchemy-bindings/SKILL.md) — `apps/web/package.json` workspace dep, `alchemy.run.ts` bindings, `bun run typegen`
+- [.agents/skills/durable-object-package/SKILL.md](../../.agents/skills/durable-object-package/SKILL.md) — package layout and `alchemy.run.ts`
+- [.agents/skills/web-alchemy-bindings/SKILL.md](../../.agents/skills/web-alchemy-bindings/SKILL.md) — `apps/web/package.json` workspace dep, `alchemy.run.ts` bindings, `bun run typegen`
 
 For service-bound workers, register the worker client type and call it with `bindingHonoClient(env.CHATROOM)`. Use `honoDoFetcherWithName(env.MyDo, name)` only when the web worker binds a Durable Object namespace directly.
 
@@ -147,7 +147,7 @@ WebSocket URL helpers may use `window.location`, but only call them from `useEff
 
 ### 7. Add environment variables
 
-**Development:** Run root **`bun run setup`** / **`setup:local`** once (interactive **variable browser** in a TTY, or **`-- --yes`** / **`CI=true`** for auto-generated Alchemy + chatroom secrets only), or add values to repo-root **`.env.local`** (or optional per-package **`.env.local`**), not a plain **`.env`** — see [.agents/skills/cf-workers-env-local/SKILL.md](../../.agents/skills/cf-workers-env-local/SKILL.md) and root **[AGENTS.md](../../AGENTS.md)** (index):
+**Development:** Run root **`bun run setup`** / **`setup:local`** once (interactive **variable browser** in a TTY, or **`-- --yes`** / **`CI=true`** for auto-generated Alchemy + chatroom secrets only), or add values to repo-root **`.env.local`** (or optional per-package **`.env.local`**), not a plain **`.env`** — see [.agents/skills/workers-env-local/SKILL.md](../../.agents/skills/workers-env-local/SKILL.md) and root **[AGENTS.md](../../AGENTS.md)** (index):
 ```bash
 MY_SECRET=dev-value
 ```
