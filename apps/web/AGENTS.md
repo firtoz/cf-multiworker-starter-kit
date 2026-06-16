@@ -74,6 +74,6 @@ When you want to add or edit routes:
 
 Follow the root [AGENTS.md](../../AGENTS.md) skill index and [multiworker-workflow](../../.agents/skills/multiworker-workflow/SKILL.md) for:
 - Linting and completion checklist
-- Environment variable management ([cf-workers-env-local](../../.agents/skills/cf-workers-env-local/SKILL.md))
+- Environment variable management ([workers-env-local](../../.agents/skills/workers-env-local/SKILL.md))
 - Alchemy / worker package conventions ([multiworker-gotchas](../../.agents/skills/multiworker-gotchas/SKILL.md) and the `cf-` skills linked there)
-- **WebSocket / `/api/ws` / chat:** [cf-socka-realtime](../../.agents/skills/cf-socka-realtime/SKILL.md) and [cf-realtime-websockets](../../.agents/rules/cf-realtime-websockets.mdc) (Socka, SSR-safe URLs, `workers/app.ts` forwarding)
+- **WebSocket / `/api/ws` / chat:** [socka-realtime](../../.agents/skills/socka-realtime/SKILL.md) and [realtime-websockets](../../.agents/rules/realtime-websockets.mdc) (Socka, SSR-safe URLs, `workers/app.ts` forwarding)

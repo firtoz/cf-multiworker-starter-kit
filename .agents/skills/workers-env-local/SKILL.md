@@ -1,5 +1,5 @@
 ---
-name: cf-workers-env-local
+name: workers-env-local
 description: Alchemy + env files — repo-root `.env.local` (dev), `.env.staging` (staging / PR preview deploys), `.env.production` (prod / CI), optional per-package `.env.local`, and package-local Alchemy apps. Use when adding secrets or non-secret vars or debugging missing env in local dev. Never use a plain `.env` file. `.env.example` is human documentation only — no script reads it for all keys.
 ---
 
@@ -23,7 +23,7 @@ After cloning or generating from the template, follow **README *Quick start***:
 
 Create **Cloudflare API tokens** only in the dashboard ([`docs/github-admin.md`](../../docs/github-admin.md#cloudflare-credentials-manual)); this repo does not mint tokens via OAuth.
 
-**Better Auth keys** (`BETTER_AUTH_SECRET`, `AUTH_ADMIN_SECRET`, optional OAuth and bootstrap email) — setup browser + deploy checklist: [cf-auth-setup](../cf-auth-setup/SKILL.md). No dotfile key for the public auth URL (derived at deploy from domains or workers.dev).
+**Better Auth keys** (`BETTER_AUTH_SECRET`, `AUTH_ADMIN_SECRET`, optional OAuth and bootstrap email) — setup browser + deploy checklist: [auth-setup](../auth-setup/SKILL.md). No dotfile key for the public auth URL (derived at deploy from domains or workers.dev).
 
 ## Ground rules
 
@@ -97,7 +97,7 @@ packages/alchemy-utils/   # `PRODUCT_PREFIX`, `ALCHEMY_APP_IDS`, `alchemy-cli` b
 packages/state-hub/       # `alchemy.run.ts` — provisions shared CloudflareStateStore for non-local stages (`ALCHEMY_APP_IDS.stateHub`)
 apps/web/
   alchemy.run.ts          # web Alchemy app
-  env.d.ts                # Alchemy-derived Env (see multiworker-workflow / cf-web-alchemy-bindings)
+  env.d.ts                # Alchemy-derived Env (see multiworker-workflow / web-alchemy-bindings)
 ```
 
 ## Checklist after changing env or bindings
@@ -114,7 +114,7 @@ apps/web/
 
 ## Related docs
 
-- [`cf-auth-setup`](../cf-auth-setup/SKILL.md) — Better Auth secrets, OAuth, public URL ladder (no dotfile auth URL).
+- [`auth-setup`](../auth-setup/SKILL.md) — Better Auth secrets, OAuth, public URL ladder (no dotfile auth URL).
 - [`multiworker-workflow`](../multiworker-workflow/SKILL.md) — typegen cadence, deploy, checklist.
 - [`multiworker-gotchas`](../multiworker-gotchas/SKILL.md) — stack-specific gotchas.
 - [`project-init`](../project-init/SKILL.md) — renaming resources after forking the template.

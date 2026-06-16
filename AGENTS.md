@@ -8,14 +8,14 @@ Short index for AI agents. **Details live in skills** under **[`.agents/skills/`
 | -------- | ------ |
 | Fork gotchas, forms, D1, dev port, new DO packages | [.agents/skills/multiworker-gotchas/SKILL.md](.agents/skills/multiworker-gotchas/SKILL.md) |
 | Root commands, typegen/lint cadence, deploy, checklist, `bun add` | [.agents/skills/multiworker-workflow/SKILL.md](.agents/skills/multiworker-workflow/SKILL.md) |
-| Env files, `.env.local` / `.env.production`, secrets | [.agents/skills/cf-workers-env-local/SKILL.md](.agents/skills/cf-workers-env-local/SKILL.md) |
-| Auth worker, OAuth, admin UI, authenticated chat | [docs/oauth-setup.md](docs/oauth-setup.md) (Google/GitHub) · [.agents/skills/cf-auth-setup/SKILL.md](.agents/skills/cf-auth-setup/SKILL.md) |
+| Env files, `.env.local` / `.env.production`, secrets | [.agents/skills/workers-env-local/SKILL.md](.agents/skills/workers-env-local/SKILL.md) |
+| Auth worker, OAuth, admin UI, authenticated chat | [docs/oauth-setup.md](docs/oauth-setup.md) (Google/GitHub) · [.agents/skills/auth-setup/SKILL.md](.agents/skills/auth-setup/SKILL.md) |
 | Turbo tasks, `^`, cache, `inputs` | [.agents/skills/turborepo/SKILL.md](.agents/skills/turborepo/SKILL.md) |
-| Web ↔ worker bindings, `apps/web/alchemy.run.ts` | [.agents/skills/cf-web-alchemy-bindings/SKILL.md](.agents/skills/cf-web-alchemy-bindings/SKILL.md) |
-| Typed HTTP over service bindings (`bindingHonoClient`) | [.agents/skills/cf-binding-hono-client/SKILL.md](.agents/skills/cf-binding-hono-client/SKILL.md) |
-| Durable Object package layout, Hono, `workers/rpc` | [.agents/skills/cf-durable-object-package/SKILL.md](.agents/skills/cf-durable-object-package/SKILL.md) |
-| Socka WebSockets, DO realtime, SSR-safe `wss://`, whiteboard/canvas patterns | [.agents/skills/cf-socka-realtime/SKILL.md](.agents/skills/cf-socka-realtime/SKILL.md) |
-| `WorkerRef`, cross-worker types, root `dev`/`destroy` | [.agents/skills/cf-worker-rpc-turbo/SKILL.md](.agents/skills/cf-worker-rpc-turbo/SKILL.md) |
+| Web ↔ worker bindings, `apps/web/alchemy.run.ts` | [.agents/skills/web-alchemy-bindings/SKILL.md](.agents/skills/web-alchemy-bindings/SKILL.md) |
+| Typed HTTP over service bindings (`bindingHonoClient`) | [.agents/skills/binding-hono-client/SKILL.md](.agents/skills/binding-hono-client/SKILL.md) |
+| Durable Object package layout, Hono, `workers/rpc` | [.agents/skills/durable-object-package/SKILL.md](.agents/skills/durable-object-package/SKILL.md) |
+| Socka WebSockets, DO realtime, SSR-safe `wss://`, whiteboard/canvas patterns | [.agents/skills/socka-realtime/SKILL.md](.agents/skills/socka-realtime/SKILL.md) |
+| `WorkerRef`, cross-worker types, root `dev`/`destroy` | [.agents/skills/worker-rpc-turbo/SKILL.md](.agents/skills/worker-rpc-turbo/SKILL.md) |
 | React Router routes, `RoutePath`, loaders | [.agents/skills/routing/SKILL.md](.agents/skills/routing/SKILL.md) |
 | `formAction`, `useDynamicSubmitter` | [.agents/skills/form-submissions/SKILL.md](.agents/skills/form-submissions/SKILL.md) |
 | Rename / rebrand after using the template | [.agents/skills/project-init/SKILL.md](.agents/skills/project-init/SKILL.md) |
@@ -23,7 +23,7 @@ Short index for AI agents. **Details live in skills** under **[`.agents/skills/`
 | React patterns (callbacks, module constants) | [.agents/skills/react-patterns/SKILL.md](.agents/skills/react-patterns/SKILL.md) |
 | Authoring or updating skills | [.agents/skills/creating-skills/SKILL.md](.agents/skills/creating-skills/SKILL.md) |
 
-**Always-on reminder (workers, env, routes):** [.agents/rules/cf-workers-patterns.mdc](.agents/rules/cf-workers-patterns.mdc)
+**Always-on reminder (workers, env, routes):** [.agents/rules/workers-patterns.mdc](.agents/rules/workers-patterns.mdc)
 
 **Imports (no cross-package re-exports):** [.agents/rules/typescript-imports.mdc](.agents/rules/typescript-imports.mdc) — package `index.ts` barrels **its own** modules only; import schemas/constants from `@internal/auth-db`, client helpers from `@internal/auth-client`, etc.
 

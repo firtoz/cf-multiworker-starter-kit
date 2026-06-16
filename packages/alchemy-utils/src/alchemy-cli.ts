@@ -120,7 +120,7 @@ function applyDotfileToEnv(
 	}
 }
 
-/** Optional per-package **`.env.local`** (skill: cf-workers-env-local); never overrides **`STAGE`** from root. */
+/** Optional per-package **`.env.local`** (skill: workers-env-local); never overrides **`STAGE`** from root. */
 function mergeOptionalPackageLocalDotenv(repoRoot: string, pkgDir: string): void {
 	if (path.resolve(pkgDir) === path.resolve(repoRoot)) {
 		return;

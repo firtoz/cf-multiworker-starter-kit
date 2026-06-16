@@ -7,7 +7,7 @@ description: Repo-root commands, typegen and typecheck cadence, lint, deploy, ad
 
 ## Run from repo root
 
-**New fork?** README **Quick start** — **`bun run quickstart`**, **`bun run setup:account`** (optional shared Cloudflare keys), **`onboard:staging`**, **`onboard:prod`**. Env files: [cf-workers-env-local/SKILL.md](../cf-workers-env-local/SKILL.md).
+**New fork?** README **Quick start** — **`bun run quickstart`**, **`bun run setup:account`** (optional shared Cloudflare keys), **`onboard:staging`**, **`onboard:prod`**. Env files: [workers-env-local/SKILL.md](../workers-env-local/SKILL.md).
 
 Build, typecheck, lint, and typegen from the **workspace root** so Turbo can order work across packages.
 
@@ -100,17 +100,17 @@ If local dev still reports `no such table`:
 
 - **Source of truth** — Each deployable package owns an `alchemy.run.ts` and, when consumed elsewhere, exports via `"./alchemy"` (see [Alchemy Turborepo](https://alchemy.run/guides/turborepo/), [type-safe bindings](https://alchemy.run/concepts/bindings/#type-safe-bindings)).
 - **Root** — `bun run dev` and stage-specific `deploy:*` / `destroy:*` call Turbo; package scripts use `alchemy dev|deploy|destroy --app <package-id>`.
-- **Cross-package** — Provider packages export from `./alchemy`; consumers use `providerWorker.bindings.YourResource` in their `alchemy.run.ts` for cross-script DOs. Details: [cf-web-alchemy-bindings/SKILL.md](../cf-web-alchemy-bindings/SKILL.md), [cf-durable-object-package/SKILL.md](../cf-durable-object-package/SKILL.md).
+- **Cross-package** — Provider packages export from `./alchemy`; consumers use `providerWorker.bindings.YourResource` in their `alchemy.run.ts` for cross-script DOs. Details: [web-alchemy-bindings/SKILL.md](../web-alchemy-bindings/SKILL.md), [durable-object-package/SKILL.md](../durable-object-package/SKILL.md).
 
 ## Adding another Durable Object (quick path)
 
 1. `bunx turbo gen durable-object` (or copy `durable-objects/chatroom-do/`).
-2. Export DO/worker from `./alchemy`; wire [apps/web/alchemy.run.ts](../../../apps/web/alchemy.run.ts) and root `dev` / `destroy:*` (see [multiworker-gotchas](../multiworker-gotchas/SKILL.md) #15, [cf-worker-rpc-turbo/SKILL.md](../cf-worker-rpc-turbo/SKILL.md)).
+2. Export DO/worker from `./alchemy`; wire [apps/web/alchemy.run.ts](../../../apps/web/alchemy.run.ts) and root `dev` / `destroy:*` (see [multiworker-gotchas](../multiworker-gotchas/SKILL.md) #15, [worker-rpc-turbo/SKILL.md](../worker-rpc-turbo/SKILL.md)).
 3. `bun run dev`, exercise bindings, confirm existing DOs still work.
 
 ## Environment variables and secrets
 
-Real keys: **`.env.local`** (dev), **`.env.staging`** (staging + PR preview deploys), **`.env.production`** (prod). **`.env.example`** is documentation only. Never commit secrets. Full checklist: [cf-workers-env-local/SKILL.md](../cf-workers-env-local/SKILL.md), [Alchemy Secret](https://alchemy.run/providers/cloudflare/secret/).
+Real keys: **`.env.local`** (dev), **`.env.staging`** (staging + PR preview deploys), **`.env.production`** (prod). **`.env.example`** is documentation only. Never commit secrets. Full checklist: [workers-env-local/SKILL.md](../workers-env-local/SKILL.md), [Alchemy Secret](https://alchemy.run/providers/cloudflare/secret/).
 
 Access in app code: `import { env } from "cloudflare:workers"` only.
 
@@ -120,7 +120,7 @@ Access in app code: `import { env } from "cloudflare:workers"` only.
 - **How stage env is wired** — Each **`alchemy.run.ts`** reads **`process.env.STAGE`** ([`deployment-stage.ts`](../../../packages/alchemy-utils/src/deployment-stage.ts)). Package **`deploy` / `destroy` / `dev`** scripts call the **`alchemy-cli`** bin (**`--stage local|staging|prod|preview`**), which sets **`STAGE`**, loads the matching repo-root dotfile (+ machine **`account.env`** for Cloudflare / state token), and runs **`alchemy`** with **`--app`** from **`package.json` → `alchemy.app`** (see **`ALCHEMY_APP_IDS`** in [`worker-peer-scripts.ts`](../../../packages/alchemy-utils/src/worker-peer-scripts.ts)). In CI, GitHub Environment secrets/vars are available to Alchemy only when the workflow passes them through an **`env:`** block (for example **`${{ vars.MY_VAR }}`** / **`${{ secrets.MY_SECRET }}`**), and root Turbo must allow them through **`turbo.json`** **`globalEnv`** (or task/package env config); `github:sync:*` does not auto-inject them into every job.
 - **Adding a CI-used env var** — Declare it in the package sidecar **`env.requirements.ts`** for setup/sync, bind or read it in the package **`alchemy.run.ts`**, document it in **`.env.example`**, then add it to root **`turbo.json`** **`globalEnv`** and the deploy workflow **`env:`** blocks that need it (`main-push.yml`, `prod-deploy.yml`, `pr-deploy.yml`; also preview destroy when `alchemy.run.ts` requires it at module scope). Run **`bun run typegen`**, **`typecheck`**, and **`lint`**.
 - **Must-match password** — `requireAlchemyPassword(app)` needs **`ALCHEMY_PASSWORD`**; the example chatroom path needs **`CHATROOM_INTERNAL_SECRET`**. **`ALCHEMY_PASSWORD`** must be the **same** for every **`alchemy deploy`** on that stage (local dotfiles **and** GitHub **secrets**).
-- **Must-match state token (defaults to one Cloudflare account)** — **`ALCHEMY_STATE_TOKEN`** is one **literal** bearer secret for **`alchemy-state-service`** ([Alchemy: same for all deployments on the account](https://alchemy.run/guides/cloudflare-state-store/)). Align **every** place that hits that Worker: repo **`.env.staging`** / **`.env.production`**, **all** relevant GitHub Environment **secrets** for deploy/teardown/preview when they use **`secrets.ALCHEMY_STATE_TOKEN`**, laptop **`deploy`** sessions, **and every other codebase** deploying to the **same** **`CLOUDFLARE_ACCOUNT_ID`** with the **default** state store (**not** a fresh token “for prod”). See [cf-workers-env-local §3](../cf-workers-env-local/SKILL.md).
+- **Must-match state token (defaults to one Cloudflare account)** — **`ALCHEMY_STATE_TOKEN`** is one **literal** bearer secret for **`alchemy-state-service`** ([Alchemy: same for all deployments on the account](https://alchemy.run/guides/cloudflare-state-store/)). Align **every** place that hits that Worker: repo **`.env.staging`** / **`.env.production`**, **all** relevant GitHub Environment **secrets** for deploy/teardown/preview when they use **`secrets.ALCHEMY_STATE_TOKEN`**, laptop **`deploy`** sessions, **and every other codebase** deploying to the **same** **`CLOUDFLARE_ACCOUNT_ID`** with the **default** state store (**not** a fresh token “for prod”). See [workers-env-local §3](../workers-env-local/SKILL.md).
 - **`github:sync:*` (trusted machine only)** — **`bun run github:sync:staging`** / **`github:sync:prod`** invoke **`alchemy-cli --stage staging|prod --app admin --entry stacks/admin.ts deploy`** (**[`stacks/admin.ts`](../../../stacks/admin.ts)**) with **`GITHUB_SYNC_*`** from **`dotenv-cli`**, pushing GitHub **secrets** (Alchemy password, chatroom secret, Better Auth secrets, **`CLOUDFLARE_API_TOKEN`**, etc. — see **`env.requirements.ts`** sidecars) and **variables** (**`CLOUDFLARE_ACCOUNT_ID`**, optional **`WEB_*`**, **`DEPLOY_ENABLED=true`** when omitted in the dotfile). Defaults to **`gh auth token`** / **`gh repo view`** — do **not** run this from routine CI. After adding new synced keys, wire them in deploy workflow **`env:`** blocks and **`turbo.json`** **`globalEnv`** — **`environment: staging`** does **not** auto-populate **`process.env`** for preflight or Turbo.
 - **Repo policy (not dotenv)** — Merge toggles, rulesets (`main`: PR-only for writers by default with **Repository admin** bypass; **`allowRepositoryAdminBypassOnMain`** / **`requirePullRequestBeforeMerge`** in **[`config/github.policy.ts`](../../../config/github.policy.ts)**), and Environment deployment rules live under **`github.sync.*`** and **`github.environments.*`**. Staging sync can apply REST + rulesets; see README *GitHub admin sync reference*, [`github-repository-settings-sync.ts`](../../../stacks/github-repository-settings-sync.ts), [`github-repo-rulesets-sync.ts`](../../../stacks/github-repo-rulesets-sync.ts).
 - **`github:env:*`** — Updates **only** GitHub **`RepositoryEnvironment`** deployment protection from the policy file ([`github-repository-environment-from-env.ts`](../../../stacks/github-repository-environment-from-env.ts)); **`alchemy-cli`** + **`GITHUB_SYNC_*`** from **`dotenv-cli`** supplies local process env when you run **`bun github:env:staging`** / **`github:env:prod`**.
@@ -136,13 +136,13 @@ Access in app code: `import { env } from "cloudflare:workers"` only.
 - [ ] Touched routes, `alchemy.run.ts`, `env.d.ts`, or env → `bun run typegen` (and prod pair if needed).
 - [ ] `bun run lint` passes.
 - [ ] `bun run typecheck` passes.
-- [ ] If the change is **user-facing** (UI, navigation, forms, **canvas/pointer**, **WebSockets**): exercise the feature in a **browser** or automation when feasible; for canvas/realtime, see [cf-socka-realtime/SKILL.md](../cf-socka-realtime/SKILL.md) pre-merge checklist.
+- [ ] If the change is **user-facing** (UI, navigation, forms, **canvas/pointer**, **WebSockets**): exercise the feature in a **browser** or automation when feasible; for canvas/realtime, see [socka-realtime/SKILL.md](../socka-realtime/SKILL.md) pre-merge checklist.
 - [ ] **Cloud agents** (if your session is a cloud task): when you changed code, **`git add` / `git commit` / `git push` before you finish** — do not leave changes only in the working tree. [00-cloud-agent-mandatory.mdc](../../rules/00-cloud-agent-mandatory.mdc). **IDE / local chat agents** usually do not commit: [git-workflow.mdc](../../rules/git-workflow.mdc).
 
 ## Related
 
-- [cf-auth-setup/SKILL.md](../cf-auth-setup/SKILL.md) — auth D1, OAuth, public URL ladder.
-- [cf-socka-realtime/SKILL.md](../cf-socka-realtime/SKILL.md) — realtime WebSocket + canvas/pointer and pre-merge checks.
+- [auth-setup/SKILL.md](../auth-setup/SKILL.md) — auth D1, OAuth, public URL ladder.
+- [socka-realtime/SKILL.md](../socka-realtime/SKILL.md) — realtime WebSocket + canvas/pointer and pre-merge checks.
 - [multiworker-gotchas](../multiworker-gotchas/SKILL.md) — numbered gotchas and edge cases.
 - [project-init](../project-init/SKILL.md) — rename workers/docs after forking the template.
 - [packages/scripts/src/dev-preflight.ts](../../../packages/scripts/src/dev-preflight.ts) — `scripts#dev:preflight` validates repo-root `.env.local` keys (`requiredIn: local` from `collected-env-requirements.ts`) and Alchemy state password (Turbo `dev` dependency).

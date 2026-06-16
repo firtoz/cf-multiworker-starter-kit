@@ -1,3 +1,8 @@
+---
+name: auth-setup
+description: Auth worker setup for Better Auth, OAuth, admin bootstrap, and env/secrets. Use when configuring auth for a fork, setting redirect URIs, or debugging auth env.
+---
+
 # Auth worker setup (Better Auth + D1)
 
 Use when configuring authentication for a fork of this starter kit: env secrets, OAuth redirect URIs, admin bootstrap, and smoke tests.

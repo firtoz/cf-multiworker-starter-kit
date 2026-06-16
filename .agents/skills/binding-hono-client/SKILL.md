@@ -1,5 +1,5 @@
 ---
-name: cf-binding-hono-client
+name: binding-hono-client
 description: Typed HTTP clients for Cloudflare service bindings — bindingHonoClient, WorkerBindingRegistry, Worker RPC with clientApp, HonoClientApp. Use when calling env.CHATROOM or any WorkerRef/BoundWorker over fetch with @firtoz/hono-fetcher, adding a worker Hono app RPC type, or fixing JsonResponse<any> / missing .delete on binding clients.
 ---
 
@@ -11,7 +11,7 @@ description: Typed HTTP clients for Cloudflare service bindings — bindingHonoC
 - Adding a new worker with a Hono `app` on its entrypoint.
 - Debugging `TypedHonoFetcher<Hono<ClientEnv, any, any>>`, `JsonResponse<any>`, or missing methods like `.delete` on a binding client.
 
-**Not this skill:** Durable Object HTTP from a namespace → `honoDoFetcherWithName(env.MyDo, name)` ([cf-durable-object-package](../cf-durable-object-package/SKILL.md)). Auth worker multi-mount sub-apps → `createAuthWorkerHonoClient` / `honoFetcherMounted` ([cf-auth-setup](../cf-auth-setup/SKILL.md)).
+**Not this skill:** Durable Object HTTP from a namespace → `honoDoFetcherWithName(env.MyDo, name)` ([durable-object-package](../durable-object-package/SKILL.md)). Auth worker multi-mount sub-apps → `createAuthWorkerHonoClient` / `honoFetcherMounted` ([auth-setup](../auth-setup/SKILL.md)).
 
 ## Consumer (web): `bindingHonoClient`
 
@@ -135,7 +135,7 @@ export default class ChatroomWorker extends WorkerEntrypoint<Env> {
 
 ### 5. Web wiring
 
-[cf-web-alchemy-bindings](../cf-web-alchemy-bindings/SKILL.md): `CHATROOM: chatroomWorker` in `ReactRouter` bindings → `bun run typegen`.
+[web-alchemy-bindings](../web-alchemy-bindings/SKILL.md): `CHATROOM: chatroomWorker` in `ReactRouter` bindings → `bun run typegen`.
 
 ## Checklist — new bound worker with Hono HTTP
 
@@ -162,7 +162,7 @@ export default class ChatroomWorker extends WorkerEntrypoint<Env> {
 
 ## See also
 
-- [cf-web-alchemy-bindings](../cf-web-alchemy-bindings/SKILL.md) — wire bindings in `apps/web/alchemy.run.ts`.
-- [cf-worker-rpc-turbo](../cf-worker-rpc-turbo/SKILL.md) — `workers/rpc.ts`, `WorkerRef`, env-free RPC files.
-- [cf-durable-object-package](../cf-durable-object-package/SKILL.md) — DO Hono + `honoDoFetcherWithName`.
+- [web-alchemy-bindings](../web-alchemy-bindings/SKILL.md) — wire bindings in `apps/web/alchemy.run.ts`.
+- [worker-rpc-turbo](../worker-rpc-turbo/SKILL.md) — `workers/rpc.ts`, `WorkerRef`, env-free RPC files.
+- [durable-object-package](../durable-object-package/SKILL.md) — DO Hono + `honoDoFetcherWithName`.
 - [typescript-imports.mdc](../../rules/typescript-imports.mdc) — import `ChatroomWorkerHonoClientApp` from `chatroom-do/hono-app`, not re-exported from web helpers.

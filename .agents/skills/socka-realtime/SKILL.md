@@ -1,5 +1,5 @@
 ---
-name: cf-socka-realtime
+name: socka-realtime
 description: Socka + Durable Object WebSockets—defineSocka, SockaWebSocketDO, useSockaSession, SSR-safe ws URLs, web worker forwarding, live-draft vs commit, canvas/whiteboard acceptance, and pre-merge checks. Use for realtime features, /api/ws, or @firtoz/socka.
 ---
 
@@ -10,7 +10,7 @@ description: Socka + Durable Object WebSockets—defineSocka, SockaWebSocketDO, 
 - Adding or changing WebSocket RPC, server push, or per-room Durable Object state in this monorepo.
 - Canvas / whiteboard / collaborative tools (patterns below are documentation; implement to product needs).
 
-**Rule of thumb:** Prefer **`@firtoz/socka`** and a **shared contract package**; do not hand-roll `{ t: "…" }` JSON protocols unless the user explicitly wants raw WebSockets. See [cf-realtime-websockets.mdc](../../rules/cf-realtime-websockets.mdc).
+**Rule of thumb:** Prefer **`@firtoz/socka`** and a **shared contract package**; do not hand-roll `{ t: "…" }` JSON protocols unless the user explicitly wants raw WebSockets. See [realtime-websockets.mdc](../../rules/realtime-websockets.mdc).
 
 ## Canonical reference in this repo
 
@@ -79,6 +79,6 @@ void send.sendCursor(...).catch(() => undefined);
 
 ## Related
 
-- Durable Object package layout: [cf-durable-object-package/SKILL.md](../cf-durable-object-package/SKILL.md)
-- Web bindings and worker forwarding: [cf-web-alchemy-bindings/SKILL.md](../cf-web-alchemy-bindings/SKILL.md)
+- Durable Object package layout: [durable-object-package/SKILL.md](../durable-object-package/SKILL.md)
+- Web bindings and worker forwarding: [web-alchemy-bindings/SKILL.md](../web-alchemy-bindings/SKILL.md)
 - Generated / AI image assets in UI: [component-organization/SKILL.md](../component-organization/SKILL.md) (mockups and raster usage)
