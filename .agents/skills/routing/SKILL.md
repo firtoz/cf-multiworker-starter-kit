@@ -1,11 +1,21 @@
 ---
 name: routing
-description: React Router v7 routing patterns and environment variable configuration. Use whenever you touch React Router–related code (routes, links, params, loaders, actions, route config, or env in route context).
+description: React Router v8 routing patterns and environment variable configuration. Use whenever you touch React Router–related code (routes, links, params, loaders, actions, route config, middleware, or env in route context).
 ---
 
 # React Router Routes
 
-This project uses React Router v7 with file-based routing configured in `apps/web/app/routes.ts`.
+This project uses React Router v8 with file-based routing configured in `apps/web/app/routes.ts`. Use `@firtoz/router-toolkit@^9.1.0` (RR7 or RR8 peers) for typed `RoutePath`, `formAction`, and `useDynamicSubmitter`.
+
+## RR8 defaults (middleware always on)
+
+React Router 8 enables middleware by default. In loaders, actions, and route `middleware` exports:
+
+- `context` is always a `RouterContextProvider` — use `createContext` + `context.get(yourContext)` / `context.set(...)` (see `apps/web/app/lib/route-context.server.ts`).
+- Do not use removed APIs: `AppLoadContext`, `react-router-dom`, or deprecated `meta` `data` (use `loaderData` on `MetaArgs` instead).
+- `react-router.config.ts` needs only `{ ssr: true }`; v8 `future.*` flags are gone.
+
+`formAction` handlers receive the same `context`; call `context.get(...)` for middleware-populated values (e.g. auth client). See [form-submissions/SKILL.md](../form-submissions/SKILL.md).
 
 ## CRITICAL: ALWAYS Run Typegen After Editing routes.ts
 
