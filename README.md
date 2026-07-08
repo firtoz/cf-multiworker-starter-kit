@@ -17,7 +17,7 @@
 A production-minded starter for full-stack Cloudflare apps: React Router on Workers, Durable Objects, D1, Drizzle, Hono, typed bindings, Turborepo, and Alchemy deploys. Copy it, rename it, ship it. The demo covers SSR, D1, service bindings, Durable Objects, and WebSockets.
 ## What you get
 
-- **React Router 7 on Workers** — streaming SSR, Tailwind, typed loaders/actions, form actions.
+- **React Router 8 on Workers** — streaming SSR, Tailwind, typed loaders/actions, form actions.
 - **Durable Object example** — Socka WebSockets + DO SQLite on `/chat` (`chatroom-do`), with auth session gating via service bindings.
 - **Better Auth (`auth-worker`)** — email/password + optional Google/GitHub, account display names, and admin APIs used by the web admin UI (`/admin`); anonymous guests on `/chat` (7-day sliding session, random names like `Coastal-Falcon`).
 - **D1 + Drizzle** — root app DB (`/visitors` counter + chat room registry) plus separate auth D1 (`@internal/auth-db`).
@@ -261,7 +261,7 @@ More context: [`.agents/skills/multiworker-workflow/SKILL.md`](.agents/skills/mu
 
 ## Stack
 
-[Cloudflare Workers](https://workers.cloudflare.com/) + [Durable Objects](https://developers.cloudflare.com/durable-objects/) + [React Router 7](https://reactrouter.com/) + [Hono](https://hono.dev/) + [D1](https://developers.cloudflare.com/d1/) + [Drizzle](https://orm.drizzle.team/) + [Turborepo](https://turbo.build/repo) + [Alchemy](https://alchemy.run/) + [Biome](https://biomejs.dev/) + [Bun](https://bun.sh/) + [Zod](https://zod.dev/).
+[Cloudflare Workers](https://workers.cloudflare.com/) + [Durable Objects](https://developers.cloudflare.com/durable-objects/) + [React Router 8](https://reactrouter.com/) + [Hono](https://hono.dev/) + [D1](https://developers.cloudflare.com/d1/) + [Drizzle](https://orm.drizzle.team/) + [Turborepo](https://turbo.build/repo) + [Alchemy](https://alchemy.run/) + [Biome](https://biomejs.dev/) + [Bun](https://bun.sh/) + [Zod](https://zod.dev/).
 
 ## Security posture
 

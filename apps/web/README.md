@@ -1,6 +1,6 @@
 # Web app
 
-React Router 7 application deployed on Cloudflare Workers.
+React Router 8 application deployed on Cloudflare Workers.
 
 **Docs map:** [README.md](../../README.md) (monorepo quick start + building a product) · this file (web app only) · [AGENTS.md](../../AGENTS.md) (index to rules/skills) · [CONTRIBUTING.md](../../CONTRIBUTING.md) (contribution/PRs).
 

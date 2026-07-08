@@ -1,6 +1,6 @@
 # Agent instructions - web app
 
-This file contains important guidelines for AI agents working on the React Router 7 web application.
+This file contains important guidelines for AI agents working on the React Router 8 web application.
 
 **TL;DR:** Use **`import { env } from "cloudflare:workers"`** for bindings. **`bun run typecheck`** (repo root) runs [tsconfig.cloudflare.json](tsconfig.cloudflare.json) and [tsconfig.node.json](tsconfig.node.json) so both the app and Vite/Tailwind configs are checked.
 
@@ -24,7 +24,7 @@ Do **not** use `context.cloudflare.env` (or similar) from React Router for bindi
 
 ### Adding or editing routes
 
-**IMPORTANT:** React Router 7 uses file-based routing with generated types.
+**IMPORTANT:** React Router 8 uses file-based routing with generated types.
 
 When you want to add or edit routes:
 
