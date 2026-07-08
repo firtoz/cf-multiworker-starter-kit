@@ -12,7 +12,6 @@
 		"workers/**/*.ts",
 		"db/**/*",
 		"types/env.d.ts",
-		"types/react-router.d.ts",
 		"types/worker-binding-registry.d.ts",
 		"alchemy.run.ts",
 		"posthog/**/*.ts"
