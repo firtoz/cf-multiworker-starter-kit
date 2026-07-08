@@ -6,7 +6,7 @@
 		"moduleResolution": "bundler",
 		"rootDir": ".",
 		"noEmit": true,
-		"types": ["@cloudflare/workers-types/2023-07-01"]
+		"types": ["@cloudflare/workers-types"]
 	},
 	"include": ["src/**/*.ts", "drizzle.config.ts", "alchemy.run.ts"]
 }

@@ -1,6 +1,6 @@
 /**
  * Web worker service-binding registry — extend via `declare global` (same idea as
- * `cloudflare:workers` Env merge or React Router `AppLoadContext` augmentation).
+ * `cloudflare:workers` Env merge or React Router `RouterContextProvider` augmentation).
  *
  * When adding a bound worker with a Hono `app`:
  * 1. Export `YourWorkerHonoClientApp` from the worker package.
