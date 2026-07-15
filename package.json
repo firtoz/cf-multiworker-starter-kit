@@ -65,6 +65,7 @@
 		"destroy:prod": "turbo run destroy:prod",
 		"destroy:staging": "turbo run destroy:staging",
 		"destroy:preview": "turbo run destroy:preview",
+		"preview:cleanup:orphans": "bun run --cwd packages/scripts preview:cleanup:orphans",
 		"build": "turbo run build:local",
 		"lint": "turbo lint",
 		"lint:format": "turbo lint:format",

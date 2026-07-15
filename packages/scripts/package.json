@@ -23,6 +23,7 @@
 		"deploy:preflight:preview": "bun ./src/deploy-preflight.ts preview",
 		"sync-bootstrap-admins": "bun ./src/sync-bootstrap-admins.ts",
 		"verify:deploy-env:preview": "bun ./src/verify-deploy-env.ts",
+		"preview:cleanup:orphans": "bun ./src/preview-cleanup-orphans.ts",
 		"lint": "biome check --write .",
 		"lint:format": "biome format --write ."
 	},

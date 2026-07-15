@@ -2,6 +2,8 @@
 # **Fork** PRs run **Quality only** (after GitHub’s fork workflow approval gate); they do **not** deploy previews or receive deploy secrets.
 #
 # **Destroy** on **`pull_request` `closed`** for **same-repo** PRs only (immediate teardown). Uses **`verify:deploy-env:preview`** before destroy so teardown is not skipped when **`DEPLOY_ENABLED`** is false (avoids orphaned **`pr-*`** stacks).
+# Also best-effort deactivates/deletes GitHub **`preview-pr-<n>`** Deployments/Environment.
+# Operators can sweep leftover **`{PRODUCT_PREFIX}-*-pr-*`** stacks with **`bun run preview:cleanup:orphans`** (dry-run default; **`--apply`** to mutate; **`--exclude <n>`** for open PRs).
 #
 # **`alchemy destroy`** still evaluates each **`alchemy.run.ts`** — keep **`Destroy PR preview`** **`env:`** in sync with **PR preview deploy** when you add bindings / env reads.
 #
@@ -67,6 +69,7 @@ jobs:
       contents: read
       issues: write
       pull-requests: write
+      deployments: write
     concurrency:
       group: pr-preview-${{ github.event.pull_request.number }}
       cancel-in-progress: true
@@ -121,6 +124,16 @@ jobs:
           set -o pipefail
           bun run destroy:preview 2>&1 | tee destroy-output.txt
 
+      - name: Clean up GitHub preview-pr environment
+        id: gh_env_cleanup
+        if: always()
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        with:
+          script: |
+            await require('${{ github.workspace }}/.github/scripts/pr-preview/cleanup-github-preview-env.cjs')({ github, context, core });
+
       - name: Destroy summary
         if: always()
         env:
@@ -129,6 +142,9 @@ jobs:
           WORKFLOW_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           VF_OUT: ${{ steps.verify_env.outcome }}
           DS_OUT: ${{ steps.destroy.outcome }}
+          GH_OUT: ${{ steps.gh_env_cleanup.outcome }}
+          GH_ENV_DELETED: ${{ steps.gh_env_cleanup.outputs.environment_deleted }}
+          GH_INACTIVATED: ${{ steps.gh_env_cleanup.outputs.inactivated }}
         run: |
           merged_note="closed without merge"
           if [[ "${MERGED}" == "true" ]]; then
@@ -151,6 +167,14 @@ jobs:
             else
               echo "**Status:** unknown — [run](${WORKFLOW_URL})"
             fi
+            echo ""
+            if [[ "${GH_OUT}" == "success" ]]; then
+              echo "**GitHub:** \`preview-pr-${PR_NUMBER}\` — inactivated ${GH_INACTIVATED:-0} deployment(s); environment deleted=${GH_ENV_DELETED:-unknown}."
+            elif [[ "${GH_OUT}" == "failure" ]]; then
+              echo "**GitHub:** preview environment cleanup failed — see **Clean up GitHub** logs."
+            elif [[ "${GH_OUT}" == "skipped" ]]; then
+              echo "**GitHub:** preview environment cleanup skipped."
+            fi
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upsert preview comment — teardown
@@ -161,6 +185,8 @@ jobs:
           MERGED: ${{ github.event.pull_request.merged }}
           VF_OUT: ${{ steps.verify_env.outcome }}
           DS_OUT: ${{ steps.destroy.outcome }}
+          GH_OUT: ${{ steps.gh_env_cleanup.outcome }}
+          GH_ENV_DELETED: ${{ steps.gh_env_cleanup.outputs.environment_deleted }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         with:
           script: |
@@ -170,6 +196,8 @@ jobs:
             const merged = process.env.MERGED === "true";
             const vf = process.env.VF_OUT ?? "";
             const ds = process.env.DS_OUT ?? "";
+            const gh = process.env.GH_OUT ?? "";
+            const ghEnvDeleted = process.env.GH_ENV_DELETED ?? "";
             const runUrl = process.env.RUN_URL ?? "";
             const marker = "<!-- pr-preview -->";
 
@@ -179,6 +207,21 @@ jobs:
             if (vf === "failure") headline = "**Teardown blocked.** Env verification failed.";
             else if (ds === "failure") headline = "**Teardown failed.** See workflow logs.";
             else if (ds === "cancelled") headline = "**Teardown cancelled.**";
+
+            const ghLine =
+              gh === "success"
+                ? `- GitHub \`preview-pr-${prNumber}\` cleaned up${
+                    ghEnvDeleted === "true"
+                      ? " (environment deleted)"
+                      : ghEnvDeleted === "false"
+                        ? " (deployments inactivated; environment delete soft-failed)"
+                        : ""
+                  }`
+                : gh === "failure"
+                  ? `- GitHub preview environment cleanup failed — see [workflow run](${runUrl})`
+                  : gh === "skipped"
+                    ? `- GitHub preview environment cleanup skipped`
+                    : "";
 
             const body = [
               marker,
@@ -191,11 +234,14 @@ jobs:
               "**Links**",
               "",
               `- This **PR preview** run — [workflow run](${runUrl})`,
+              ghLine,
               "",
               "---",
               "",
               "_Updates automatically while the same-repo PR preview workflow runs._",
-            ].join("\n");
+            ]
+              .filter((line) => line !== "")
+              .join("\n");
 
             const comments = await github.paginate(github.rest.issues.listComments, {
               owner,
