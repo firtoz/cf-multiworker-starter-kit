@@ -34,6 +34,8 @@ jobs:
         run: bun install --frozen-lockfile
       - name: Check Drizzle generated artifacts
         run: bun run check:drizzle-generated -- --base=origin/main
+      - name: Check CI env wiring (turbo globalEnv + deploy workflow maps)
+        run: bun run check:ci-env-wiring
 
   lint:
     name: Lint & Format
