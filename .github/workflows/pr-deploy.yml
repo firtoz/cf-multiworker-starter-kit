@@ -143,7 +143,7 @@ jobs:
           WORKFLOW_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           VF_OUT: ${{ steps.verify_env.outcome }}
           DS_OUT: ${{ steps.destroy.outcome }}
-          # Prefer helper output (soft-fail sets outcome without failing the step); fall back to step outcome when skipped.
+          # Prefer helper `outputs.outcome` (setFailed still sets outputs); fall back to step outcome when skipped.
           GH_OUT: ${{ steps.gh_env_cleanup.outputs.outcome || steps.gh_env_cleanup.outcome }}
           GH_ENV_DELETED: ${{ steps.gh_env_cleanup.outputs.environment_deleted }}
           GH_INACTIVATED: ${{ steps.gh_env_cleanup.outputs.inactivated }}

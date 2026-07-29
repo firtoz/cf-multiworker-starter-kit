@@ -27,6 +27,11 @@ import {
 	resolveCleanupExcludePrs,
 } from "alchemy-utils/preview-pr-resources";
 import { PRODUCT_PREFIX } from "alchemy-utils/worker-peer-scripts";
+import {
+	deploymentIdsFromGhPages,
+	environmentNamesFromGhPages,
+	parseGhPaginatedJson,
+} from "./gh-paginated-json";
 
 const PREVIEW_ENV_RE = /^preview-pr-(\d+)$/;
 const STATE_SERVICE = "alchemy-state-service";
@@ -406,34 +411,7 @@ async function listCfDoNamespaces(accountId: string, token: string): Promise<Lis
 	return { items, complete: page.complete };
 }
 
-/** Parse `gh api --paginate` stdout: one JSON value, NDJSON pages, or concatenated arrays. */
-function parseGhPaginatedJson(stdout: string): unknown[] {
-	const raw = stdout.trim();
-	if (!raw) {
-		return [];
-	}
-	try {
-		const once = JSON.parse(raw) as unknown;
-		return Array.isArray(once) ? once : [once];
-	} catch {
-		// continue
-	}
-	const pages: unknown[] = [];
-	const chunks = raw.split(/\n(?=\{)/);
-	for (const chunk of chunks) {
-		const t = chunk.trim();
-		if (!t) {
-			continue;
-		}
-		try {
-			pages.push(JSON.parse(t) as unknown);
-		} catch {
-			console.warn("[gh] could not parse paginated JSON chunk");
-			return [];
-		}
-	}
-	return pages;
-}
+/** Parse `gh api --paginate` stdout into page payloads — see `./gh-paginated-json`. */
 
 function listGithubPreviewEnvs(): ListResult {
 	const result = spawnSync("gh", ["api", "repos/{owner}/{repo}/environments", "--paginate"], {
@@ -448,28 +426,26 @@ function listGithubPreviewEnvs(): ListResult {
 		);
 		return { items: [], complete: false };
 	}
-	const pages = parseGhPaginatedJson(result.stdout ?? "");
-	if (pages.length === 0 && (result.stdout ?? "").trim().length > 0) {
+	const stdout = result.stdout ?? "";
+	const pages = parseGhPaginatedJson(stdout);
+	if (pages.length === 0 && stdout.trim().length > 0) {
+		return { items: [], complete: false };
+	}
+	const { names, complete } = environmentNamesFromGhPages(pages);
+	if (!complete) {
+		console.warn("[gh] environments page missing .environments array");
 		return { items: [], complete: false };
 	}
 	const items: Item[] = [];
-	for (const page of pages) {
-		const envs = (page as { environments?: Array<{ name?: string }> })?.environments;
-		if (!Array.isArray(envs)) {
-			console.warn("[gh] environments page missing .environments array");
-			return { items, complete: false };
+	for (const name of names) {
+		if (!PREVIEW_ENV_RE.test(name)) {
+			continue;
 		}
-		for (const env of envs) {
-			const name = env.name?.trim();
-			if (!name || !PREVIEW_ENV_RE.test(name)) {
-				continue;
-			}
-			const pr = prFromGithubEnvName(name);
-			if (pr === undefined) {
-				continue;
-			}
-			items.push({ kind: "gh-environment", id: name, label: name, pr });
+		const pr = prFromGithubEnvName(name);
+		if (pr === undefined) {
+			continue;
 		}
+		items.push({ kind: "gh-environment", id: name, label: name, pr });
 	}
 	return { items, complete: true };
 }
@@ -714,15 +690,7 @@ async function deleteItem(
 				return false;
 			}
 			const pages = parseGhPaginatedJson(list.stdout ?? "");
-			const deploymentIds: string[] = [];
-			for (const page of pages) {
-				const rows = Array.isArray(page) ? page : [];
-				for (const row of rows as Array<{ id?: number | string }>) {
-					if (row?.id != null) {
-						deploymentIds.push(String(row.id));
-					}
-				}
-			}
+			const deploymentIds = deploymentIdsFromGhPages(pages);
 			let statusErrors = 0;
 			for (const id of deploymentIds) {
 				const st = spawnSync(
@@ -832,11 +800,19 @@ async function main(): Promise<void> {
 
 	const accountId = process.env["CLOUDFLARE_ACCOUNT_ID"]?.trim();
 	const cfToken = process.env["CLOUDFLARE_API_TOKEN"]?.trim();
+	const hasCfCreds = Boolean(accountId && cfToken);
+
+	if (apply && !hasCfCreds) {
+		console.error(
+			"[preview-cleanup-orphans] --apply aborted: CLOUDFLARE_ACCOUNT_ID / CLOUDFLARE_API_TOKEN required (refusing to mutate GitHub while blind to Cloudflare)",
+		);
+		process.exit(1);
+	}
 
 	const discovered: Item[] = [];
 	let scansComplete = true;
 
-	if (accountId && cfToken) {
+	if (hasCfCreds && accountId && cfToken) {
 		const lists = await Promise.all([
 			listCfWorkers(accountId, cfToken),
 			listCfD1(accountId, cfToken),
@@ -917,11 +893,16 @@ async function main(): Promise<void> {
 	console.log("[preview-cleanup-orphans] deleting remaining resources…");
 	await attemptDeletes(other, accountId, cfToken, succeeded, failed);
 
-	// 3) Retry anything still failed (peer deletes / binding races).
-	const retryItems = filtered.filter((i) => failed.has(itemKey(i)));
-	if (retryItems.length > 0) {
-		console.log(`[preview-cleanup-orphans] retrying ${retryItems.length} failed delete(s)…`);
-		await attemptDeletes(retryItems, accountId, cfToken, succeeded, failed);
+	// 3) Retry anything still failed, same dependency order (workers → DO → rest).
+	const retryWorkers = workers.filter((i) => failed.has(itemKey(i)));
+	const retryDos = doNamespaces.filter((i) => failed.has(itemKey(i)));
+	const retryOther = other.filter((i) => failed.has(itemKey(i)));
+	const retryCount = retryWorkers.length + retryDos.length + retryOther.length;
+	if (retryCount > 0) {
+		console.log(`[preview-cleanup-orphans] retrying ${retryCount} failed delete(s)…`);
+		await attemptDeletes(retryWorkers, accountId, cfToken, succeeded, failed);
+		await attemptDeletes(retryDos, accountId, cfToken, succeeded, failed);
+		await attemptDeletes(retryOther, accountId, cfToken, succeeded, failed);
 	}
 
 	const okCount = succeeded.size;

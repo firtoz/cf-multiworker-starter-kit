@@ -25,7 +25,8 @@
 		"verify:deploy-env:preview": "bun ./src/verify-deploy-env.ts",
 		"preview:cleanup:orphans": "bun ./src/preview-cleanup-orphans.ts",
 		"lint": "biome check --write .",
-		"lint:format": "biome format --write ."
+		"lint:format": "biome format --write .",
+		"test": "bun test src"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "catalog:",

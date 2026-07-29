@@ -5,7 +5,7 @@
  * Orphan cleanup matches these catalogs — never a loose `{PRODUCT_PREFIX}-*` prefix.
  *
  * Forks: when you add a Worker / D1 / KV / R2 used on preview stages, append its base name here
- * and keep `checkPreviewPrCatalog()` (and its tests) green.
+ * and keep `checkPreviewPrCatalogConsistency()` / `bun run check:preview-catalog` green.
  */
 import {
 	ALCHEMY_APP_IDS,
