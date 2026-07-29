@@ -21,6 +21,12 @@ export const ALCHEMY_RESOURCE_CONSTANT_VALUES: Record<string, string> = {
 
 export type FoundAlchemyResource = { kind: PreviewCatalogKind; id: string };
 
+export type DiscoverAlchemyRunResourcesResult = {
+	found: FoundAlchemyResource[];
+	/** Factory calls whose first arg was not a string literal or known DEFAULT_* constant. */
+	unresolved: Array<{ factory: string; snippet: string }>;
+};
+
 type FactoryKind = "KVNamespace" | "R2Bucket" | "D1Database" | "Worker" | "ReactRouter";
 
 function kindForFactory(factory: FactoryKind): PreviewCatalogKind {
@@ -103,21 +109,21 @@ function skipWs(src: string, from: number): number {
 function findFactoryCallOpenParen(src: string, factoryStart: number, factoryLen: number): number {
 	let i = skipOptionalTypeArgs(src, factoryStart + factoryLen);
 	i = skipWs(src, i);
-	return src[i] === "(" ? i : -1;
+	return src.charAt(i) === "(" ? i : -1;
 }
 
 function readStringLiteral(src: string, from: number): { value: string; end: number } | undefined {
-	const q = src[from];
+	const q = src.charAt(from);
 	if (q !== '"' && q !== "'") {
 		return undefined;
 	}
 	let i = from + 1;
 	while (i < src.length) {
-		if (src[i] === "\\") {
+		if (src.charAt(i) === "\\") {
 			i += 2;
 			continue;
 		}
-		if (src[i] === q) {
+		if (src.charAt(i) === q) {
 			return { value: src.slice(from + 1, i), end: i + 1 };
 		}
 		i++;
@@ -136,12 +142,20 @@ function readIdentifier(src: string, from: number): { value: string; end: number
 	return { value: src.slice(from, i), end: i };
 }
 
+function snippetAt(src: string, from: number, len = 48): string {
+	return src
+		.slice(from, from + len)
+		.replace(/\s+/g, " ")
+		.trim();
+}
+
 /**
  * Discover resource ids from Alchemy factory calls in source text.
  * Supports optional TypeScript generics, e.g. `Worker<typeof Bindings, Rpc>(…)`.
  */
-export function discoverAlchemyRunResources(src: string): FoundAlchemyResource[] {
-	const out: FoundAlchemyResource[] = [];
+export function discoverAlchemyRunResources(src: string): DiscoverAlchemyRunResourcesResult {
+	const found: FoundAlchemyResource[] = [];
+	const unresolved: Array<{ factory: string; snippet: string }> = [];
 	const factoryRe = /\b(KVNamespace|R2Bucket|D1Database|Worker|ReactRouter)\b/g;
 
 	for (const m of src.matchAll(factoryRe)) {
@@ -158,26 +172,32 @@ export function discoverAlchemyRunResources(src: string): FoundAlchemyResource[]
 		const leadingIdent = readIdentifier(src, i);
 		if (leadingIdent?.value.startsWith("DEFAULT_")) {
 			const afterIdent = skipWs(src, leadingIdent.end);
-			if (src[afterIdent] === ",") {
+			if (src.charAt(afterIdent) === ",") {
 				const afterComma = skipWs(src, afterIdent + 1);
 				const trailingStr = readStringLiteral(src, afterComma);
 				if (trailingStr) {
-					out.push({ kind: kindForFactory(factory), id: trailingStr.value });
+					found.push({ kind: kindForFactory(factory), id: trailingStr.value });
 					continue;
 				}
 			}
 			const constantId = resolveConstantResourceId(factory, leadingIdent.value);
 			if (constantId) {
-				out.push(constantId);
+				found.push(constantId);
+			} else {
+				unresolved.push({ factory, snippet: snippetAt(src, factoryStart) });
 			}
 			continue;
 		}
 
 		const str = readStringLiteral(src, i);
 		if (str) {
-			out.push({ kind: kindForFactory(factory), id: str.value });
+			found.push({ kind: kindForFactory(factory), id: str.value });
+			continue;
 		}
+
+		// Call site exists but first arg is not a resolvable literal/constant (e.g. MY_ID).
+		unresolved.push({ factory, snippet: snippetAt(src, factoryStart) });
 	}
 
-	return out;
+	return { found, unresolved };
 }

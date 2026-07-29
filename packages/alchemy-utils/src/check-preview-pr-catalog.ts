@@ -71,6 +71,11 @@ function extractAppIdKey(src: string): string | undefined {
 }
 
 function fileMentionsResourceId(src: string, resourceId: string): boolean {
+	const { found } = discoverAlchemyRunResources(src);
+	if (found.some((r) => r.id === resourceId)) {
+		return true;
+	}
+	// Fallback text mention for non-factory references (should be rare).
 	if (src.includes(`"${resourceId}"`) || src.includes(`'${resourceId}'`)) {
 		return true;
 	}
@@ -115,7 +120,12 @@ function main(): void {
 			continue;
 		}
 		const appId = ALCHEMY_APP_IDS[appKey as keyof typeof ALCHEMY_APP_IDS];
-		const found = discoverAlchemyRunResources(src);
+		const { found, unresolved } = discoverAlchemyRunResources(src);
+		for (const miss of unresolved) {
+			problems.push(
+				`${rel}: unresolved ${miss.factory}(…) resource id — use a string literal or known DEFAULT_* constant (${miss.snippet})`,
+			);
+		}
 		for (const res of found) {
 			const base = `${appId}-${res.id}`;
 			const declared = PREVIEW_CATALOG_DECLARATIONS.some(

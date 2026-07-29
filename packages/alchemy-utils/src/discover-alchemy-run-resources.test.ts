@@ -20,10 +20,11 @@ describe("skipOptionalTypeArgs", () => {
 
 describe("discoverAlchemyRunResources", () => {
 	test("finds Worker(DEFAULT_WORKER_RESOURCE_ID, …)", () => {
-		const src = `export const w = await Worker(${"DEFAULT_WORKER_RESOURCE_ID"}, { adopt: true });`;
-		expect(discoverAlchemyRunResources(src)).toEqual([
-			{ kind: "worker", id: DEFAULT_WORKER_RESOURCE_ID },
-		]);
+		const src = "export const w = await Worker(DEFAULT_WORKER_RESOURCE_ID, { adopt: true });";
+		expect(discoverAlchemyRunResources(src)).toEqual({
+			found: [{ kind: "worker", id: DEFAULT_WORKER_RESOURCE_ID }],
+			unresolved: [],
+		});
 	});
 
 	test("finds Worker with TypeScript generics (chatroom pattern)", () => {
@@ -33,9 +34,10 @@ export const chatroomWorker = await Worker<typeof chatroomWorkerBindings, Chatro
 	{ adopt: true },
 );
 `;
-		expect(discoverAlchemyRunResources(src)).toEqual([
-			{ kind: "worker", id: DEFAULT_WORKER_RESOURCE_ID },
-		]);
+		expect(discoverAlchemyRunResources(src)).toEqual({
+			found: [{ kind: "worker", id: DEFAULT_WORKER_RESOURCE_ID }],
+			unresolved: [],
+		});
 	});
 
 	test("finds nested generics and string resource ids", () => {
@@ -44,14 +46,23 @@ await Worker<Map<string, Bindings>, Rpc>("custom-worker", {});
 await D1Database("main-db", {});
 await KVNamespace(DEFAULT_AUTH_KV_RESOURCE_ID, {});
 `;
-		const found = discoverAlchemyRunResources(src);
+		const { found, unresolved } = discoverAlchemyRunResources(src);
 		expect(found.some((r) => r.kind === "worker" && r.id === "custom-worker")).toBe(true);
 		expect(found.some((r) => r.kind === "d1" && r.id === "main-db")).toBe(true);
 		expect(found.some((r) => r.kind === "kv")).toBe(true);
+		expect(unresolved).toEqual([]);
+	});
+
+	test("flags custom constant resource ids as unresolved", () => {
+		const src = `await Worker(MY_CUSTOM_WORKER_ID, {});`;
+		const { found, unresolved } = discoverAlchemyRunResources(src);
+		expect(found).toEqual([]);
+		expect(unresolved).toHaveLength(1);
+		expect(unresolved[0]?.factory).toBe("Worker");
 	});
 
 	test("ignores type-only mentions without a call", () => {
-		const src = `type W = Worker; const x = WorkerRef({});`;
-		expect(discoverAlchemyRunResources(src)).toEqual([]);
+		const src = "type W = Worker; const x = WorkerRef({});";
+		expect(discoverAlchemyRunResources(src)).toEqual({ found: [], unresolved: [] });
 	});
 });

@@ -1,6 +1,7 @@
 /**
- * Parse `gh api --paginate` stdout into page payloads.
- * Callers iterate pages; array endpoints yield one page that is the array.
+ * Parse `gh api --paginate` / `--paginate --slurp` stdout into page payloads.
+ * Prefer `--slurp` so multi-page object endpoints are a JSON array of pages.
+ * Callers iterate pages; a non-slurped array endpoint yields one page that is the array.
  */
 export function parseGhPaginatedJson(stdout: string): unknown[] {
 	const raw = stdout.trim();
@@ -9,23 +10,76 @@ export function parseGhPaginatedJson(stdout: string): unknown[] {
 	}
 	try {
 		const once = JSON.parse(raw) as unknown;
-		// Always one page payload (object or array) — never expand array elements into "pages".
+		if (Array.isArray(once)) {
+			if (once.length === 0) {
+				// Empty deployments list (non-slurp) or empty slurp — one empty page.
+				return [once];
+			}
+			const first = once[0];
+			// `--slurp`: each element is a page (array page or environments object page).
+			if (
+				Array.isArray(first) ||
+				(first != null && typeof first === "object" && "environments" in first)
+			) {
+				return once;
+			}
+			// Non-slurp concatenated array endpoint (e.g. deployments) → one page.
+			return [once];
+		}
 		return [once];
 	} catch {
-		// continue to NDJSON / multi-doc parse
+		// NDJSON, or `}{` / `][` concatenated docs without a top-level parse.
 	}
+	return splitConcatenatedJsonDocuments(raw);
+}
+
+/** Split top-level JSON values concatenated as NDJSON or `}{` / `][`. */
+function splitConcatenatedJsonDocuments(raw: string): unknown[] {
 	const pages: unknown[] = [];
-	const chunks = raw.split(/\n(?=\{)/);
-	for (const chunk of chunks) {
-		const t = chunk.trim();
-		if (!t) {
+	let depth = 0;
+	let inString = false;
+	let escaped = false;
+	let start = -1;
+	for (let i = 0; i < raw.length; i++) {
+		const c = raw.charAt(i);
+		if (inString) {
+			if (escaped) {
+				escaped = false;
+			} else if (c === "\\") {
+				escaped = true;
+			} else if (c === '"') {
+				inString = false;
+			}
 			continue;
 		}
-		try {
-			pages.push(JSON.parse(t) as unknown);
-		} catch {
-			return [];
+		if (c === '"') {
+			inString = true;
+			continue;
 		}
+		if (c === "{" || c === "[") {
+			if (depth === 0) {
+				start = i;
+			}
+			depth++;
+			continue;
+		}
+		if (c === "}" || c === "]") {
+			if (depth === 0) {
+				return [];
+			}
+			depth--;
+			if (depth === 0 && start >= 0) {
+				try {
+					pages.push(JSON.parse(raw.slice(start, i + 1)) as unknown);
+				} catch {
+					return [];
+				}
+				start = -1;
+			}
+		}
+	}
+	if (depth !== 0) {
+		return [];
 	}
 	return pages;
 }

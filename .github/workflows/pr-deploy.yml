@@ -71,9 +71,10 @@ jobs:
       pull-requests: write
       deployments: write
     concurrency:
-      # Separate from deploy_preview so reopen/synchronize cannot cancel an in-flight destroy
-      # (shared group would let deploy's cancel-in-progress preempt teardown and leave CF orphans).
-      group: pr-preview-destroy-${{ github.event.pull_request.number }}
+      # Shared with deploy_preview. cancel-in-progress cancels an in-flight deploy so teardown
+      # is not racing a recreate. Deploy uses the same group with cancel-in-progress: false so
+      # reopen/synchronize waits for destroy instead of preempting it.
+      group: pr-preview-${{ github.event.pull_request.number }}
       cancel-in-progress: true
     environment: staging
 
@@ -435,8 +436,10 @@ jobs:
       github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     concurrency:
+      # Same group as destroy_preview. Do not cancel-in-progress: a synchronize must not
+      # preempt teardown. Pending deploys still replace each other; only a running destroy waits.
       group: pr-preview-${{ github.event.pull_request.number }}
-      cancel-in-progress: true
+      cancel-in-progress: false
     environment: staging
 
     permissions:

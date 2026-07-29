@@ -416,11 +416,15 @@ async function listCfDoNamespaces(accountId: string, token: string): Promise<Lis
 /** Parse `gh api --paginate` stdout into page payloads — see `./gh-paginated-json`. */
 
 function listGithubPreviewEnvs(): ListResult {
-	const result = spawnSync("gh", ["api", "repos/{owner}/{repo}/environments", "--paginate"], {
-		encoding: "utf8",
-		env: process.env,
-		maxBuffer: 8 * 1024 * 1024,
-	});
+	const result = spawnSync(
+		"gh",
+		["api", "repos/{owner}/{repo}/environments", "--paginate", "--slurp"],
+		{
+			encoding: "utf8",
+			env: process.env,
+			maxBuffer: 8 * 1024 * 1024,
+		},
+	);
 	if (result.status !== 0) {
 		console.warn(
 			"[gh] list environments failed:",
@@ -500,17 +504,24 @@ async function emptyR2Bucket(accountId: string, token: string, bucket: string): 
 	let cursor: string | undefined;
 	for (let page = 0; page < 500; page++) {
 		const q = cursor ? `?cursor=${encodeURIComponent(cursor)}` : "";
-		const listed = await cfApi<{
-			objects?: Array<{ key?: string }>;
-			truncated_after?: string;
-		}>("GET", `/r2/buckets/${encodeURIComponent(bucket)}/objects${q}`, accountId, token);
+		const listed = await cfApi<Array<{ key?: string }> | { objects?: Array<{ key?: string }> }>(
+			"GET",
+			`/r2/buckets/${encodeURIComponent(bucket)}/objects${q}`,
+			accountId,
+			token,
+		);
 		if (!listed.ok) {
 			console.warn(
 				`\n    list objects in ${bucket} failed: ${JSON.stringify(listed.errors ?? listed.status)}`,
 			);
 			return false;
 		}
-		const objects = listed.result?.objects ?? [];
+		const result = listed.result;
+		const objects = Array.isArray(result)
+			? result
+			: Array.isArray(result?.objects)
+				? result.objects
+				: [];
 		if (objects.length === 0) {
 			return true;
 		}
@@ -532,7 +543,11 @@ async function emptyR2Bucket(accountId: string, token: string, bucket: string): 
 				return false;
 			}
 		}
-		cursor = listed.result?.truncated_after;
+		const next =
+			listed.resultInfo && typeof listed.resultInfo === "object"
+				? (listed.resultInfo as { cursor?: string; truncated_after?: string })
+				: undefined;
+		cursor = next?.cursor || next?.truncated_after;
 		if (!cursor) {
 			return true;
 		}
@@ -604,9 +619,10 @@ async function deleteItem(
 				return false;
 			}
 			await stripWorkerBindings(accountId, cfToken, item.id);
+			// force=true also retires associated Durable Object namespaces for this script.
 			const r = await cfApi(
 				"DELETE",
-				`/workers/scripts/${encodeURIComponent(item.id)}`,
+				`/workers/scripts/${encodeURIComponent(item.id)}?force=true`,
 				accountId,
 				cfToken,
 			);
@@ -659,8 +675,8 @@ async function deleteItem(
 			if (!accountId || !cfToken) {
 				return false;
 			}
-			// Prefer after worker delete (caller order). Raw DELETE may still fail on newer accounts
-			// that only retire namespaces via Worker export tombstones — treat as hard failure.
+			// Prefer worker DELETE ?force=true (caller deletes workers first), which retires
+			// namespaces owned by that script. This path cleans leftovers; 404 means already gone.
 			const r = await cfApi(
 				"DELETE",
 				`/workers/durable_objects/namespaces/${encodeURIComponent(item.id)}`,
@@ -669,7 +685,7 @@ async function deleteItem(
 			);
 			if (!r.ok && r.status !== 404) {
 				console.warn(
-					`\n    cf delete DO namespace errors (worker must be gone first; tombstones may be required): ${JSON.stringify(r.errors)}`,
+					`\n    cf delete DO namespace errors (delete the owning worker with ?force=true first): ${JSON.stringify(r.errors)}`,
 				);
 			}
 			return r.ok || r.status === 404;
@@ -680,6 +696,7 @@ async function deleteItem(
 				[
 					"api",
 					"--paginate",
+					"--slurp",
 					`repos/{owner}/{repo}/deployments?environment=${encodeURIComponent(item.id)}&per_page=100`,
 				],
 				{ encoding: "utf8", env: process.env, maxBuffer: 8 * 1024 * 1024 },
