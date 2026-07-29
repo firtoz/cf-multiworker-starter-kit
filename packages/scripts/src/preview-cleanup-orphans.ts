@@ -22,6 +22,7 @@ import {
 	isPreviewKvTitle,
 	isPreviewR2Name,
 	isPreviewWorkerName,
+	PREVIEW_R2_BASE_NAMES,
 	parsePrNumberFromPhysicalName,
 	resolveCleanupExcludePrs,
 } from "alchemy-utils/preview-pr-resources";
@@ -29,12 +30,19 @@ import { PRODUCT_PREFIX } from "alchemy-utils/worker-peer-scripts";
 
 const PREVIEW_ENV_RE = /^preview-pr-(\d+)$/;
 const STATE_SERVICE = "alchemy-state-service";
+const OPEN_PR_PAGE_SIZE = 100;
 
 type Item = {
 	kind: string;
 	id: string;
 	label: string;
 	pr: number;
+};
+
+type ListResult = {
+	items: Item[];
+	/** False when the scan failed or stopped early (partial page). */
+	complete: boolean;
 };
 
 function usage(): never {
@@ -176,7 +184,7 @@ async function forEachCfPage<T>(options: {
 	perPage?: number;
 	maxPages?: number;
 	onPage: (rows: T[]) => void;
-}): Promise<void> {
+}): Promise<{ complete: boolean }> {
 	const perPage = options.perPage ?? 100;
 	const maxPages = options.maxPages ?? 100;
 	for (let page = 1; page <= maxPages; page++) {
@@ -187,57 +195,99 @@ async function forEachCfPage<T>(options: {
 			options.token,
 		);
 		if (!ok || !result) {
-			if (page === 1) {
-				console.warn(`[cf] list ${options.label} failed`, errors);
-			}
-			break;
+			console.warn(
+				`[cf] list ${options.label} failed on page ${page}`,
+				errors ?? `(status incomplete)`,
+			);
+			return { complete: false };
+		}
+		if (!Array.isArray(result)) {
+			console.warn(`[cf] list ${options.label}: expected array result on page ${page}`);
+			return { complete: false };
 		}
 		options.onPage(result);
 		const totalPages = resultInfo?.total_pages;
 		if (totalPages != null) {
 			if (page >= totalPages) {
-				break;
+				return { complete: true };
 			}
 			continue;
 		}
 		if (result.length < perPage) {
-			break;
+			return { complete: true };
 		}
 	}
+	console.warn(`[cf] list ${options.label}: hit page cap (${maxPages}) with more results likely`);
+	return { complete: false };
 }
 
-async function listCfWorkers(accountId: string, token: string): Promise<Item[]> {
+function collectWorkerItems(
+	rows: Array<{ id?: string; script_name?: string; service_name?: string }>,
+	useClassicIdAsName: boolean,
+): Item[] {
 	const items: Item[] = [];
-	await forEachCfPage<{ id?: string; script_name?: string; service_name?: string }>({
-		accountId,
-		token,
-		label: "workers",
-		pathForPage: (page, perPage) =>
-			`/workers/scripts-search?page=${page}&per_page=${perPage}&order_by=name`,
-		onPage: (rows) => {
-			for (const s of rows) {
-				const id = (s.script_name ?? s.service_name ?? s.id)?.trim();
-				if (!id || id.includes(STATE_SERVICE) || !isPreviewWorkerName(id)) {
-					continue;
-				}
-				const pr = parsePrNumberFromPhysicalName(id);
-				if (pr === undefined) {
-					continue;
-				}
-				items.push({ kind: "worker", id, label: id, pr });
-			}
-		},
-	});
+	for (const s of rows) {
+		const id = (
+			useClassicIdAsName
+				? (s.id ?? s.script_name ?? s.service_name)
+				: (s.script_name ?? s.service_name ?? s.id)
+		)?.trim();
+		if (!id || id.includes(STATE_SERVICE) || !isPreviewWorkerName(id)) {
+			continue;
+		}
+		const pr = parsePrNumberFromPhysicalName(id);
+		if (pr === undefined) {
+			continue;
+		}
+		items.push({ kind: "worker", id, label: id, pr });
+	}
 	return items;
 }
 
-async function listCfD1(accountId: string, token: string): Promise<Item[]> {
+async function listCfWorkers(accountId: string, token: string): Promise<ListResult> {
 	const items: Item[] = [];
-	await forEachCfPage<{ uuid?: string; name?: string }>({
+	const search = await forEachCfPage<{
+		id?: string;
+		script_name?: string;
+		service_name?: string;
+	}>({
+		accountId,
+		token,
+		label: "workers (scripts-search)",
+		pathForPage: (page, perPage) =>
+			`/workers/scripts-search?page=${page}&per_page=${perPage}&order_by=name`,
+		onPage: (rows) => {
+			items.push(...collectWorkerItems(rows, false));
+		},
+	});
+	if (search.complete) {
+		return { items, complete: true };
+	}
+
+	console.warn("[cf] scripts-search incomplete — falling back to /workers/scripts");
+	items.length = 0;
+	const classic = await cfApi<Array<{ id?: string; script_name?: string; service_name?: string }>>(
+		"GET",
+		"/workers/scripts",
+		accountId,
+		token,
+	);
+	if (!classic.ok || !classic.result || !Array.isArray(classic.result)) {
+		console.warn("[cf] list workers fallback failed", classic.errors);
+		return { items, complete: false };
+	}
+	items.push(...collectWorkerItems(classic.result, true));
+	// Classic list is historically unpaginated (full set). Treat as complete when ok.
+	return { items, complete: true };
+}
+
+async function listCfD1(accountId: string, token: string): Promise<ListResult> {
+	const items: Item[] = [];
+	const page = await forEachCfPage<{ uuid?: string; name?: string }>({
 		accountId,
 		token,
 		label: "D1",
-		pathForPage: (page, perPage) => `/d1/database?page=${page}&per_page=${perPage}`,
+		pathForPage: (p, perPage) => `/d1/database?page=${p}&per_page=${perPage}`,
 		onPage: (rows) => {
 			for (const db of rows) {
 				const name = db.name?.trim();
@@ -253,10 +303,13 @@ async function listCfD1(accountId: string, token: string): Promise<Item[]> {
 			}
 		},
 	});
-	return items;
+	return { items, complete: page.complete };
 }
 
-async function listCfR2(accountId: string, token: string): Promise<Item[]> {
+async function listCfR2(accountId: string, token: string): Promise<ListResult> {
+	if (PREVIEW_R2_BASE_NAMES.length === 0) {
+		return { items: [], complete: true };
+	}
 	const items: Item[] = [];
 	let cursor: string | undefined;
 	for (let page = 0; page < 100; page++) {
@@ -269,10 +322,8 @@ async function listCfR2(accountId: string, token: string): Promise<Item[]> {
 		}>("GET", `/r2/buckets?${q}`, accountId, token);
 		const buckets = result?.buckets ?? (Array.isArray(result) ? result : null);
 		if (!ok || !buckets) {
-			if (page === 0) {
-				console.warn("[cf] list R2 failed", errors);
-			}
-			break;
+			console.warn(`[cf] list R2 failed on page ${page + 1}`, errors);
+			return { items, complete: false };
 		}
 		for (const b of buckets as Array<{ name?: string }>) {
 			const name = b.name?.trim();
@@ -287,19 +338,20 @@ async function listCfR2(accountId: string, token: string): Promise<Item[]> {
 		}
 		cursor = resultInfo?.cursor?.trim() || undefined;
 		if (!cursor) {
-			break;
+			return { items, complete: true };
 		}
 	}
-	return items;
+	console.warn("[cf] list R2: hit page cap with cursor still set");
+	return { items, complete: false };
 }
 
-async function listCfKv(accountId: string, token: string): Promise<Item[]> {
+async function listCfKv(accountId: string, token: string): Promise<ListResult> {
 	const items: Item[] = [];
-	await forEachCfPage<{ id?: string; title?: string }>({
+	const page = await forEachCfPage<{ id?: string; title?: string }>({
 		accountId,
 		token,
 		label: "KV",
-		pathForPage: (page, perPage) => `/storage/kv/namespaces?page=${page}&per_page=${perPage}`,
+		pathForPage: (p, perPage) => `/storage/kv/namespaces?page=${p}&per_page=${perPage}`,
 		onPage: (rows) => {
 			for (const ns of rows) {
 				const title = ns.title?.trim();
@@ -315,17 +367,22 @@ async function listCfKv(accountId: string, token: string): Promise<Item[]> {
 			}
 		},
 	});
-	return items;
+	return { items, complete: page.complete };
 }
 
-async function listCfDoNamespaces(accountId: string, token: string): Promise<Item[]> {
+async function listCfDoNamespaces(accountId: string, token: string): Promise<ListResult> {
 	const items: Item[] = [];
-	await forEachCfPage<{ id?: string; name?: string; script?: string; class?: string }>({
+	const page = await forEachCfPage<{
+		id?: string;
+		name?: string;
+		script?: string;
+		class?: string;
+	}>({
 		accountId,
 		token,
 		label: "DO namespaces",
-		pathForPage: (page, perPage) =>
-			`/workers/durable_objects/namespaces?page=${page}&per_page=${perPage}`,
+		pathForPage: (p, perPage) =>
+			`/workers/durable_objects/namespaces?page=${p}&per_page=${perPage}`,
 		onPage: (rows) => {
 			for (const ns of rows) {
 				const id = ns.id?.trim();
@@ -346,55 +403,119 @@ async function listCfDoNamespaces(accountId: string, token: string): Promise<Ite
 			}
 		},
 	});
-	return items;
+	return { items, complete: page.complete };
 }
 
-function listGithubPreviewEnvs(): Item[] {
-	const result = spawnSync(
-		"gh",
-		["api", "repos/{owner}/{repo}/environments", "--paginate", "--jq", ".environments[].name"],
-		{ encoding: "utf8", env: process.env, maxBuffer: 8 * 1024 * 1024 },
-	);
+/** Parse `gh api --paginate` stdout: one JSON value, NDJSON pages, or concatenated arrays. */
+function parseGhPaginatedJson(stdout: string): unknown[] {
+	const raw = stdout.trim();
+	if (!raw) {
+		return [];
+	}
+	try {
+		const once = JSON.parse(raw) as unknown;
+		return Array.isArray(once) ? once : [once];
+	} catch {
+		// continue
+	}
+	const pages: unknown[] = [];
+	const chunks = raw.split(/\n(?=\{)/);
+	for (const chunk of chunks) {
+		const t = chunk.trim();
+		if (!t) {
+			continue;
+		}
+		try {
+			pages.push(JSON.parse(t) as unknown);
+		} catch {
+			console.warn("[gh] could not parse paginated JSON chunk");
+			return [];
+		}
+	}
+	return pages;
+}
+
+function listGithubPreviewEnvs(): ListResult {
+	const result = spawnSync("gh", ["api", "repos/{owner}/{repo}/environments", "--paginate"], {
+		encoding: "utf8",
+		env: process.env,
+		maxBuffer: 8 * 1024 * 1024,
+	});
 	if (result.status !== 0) {
 		console.warn(
 			"[gh] list environments failed:",
 			result.stderr?.trim() || `exit ${result.status}`,
 		);
-		return [];
+		return { items: [], complete: false };
+	}
+	const pages = parseGhPaginatedJson(result.stdout ?? "");
+	if (pages.length === 0 && (result.stdout ?? "").trim().length > 0) {
+		return { items: [], complete: false };
 	}
 	const items: Item[] = [];
-	for (const line of (result.stdout ?? "").split("\n")) {
-		const name = line.trim();
-		if (!PREVIEW_ENV_RE.test(name)) {
-			continue;
+	for (const page of pages) {
+		const envs = (page as { environments?: Array<{ name?: string }> })?.environments;
+		if (!Array.isArray(envs)) {
+			console.warn("[gh] environments page missing .environments array");
+			return { items, complete: false };
 		}
-		const pr = prFromGithubEnvName(name);
-		if (pr === undefined) {
-			continue;
+		for (const env of envs) {
+			const name = env.name?.trim();
+			if (!name || !PREVIEW_ENV_RE.test(name)) {
+				continue;
+			}
+			const pr = prFromGithubEnvName(name);
+			if (pr === undefined) {
+				continue;
+			}
+			items.push({ kind: "gh-environment", id: name, label: name, pr });
 		}
-		items.push({ kind: "gh-environment", id: name, label: name, pr });
 	}
-	return items;
+	return { items, complete: true };
 }
 
-function listOpenPullRequestNumbers(): { ok: boolean; numbers: Set<number> } {
-	const result = spawnSync(
-		"gh",
-		["pr", "list", "--state", "open", "--limit", "1000", "--json", "number", "--jq", ".[].number"],
-		{ encoding: "utf8", env: process.env, maxBuffer: 8 * 1024 * 1024 },
-	);
+function listOpenPullRequestNumbers(): {
+	ok: boolean;
+	numbers: Set<number>;
+	maybeTruncated: boolean;
+} {
 	const numbers = new Set<number>();
-	if (result.status !== 0) {
-		console.warn("[gh] list open PRs failed:", result.stderr?.trim() || `exit ${result.status}`);
-		return { ok: false, numbers };
-	}
-	for (const line of (result.stdout ?? "").split("\n")) {
-		const n = Number(line.trim());
-		if (Number.isInteger(n) && n > 0) {
-			numbers.add(n);
+	let page = 1;
+	for (; page <= 50; page++) {
+		const result = spawnSync(
+			"gh",
+			["api", `repos/{owner}/{repo}/pulls?state=open&per_page=${OPEN_PR_PAGE_SIZE}&page=${page}`],
+			{ encoding: "utf8", env: process.env, maxBuffer: 8 * 1024 * 1024 },
+		);
+		if (result.status !== 0) {
+			console.warn("[gh] list open PRs failed:", result.stderr?.trim() || `exit ${result.status}`);
+			return { ok: false, numbers, maybeTruncated: false };
+		}
+		let batch: Array<{ number?: number }> = [];
+		try {
+			batch = JSON.parse(result.stdout ?? "[]") as Array<{ number?: number }>;
+		} catch {
+			console.warn("[gh] list open PRs: invalid JSON");
+			return { ok: false, numbers, maybeTruncated: false };
+		}
+		if (!Array.isArray(batch)) {
+			console.warn("[gh] list open PRs: expected array");
+			return { ok: false, numbers, maybeTruncated: false };
+		}
+		for (const row of batch) {
+			const n = row.number;
+			if (typeof n === "number" && Number.isInteger(n) && n > 0) {
+				numbers.add(n);
+			}
+		}
+		if (batch.length < OPEN_PR_PAGE_SIZE) {
+			return { ok: true, numbers, maybeTruncated: false };
 		}
 	}
-	return { ok: true, numbers };
+	console.warn(
+		`[gh] list open PRs: hit page cap (${page - 1}×${OPEN_PR_PAGE_SIZE}); treat as incomplete`,
+	);
+	return { ok: false, numbers, maybeTruncated: true };
 }
 
 async function emptyR2Bucket(accountId: string, token: string, bucket: string): Promise<boolean> {
@@ -560,12 +681,19 @@ async function deleteItem(
 			if (!accountId || !cfToken) {
 				return false;
 			}
+			// Prefer after worker delete (caller order). Raw DELETE may still fail on newer accounts
+			// that only retire namespaces via Worker export tombstones — treat as hard failure.
 			const r = await cfApi(
 				"DELETE",
 				`/workers/durable_objects/namespaces/${encodeURIComponent(item.id)}`,
 				accountId,
 				cfToken,
 			);
+			if (!r.ok && r.status !== 404) {
+				console.warn(
+					`\n    cf delete DO namespace errors (worker must be gone first; tombstones may be required): ${JSON.stringify(r.errors)}`,
+				);
+			}
 			return r.ok || r.status === 404;
 		}
 		case "gh-environment": {
@@ -575,17 +703,29 @@ async function deleteItem(
 					"api",
 					"--paginate",
 					`repos/{owner}/{repo}/deployments?environment=${encodeURIComponent(item.id)}&per_page=100`,
-					"--jq",
-					".[].id",
 				],
 				{ encoding: "utf8", env: process.env, maxBuffer: 8 * 1024 * 1024 },
 			);
-			for (const line of (list.stdout ?? "").split("\n")) {
-				const id = line.trim();
-				if (!id) {
-					continue;
+			if (list.status !== 0) {
+				console.warn(
+					`\n    gh list deployments for ${item.id} failed:`,
+					list.stderr?.trim() || `exit ${list.status}`,
+				);
+				return false;
+			}
+			const pages = parseGhPaginatedJson(list.stdout ?? "");
+			const deploymentIds: string[] = [];
+			for (const page of pages) {
+				const rows = Array.isArray(page) ? page : [];
+				for (const row of rows as Array<{ id?: number | string }>) {
+					if (row?.id != null) {
+						deploymentIds.push(String(row.id));
+					}
 				}
-				spawnSync(
+			}
+			let statusErrors = 0;
+			for (const id of deploymentIds) {
+				const st = spawnSync(
 					"gh",
 					[
 						"api",
@@ -599,13 +739,27 @@ async function deleteItem(
 					],
 					{ encoding: "utf8", env: process.env },
 				);
+				if (st.status !== 0) {
+					statusErrors += 1;
+					console.warn(
+						`\n    gh inactive status failed for deployment ${id}:`,
+						st.stderr?.trim() || `exit ${st.status}`,
+					);
+				}
 			}
 			const del = spawnSync(
 				"gh",
 				["api", "-X", "DELETE", `repos/{owner}/{repo}/environments/${encodeURIComponent(item.id)}`],
 				{ encoding: "utf8", env: process.env },
 			);
-			return del.status === 0 || (del.stderr ?? "").toLowerCase().includes("404");
+			const delOk = del.status === 0 || (del.stderr ?? "").toLowerCase().includes("404");
+			if (!delOk) {
+				console.warn(
+					`\n    gh delete environment ${item.id} failed:`,
+					del.stderr?.trim() || `exit ${del.status}`,
+				);
+			}
+			return delOk && statusErrors === 0;
 		}
 		default:
 			console.warn(`Unknown kind ${item.kind}`);
@@ -617,6 +771,36 @@ function itemKey(item: Item): string {
 	return `${item.kind}:${item.id}`;
 }
 
+async function attemptDeletes(
+	items: Item[],
+	accountId: string | undefined,
+	cfToken: string | undefined,
+	succeeded: Set<string>,
+	failed: Set<string>,
+): Promise<void> {
+	for (const item of items) {
+		const key = itemKey(item);
+		if (succeeded.has(key)) {
+			continue;
+		}
+		process.stdout.write(`  deleting [${item.kind}] ${item.label} … `);
+		try {
+			const ok = await deleteItem(item, accountId, cfToken);
+			if (ok) {
+				succeeded.add(key);
+				failed.delete(key);
+				console.log("ok");
+			} else {
+				failed.add(key);
+				console.log("FAILED");
+			}
+		} catch (error) {
+			failed.add(key);
+			console.log(`FAILED (${String(error)})`);
+		}
+	}
+}
+
 async function main(): Promise<void> {
 	const { exclude: manualExclude, apply, includeOpen } = parseArgs(process.argv.slice(2));
 	findRepoRoot(); // validate cwd / workspace
@@ -624,7 +808,7 @@ async function main(): Promise<void> {
 	const openListed = listOpenPullRequestNumbers();
 	if (apply && !includeOpen && !openListed.ok) {
 		console.error(
-			"[preview-cleanup-orphans] --apply aborted: could not list open PRs (pass --include-open only if intentional)",
+			"[preview-cleanup-orphans] --apply aborted: could not fully list open PRs (pass --include-open only if intentional)",
 		);
 		process.exit(1);
 	}
@@ -650,22 +834,45 @@ async function main(): Promise<void> {
 	const cfToken = process.env["CLOUDFLARE_API_TOKEN"]?.trim();
 
 	const discovered: Item[] = [];
+	let scansComplete = true;
 
 	if (accountId && cfToken) {
-		discovered.push(
-			...(await listCfWorkers(accountId, cfToken)),
-			...(await listCfD1(accountId, cfToken)),
-			...(await listCfR2(accountId, cfToken)),
-			...(await listCfKv(accountId, cfToken)),
-			...(await listCfDoNamespaces(accountId, cfToken)),
-		);
+		const lists = await Promise.all([
+			listCfWorkers(accountId, cfToken),
+			listCfD1(accountId, cfToken),
+			listCfR2(accountId, cfToken),
+			listCfKv(accountId, cfToken),
+			listCfDoNamespaces(accountId, cfToken),
+		]);
+		for (const list of lists) {
+			discovered.push(...list.items);
+			if (!list.complete) {
+				scansComplete = false;
+			}
+		}
 	} else {
 		console.warn(
 			"[cf] CLOUDFLARE_ACCOUNT_ID / CLOUDFLARE_API_TOKEN unset — skipping Cloudflare scan",
 		);
 	}
 
-	discovered.push(...listGithubPreviewEnvs());
+	const ghEnvs = listGithubPreviewEnvs();
+	discovered.push(...ghEnvs.items);
+	if (!ghEnvs.complete) {
+		scansComplete = false;
+	}
+
+	if (!scansComplete) {
+		console.warn(
+			"[preview-cleanup-orphans] one or more inventory scans were incomplete — results may under-report",
+		);
+		if (apply) {
+			console.error(
+				"[preview-cleanup-orphans] --apply aborted: refusing to delete from an incomplete inventory",
+			);
+			process.exit(1);
+		}
+	}
 
 	const filtered = discovered
 		.filter((item) => !exclude.has(item.pr))
@@ -688,11 +895,12 @@ async function main(): Promise<void> {
 
 	const succeeded = new Set<string>();
 	const failed = new Set<string>();
-	const failedWorkers: Item[] = [];
 
-	// Strip Worker bindings first so circular service refs do not block DELETE.
 	const workers = filtered.filter((i) => i.kind === "worker");
-	const rest = filtered.filter((i) => i.kind !== "worker");
+	const doNamespaces = filtered.filter((i) => i.kind === "do-namespace");
+	const other = filtered.filter((i) => i.kind !== "worker" && i.kind !== "do-namespace");
+
+	// 1) Strip bindings so circular service refs / DO classes do not block DELETE.
 	if (accountId && cfToken && workers.length > 0) {
 		console.log(`[preview-cleanup-orphans] stripping bindings on ${workers.length} worker(s)…`);
 		for (const w of workers) {
@@ -701,47 +909,19 @@ async function main(): Promise<void> {
 		}
 	}
 
-	for (const item of [...rest, ...workers]) {
-		const key = itemKey(item);
-		process.stdout.write(`  deleting [${item.kind}] ${item.label} … `);
-		try {
-			const ok = await deleteItem(item, accountId, cfToken);
-			if (ok) {
-				succeeded.add(key);
-				failed.delete(key);
-				console.log("ok");
-			} else {
-				failed.add(key);
-				if (item.kind === "worker") {
-					failedWorkers.push(item);
-				}
-				console.log("FAILED");
-			}
-		} catch (error) {
-			failed.add(key);
-			if (item.kind === "worker") {
-				failedWorkers.push(item);
-			}
-			console.log(`FAILED (${String(error)})`);
-		}
-	}
+	// 2) Workers first, then DO namespaces (class must be gone), then everything else.
+	console.log("[preview-cleanup-orphans] deleting workers…");
+	await attemptDeletes(workers, accountId, cfToken, succeeded, failed);
+	console.log("[preview-cleanup-orphans] deleting DO namespaces…");
+	await attemptDeletes(doNamespaces, accountId, cfToken, succeeded, failed);
+	console.log("[preview-cleanup-orphans] deleting remaining resources…");
+	await attemptDeletes(other, accountId, cfToken, succeeded, failed);
 
-	// Second pass only for workers that failed (bindings peers may have cleared).
-	if (failedWorkers.length > 0 && accountId && cfToken) {
-		console.log("[preview-cleanup-orphans] retrying worker deletes…");
-		for (const item of failedWorkers) {
-			const key = itemKey(item);
-			process.stdout.write(`  retry delete ${item.label} … `);
-			const ok = await deleteItem(item, accountId, cfToken);
-			if (ok) {
-				succeeded.add(key);
-				failed.delete(key);
-				console.log("ok");
-			} else {
-				failed.add(key);
-				console.log("FAILED");
-			}
-		}
+	// 3) Retry anything still failed (peer deletes / binding races).
+	const retryItems = filtered.filter((i) => failed.has(itemKey(i)));
+	if (retryItems.length > 0) {
+		console.log(`[preview-cleanup-orphans] retrying ${retryItems.length} failed delete(s)…`);
+		await attemptDeletes(retryItems, accountId, cfToken, succeeded, failed);
 	}
 
 	const okCount = succeeded.size;

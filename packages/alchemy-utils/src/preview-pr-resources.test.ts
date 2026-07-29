@@ -1,15 +1,18 @@
 import { describe, expect, test } from "bun:test";
 import {
+	checkPreviewPrCatalogConsistency,
 	isCatalogPreviewResource,
 	isPreviewD1Name,
 	isPreviewDoNamespace,
 	isPreviewKvTitle,
 	isPreviewR2Name,
 	isPreviewWorkerName,
+	PREVIEW_CATALOG_DECLARATIONS,
 	PREVIEW_D1_BASE_NAMES,
 	PREVIEW_KV_BASE_NAMES,
 	PREVIEW_WORKER_BASE_NAMES,
 	parsePrNumberFromPhysicalName,
+	physicalBaseForDeclaration,
 	resolveCleanupExcludePrs,
 } from "./preview-pr-resources";
 import { PRODUCT_PREFIX } from "./worker-peer-scripts";
@@ -92,5 +95,24 @@ describe("resolveCleanupExcludePrs", () => {
 				}),
 			].sort((a, b) => a - b),
 		).toEqual([7]);
+	});
+});
+
+describe("preview catalog consistency", () => {
+	test("declarations match catalog arrays", () => {
+		expect(checkPreviewPrCatalogConsistency()).toEqual([]);
+	});
+
+	test("declarations cover every worker/d1/kv base", () => {
+		const bases = new Set(PREVIEW_CATALOG_DECLARATIONS.map((d) => physicalBaseForDeclaration(d)));
+		for (const base of PREVIEW_WORKER_BASE_NAMES) {
+			expect(bases.has(base)).toBe(true);
+		}
+		for (const base of PREVIEW_D1_BASE_NAMES) {
+			expect(bases.has(base)).toBe(true);
+		}
+		for (const base of PREVIEW_KV_BASE_NAMES) {
+			expect(bases.has(base)).toBe(true);
+		}
 	});
 });

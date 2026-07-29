@@ -4,7 +4,8 @@
  * Physical names are `{alchemyAppId}-{resourceId}-{stage}` (see Scope#createPhysicalName).
  * Orphan cleanup matches these catalogs — never a loose `{PRODUCT_PREFIX}-*` prefix.
  *
- * Forks: when you add a Worker / D1 / KV / R2 used on preview stages, append its base name here.
+ * Forks: when you add a Worker / D1 / KV / R2 used on preview stages, append its base name here
+ * and keep `checkPreviewPrCatalog()` (and its tests) green.
  */
 import {
 	ALCHEMY_APP_IDS,
@@ -113,4 +114,120 @@ export function resolveCleanupExcludePrs(options: {
 		}
 	}
 	return out;
+}
+
+export type PreviewCatalogKind = "worker" | "d1" | "kv" | "r2";
+
+/** Declared preview resources derived from each package's `alchemy.run.ts` (for drift checks). */
+export type PreviewCatalogDeclaration = {
+	readonly file: string;
+	readonly appIdKey: keyof typeof ALCHEMY_APP_IDS;
+	readonly kind: PreviewCatalogKind;
+	/** Resource id passed to Worker/D1/KV/R2/ReactRouter (constant name or literal). */
+	readonly resourceId: string;
+};
+
+/**
+ * Source-of-truth declarations that must stay in sync with `alchemy.run.ts` files.
+ * When you add a preview-stage Cloudflare resource, append here and to the matching catalog array.
+ */
+export const PREVIEW_CATALOG_DECLARATIONS: readonly PreviewCatalogDeclaration[] = [
+	{
+		file: "apps/web/alchemy.run.ts",
+		appIdKey: "frontend",
+		kind: "worker",
+		resourceId: DEFAULT_REACT_ROUTER_WEB_RESOURCE_ID,
+	},
+	{
+		file: "workers/auth-worker/alchemy.run.ts",
+		appIdKey: "auth",
+		kind: "worker",
+		resourceId: DEFAULT_WORKER_RESOURCE_ID,
+	},
+	{
+		file: "workers/auth-worker/alchemy.run.ts",
+		appIdKey: "auth",
+		kind: "kv",
+		resourceId: DEFAULT_AUTH_KV_RESOURCE_ID,
+	},
+	{
+		file: "durable-objects/chatroom-do/alchemy.run.ts",
+		appIdKey: "chatroom",
+		kind: "worker",
+		resourceId: DEFAULT_WORKER_RESOURCE_ID,
+	},
+	{
+		file: "workers/posthog-proxy/alchemy.run.ts",
+		appIdKey: "posthogProxy",
+		kind: "worker",
+		resourceId: DEFAULT_WORKER_RESOURCE_ID,
+	},
+	{
+		file: "packages/db/alchemy.run.ts",
+		appIdKey: "database",
+		kind: "d1",
+		resourceId: DEFAULT_D1_DATABASE_RESOURCE_ID,
+	},
+	{
+		file: "packages/auth-db/alchemy.run.ts",
+		appIdKey: "authDatabase",
+		kind: "d1",
+		resourceId: DEFAULT_AUTH_D1_DATABASE_RESOURCE_ID,
+	},
+] as const;
+
+export function physicalBaseForDeclaration(decl: PreviewCatalogDeclaration): string {
+	return `${ALCHEMY_APP_IDS[decl.appIdKey]}-${decl.resourceId}`;
+}
+
+export function catalogBasesForKind(kind: PreviewCatalogKind): readonly string[] {
+	switch (kind) {
+		case "worker":
+			return PREVIEW_WORKER_BASE_NAMES;
+		case "d1":
+			return PREVIEW_D1_BASE_NAMES;
+		case "kv":
+			return PREVIEW_KV_BASE_NAMES;
+		case "r2":
+			return PREVIEW_R2_BASE_NAMES;
+	}
+}
+
+/**
+ * Ensure every declaration's physical base is present in the kind catalog (and catalogs have no extras).
+ * Returns human-readable problems (empty = ok).
+ */
+export function checkPreviewPrCatalogConsistency(): string[] {
+	const problems: string[] = [];
+	const expectedByKind: Record<PreviewCatalogKind, Set<string>> = {
+		worker: new Set(),
+		d1: new Set(),
+		kv: new Set(),
+		r2: new Set(),
+	};
+
+	for (const decl of PREVIEW_CATALOG_DECLARATIONS) {
+		const base = physicalBaseForDeclaration(decl);
+		expectedByKind[decl.kind].add(base);
+		const catalog = catalogBasesForKind(decl.kind);
+		if (!catalog.map((b) => b.toLowerCase()).includes(base.toLowerCase())) {
+			problems.push(
+				`${decl.file}: ${decl.kind} base "${base}" missing from PREVIEW_${decl.kind.toUpperCase()}_BASE_NAMES`,
+			);
+		}
+	}
+
+	for (const kind of ["worker", "d1", "kv", "r2"] as const) {
+		const catalog = catalogBasesForKind(kind);
+		const expected = expectedByKind[kind];
+		for (const base of catalog) {
+			if (![...expected].some((e) => e.toLowerCase() === base.toLowerCase())) {
+				problems.push(
+					`PREVIEW_${kind.toUpperCase()}_BASE_NAMES has "${base}" with no PREVIEW_CATALOG_DECLARATIONS entry`,
+				);
+			}
+		}
+	}
+
+	return problems;
 }

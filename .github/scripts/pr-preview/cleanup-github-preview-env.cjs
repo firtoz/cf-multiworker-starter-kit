@@ -17,7 +17,7 @@
  *     },
  *   },
  *   context: { repo: { owner: string, repo: string } },
- *   core: { info: Function, warning: Function, setOutput: Function },
+ *   core: { info: Function, warning: Function, setOutput: Function, setFailed: Function },
  * }} ctx
  */
 module.exports = async function cleanupGithubPreviewEnv(ctx) {
@@ -42,9 +42,7 @@ module.exports = async function cleanupGithubPreviewEnv(ctx) {
 			environment,
 			per_page: 100,
 		});
-		core.info(
-			`cleanup-github-preview-env: ${deployments.length} deployment(s) for ${environment}`,
-		);
+		core.info(`cleanup-github-preview-env: ${deployments.length} deployment(s) for ${environment}`);
 		for (const deployment of deployments) {
 			const id = deployment?.id;
 			if (id == null) {
@@ -71,6 +69,7 @@ module.exports = async function cleanupGithubPreviewEnv(ctx) {
 		core.setOutput("outcome", "failure");
 		core.setOutput("inactivated", String(inactivated));
 		core.setOutput("environment_deleted", "false");
+		core.setFailed(`cleanup-github-preview-env: list deployments failed: ${String(error)}`);
 		return;
 	}
 
@@ -100,4 +99,9 @@ module.exports = async function cleanupGithubPreviewEnv(ctx) {
 	core.setOutput("outcome", outcome);
 	core.setOutput("inactivated", String(inactivated));
 	core.setOutput("environment_deleted", environmentDeleted ? "true" : "false");
+	if (outcome === "failure") {
+		core.setFailed(
+			`cleanup-github-preview-env: ${statusErrors} deployment status error(s) for ${environment}`,
+		);
+	}
 };
