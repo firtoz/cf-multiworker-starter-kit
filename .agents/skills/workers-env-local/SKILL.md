@@ -1,17 +1,17 @@
 ---
 name: workers-env-local
-description: Alchemy + env files — repo-root `.env.local` (dev), `.env.staging` (staging / PR preview deploys), `.env.production` (prod / CI), optional per-package `.env.local`, and package-local Alchemy apps. Use when adding secrets or non-secret vars or debugging missing env in local dev. Never use a plain `.env` file. `.env.example` is human documentation only — no script reads it for all keys.
+description: Alchemy + env files — repo-root `.env.local` (dev), `.env.staging` (staging / PR preview deploys), `.env.production` (prod / CI), optional per-package `.env.local`, and package-local Alchemy apps. Use when adding secrets or non-secret vars (must also update turbo.json globalEnv + deploy workflow env maps), or debugging missing env in local/CI/preview. Never use a plain `.env` file. `.env.example` is human documentation only — no script reads it for all keys.
 ---
 
 # Alchemy — env files and package apps
 
 ## When to use this skill
 
-- Adding, renaming, or documenting environment variables for the web worker, auth worker, chatroom worker, or D1.
+- Adding, renaming, or documenting environment variables for the web worker, auth worker, chatroom worker, or D1 — especially when the var must flow through **local dev**, **`alchemy.run.ts`**, **`env.requirements.ts`**, **`turbo.json` `globalEnv`**, **deploy workflow `env:` maps**, or **`github:sync:*`**.
 - Local dev shows missing vars for Alchemy (each package runs **`alchemy-cli --stage local dev`** from its **`package.json`**, using **`alchemy.app`** → **`alchemy dev --app <id>`**; see [Alchemy Turborepo](https://alchemy.run/guides/turborepo/)).
 - How **`bun run typegen`** / **`bun run typecheck`** relate to infra (`alchemy.run.ts`) vs deploy-time secrets (**`.env.*`**).
 - Explaining **repo-root** `.env.local` + `.env.staging` + `.env.production` vs optional per-package `.env.local`.
-
+- Any time a new secret/variable needs to be available to **setup**, **`github:sync:*`**, **deploy preflight**, or a workflow job, not just runtime code.
 ## Fork onboarding (humans)
 
 After cloning or generating from the template, follow **README *Quick start***:
@@ -102,20 +102,31 @@ apps/web/
 
 ## Checklist after changing env or bindings
 
-- Add the key to the right sidecar **`env.requirements.ts`** when setup / `github:sync:*` should know about it (for web keys: **`apps/web/env.requirements.ts`**).
-- Update **repo-root `.env.example`** so contributors know which keys exist.
-- Update the relevant package **`alchemy.run.ts`** binding or secret wiring.
-- If CI deploy/destroy needs the value, add it to the relevant GitHub Actions **`env:`** blocks. Environment variables synced by **`github:sync:*`** are only available in Actions when referenced as **`${{ vars.KEY }}`** / **`${{ secrets.KEY }}`**.
-- If the command runs through root Turbo, add the key to **`turbo.json`** **`globalEnv`** (or a narrower task env config) so Turbo passes it to package scripts.
-- If **`alchemy.run.ts`** reads a required value at module scope, mirror it on PR preview destroy jobs too; destroy loads the same Alchemy entrypoint.
-- After changing staged dotfiles, run **`bun run github:sync:staging`** / **`github:sync:prod`** so GitHub Environments receive the value.
-- Run **`bun run typegen`** from the **repo root**.
-- After changing **`alchemy.run.ts`** bindings or routes, run **`bun run typegen`** and **`bun run typecheck`** from the repo root (same Turbo task names everywhere; staged dotfiles do not drive React Router typegen).
+**Do every step.** Skipping Turbo `globalEnv` or workflow `env:` maps is the usual reason a preview Worker is missing a secret that “exists” in GitHub.
+
+1. **Package `env.requirements.ts`** (+ collector in `packages/scripts/src/collected-env-requirements.ts` if new package) — setup / `github:sync:*` / deploy preflight.
+2. **Repo-root `.env.example`** — document the key (placeholders only).
+3. **Package `alchemy.run.ts` + `env.d.ts`** — bind when the Worker/DO needs the value.
+4. **Root [`turbo.json`](../../../turbo.json) → `globalEnv`** — list the key. Turbo **strips** undeclared env from `turbo run deploy:*` / child tasks, so Alchemy never sees `process.env.MY_KEY` and optional bindings stay unbound.
+5. **Deploy workflow job/step `env`** — map in **all** of:
+   - [`.github/workflows/pr-deploy.yml`](../../../.github/workflows/pr-deploy.yml)
+   - [`.github/workflows/main-push.yml`](../../../.github/workflows/main-push.yml)
+   - [`.github/workflows/prod-deploy.yml`](../../../.github/workflows/prod-deploy.yml)
+   - Use `MY_KEY: ${{ secrets.MY_KEY }}` or `vars.MY_KEY`. **Environment sync ≠ job env.**
+   - If **`alchemy.run.ts`** reads a required value at **module scope**, mirror it on PR preview **destroy** jobs too.
+6. **Dotfiles + sync** — put the value in `.env.local` / `.env.staging` / `.env.production` as appropriate, then `bun run github:sync:staging` / `github:sync:prod`.
+7. **Guard:** `bun run check:ci-env-wiring` (Quality CI runs this). Fails if `globalEnv` or deploy workflow maps drift from `env.requirements.ts` / `alchemy.run.ts`.
+8. **`bun run typegen`** + **`bun run typecheck`** from the repo root after binding/`env.d.ts` changes.
+
+### Symptom: binding missing in Cloudflare / silent runtime no-op
+
+Worker settings show related bindings but not the new secret → almost always step **4** (Turbo) and/or **5** (workflow map), not a logic bug in app code.
 
 ## Related docs
 
+- Always-apply rule: [`new-env-var-checklist.mdc`](../../rules/new-env-var-checklist.mdc)
 - [`auth-setup`](../auth-setup/SKILL.md) — Better Auth secrets, OAuth, public URL ladder (no dotfile auth URL).
 - [`multiworker-workflow`](../multiworker-workflow/SKILL.md) — typegen cadence, deploy, checklist.
-- [`multiworker-gotchas`](../multiworker-gotchas/SKILL.md) — stack-specific gotchas.
+- [`multiworker-gotchas`](../multiworker-gotchas/SKILL.md) — stack-specific gotchas (includes Turbo env strip).
 - [`project-init`](../project-init/SKILL.md) — renaming resources after forking the template.
 - [Alchemy Getting Started](https://alchemy.run/getting-started/) — `alchemy dev` / `deploy`, `alchemy login`.
