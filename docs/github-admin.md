@@ -34,6 +34,26 @@ After changing dotfiles, run **`bun run github:sync:staging`** / **`bun run gith
 
 Mismatch → **`[CloudflareStateStore] The token is invalid`**. Detail: [**workers-env-local §3**](../.agents/skills/workers-env-local/SKILL.md).
 
+### Cleaning leftover PR previews
+
+**Proper ongoing fix** (merge [PR #33](https://github.com/firtoz/cf-multiworker-starter-kit/pull/33) / this branch): Deployments use shared Environment **`preview`**. Teardown inactivates that PR’s deployments with default **`GITHUB_TOKEN`**. No per-PR Environment is created, so nothing needs admin delete rights.
+
+**Optional auto-delete of legacy `preview-pr-*` shells:** create a classic PAT with **`repo`** scope, add repository secret **`PREVIEW_ENV_ADMIN_TOKEN`**, and teardown will delete leftover Environments. A GitHub App with **Environments: write** works the same way.
+
+**One-shot sweep of previous failures** (trusted machine, **`gh auth login`**):
+
+```bash
+# 1) GitHub Environments only (safe when CF was already destroyed)
+bun run preview:cleanup:orphans -- --github-only          # dry-run
+bun run preview:cleanup:orphans -- --github-only --apply  # delete preview-pr-* envs + inactive deployments
+
+# 2) Full sweep (Cloudflare exact catalogs + GitHub) — needs CF account env loaded
+bunx dotenv-cli -e account.env -e .env.staging -- bun run preview:cleanup:orphans
+bunx dotenv-cli -e account.env -e .env.staging -- bun run preview:cleanup:orphans -- --apply
+```
+
+Open PRs are auto-excluded. The shared **`preview`** Environment is never deleted by the sweeper.
+
 Use **`bun run github:setup`** for a step-by-step printout.
 
 Onboarding wrappers (trusted machine, **`gh`** authenticated):

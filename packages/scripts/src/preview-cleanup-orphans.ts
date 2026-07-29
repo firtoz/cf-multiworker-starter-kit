@@ -9,8 +9,10 @@
  *   bun run preview:cleanup:orphans -- --exclude 22
  *   bun run preview:cleanup:orphans -- --apply
  *   bun run preview:cleanup:orphans -- --apply --include-open   # dangerous: also target open PRs
+ *   bun run preview:cleanup:orphans -- --github-only --apply   # GH Environments only (no CF)
  *
- * Needs: CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID, and `gh` auth for GitHub Environments.
+ * Needs: `gh` auth for GitHub Environments. Full sweep also needs CLOUDFLARE_API_TOKEN +
+ * CLOUDFLARE_ACCOUNT_ID (skipped with --github-only).
  */
 import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
@@ -52,10 +54,11 @@ type ListResult = {
 
 function usage(): never {
 	console.error(
-		"Usage: bun run preview:cleanup:orphans -- [--exclude <n>[,n…]] [--include-open] [--apply]\n" +
+		"Usage: bun run preview:cleanup:orphans -- [--exclude <n>[,n…]] [--include-open] [--github-only] [--apply]\n" +
 			"  Default is dry-run. Pass --apply to delete.\n" +
 			"  Open PRs are auto-excluded unless --include-open.\n" +
-			"  --exclude adds extra PR numbers to keep (e.g. --exclude 22).",
+			"  --exclude adds extra PR numbers to keep (e.g. --exclude 22).\n" +
+			"  --github-only scans/deletes legacy preview-pr-* GitHub Environments only (no Cloudflare).",
 	);
 	process.exit(2);
 }
@@ -80,10 +83,12 @@ function parseArgs(argv: string[]): {
 	exclude: Set<number>;
 	apply: boolean;
 	includeOpen: boolean;
+	githubOnly: boolean;
 } {
 	const exclude = new Set<number>();
 	let apply = false;
 	let includeOpen = false;
+	let githubOnly = false;
 	for (let i = 0; i < argv.length; i++) {
 		const a = argv[i];
 		if (a === "--apply") {
@@ -92,6 +97,10 @@ function parseArgs(argv: string[]): {
 		}
 		if (a === "--include-open") {
 			includeOpen = true;
+			continue;
+		}
+		if (a === "--github-only") {
+			githubOnly = true;
 			continue;
 		}
 		if (a === "--exclude") {
@@ -114,7 +123,7 @@ function parseArgs(argv: string[]): {
 		console.error(`Unknown argument: ${a}`);
 		usage();
 	}
-	return { exclude, apply, includeOpen };
+	return { exclude, apply, includeOpen, githubOnly };
 }
 
 function prFromGithubEnvName(name: string): number | undefined {
@@ -794,7 +803,12 @@ async function attemptDeletes(
 }
 
 async function main(): Promise<void> {
-	const { exclude: manualExclude, apply, includeOpen } = parseArgs(process.argv.slice(2));
+	const {
+		exclude: manualExclude,
+		apply,
+		includeOpen,
+		githubOnly,
+	} = parseArgs(process.argv.slice(2));
 	findRepoRoot(); // validate cwd / workspace
 
 	const openListed = listOpenPullRequestNumbers();
@@ -814,7 +828,7 @@ async function main(): Promise<void> {
 
 	const mode = apply ? "APPLY" : "DRY-RUN";
 	console.log(
-		`[preview-cleanup-orphans] product=${PRODUCT_PREFIX} mode=${mode} includeOpen=${includeOpen} exclude=[${[...exclude].sort((a, b) => a - b).join(",")}]`,
+		`[preview-cleanup-orphans] product=${PRODUCT_PREFIX} mode=${mode} githubOnly=${githubOnly} includeOpen=${includeOpen} exclude=[${[...exclude].sort((a, b) => a - b).join(",")}]`,
 	);
 	if (!includeOpen && openPrNumbers.size > 0) {
 		console.log(
@@ -826,9 +840,9 @@ async function main(): Promise<void> {
 	const cfToken = process.env["CLOUDFLARE_API_TOKEN"]?.trim();
 	const hasCfCreds = Boolean(accountId && cfToken);
 
-	if (apply && !hasCfCreds) {
+	if (apply && !githubOnly && !hasCfCreds) {
 		console.error(
-			"[preview-cleanup-orphans] --apply aborted: CLOUDFLARE_ACCOUNT_ID / CLOUDFLARE_API_TOKEN required (refusing to mutate GitHub while blind to Cloudflare)",
+			"[preview-cleanup-orphans] --apply aborted: CLOUDFLARE_ACCOUNT_ID / CLOUDFLARE_API_TOKEN required (refusing to mutate GitHub while blind to Cloudflare). Use --github-only if CF was already destroyed.",
 		);
 		process.exit(1);
 	}
@@ -836,7 +850,9 @@ async function main(): Promise<void> {
 	const discovered: Item[] = [];
 	let scansComplete = true;
 
-	if (hasCfCreds && accountId && cfToken) {
+	if (githubOnly) {
+		console.log("[preview-cleanup-orphans] --github-only: skipping Cloudflare scan");
+	} else if (hasCfCreds && accountId && cfToken) {
 		const lists = await Promise.all([
 			listCfWorkers(accountId, cfToken),
 			listCfD1(accountId, cfToken),
