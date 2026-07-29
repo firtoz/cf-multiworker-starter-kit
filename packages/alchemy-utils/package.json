@@ -24,6 +24,8 @@
 		"destroy:preview": "node -e \"process.exit(0)\"",
 		"lint": "biome check --write .",
 		"lint:format": "biome format --write .",
+		"test": "bun test src",
+		"check:preview-catalog": "bun ./src/check-preview-pr-catalog.ts",
 		"typegen": "node -e \"process.exit(0)\"",
 		"typecheck": "tsgo --noEmit -p ."
 	},
