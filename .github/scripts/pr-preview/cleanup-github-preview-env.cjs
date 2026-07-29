@@ -96,7 +96,7 @@ module.exports = async function cleanupGithubPreviewEnv(ctx) {
 		}
 	}
 
-	const outcome = statusErrors > 0 && inactivated === 0 ? "failure" : "success";
+	const outcome = statusErrors > 0 ? "failure" : "success";
 	core.setOutput("outcome", outcome);
 	core.setOutput("inactivated", String(inactivated));
 	core.setOutput("environment_deleted", environmentDeleted ? "true" : "false");

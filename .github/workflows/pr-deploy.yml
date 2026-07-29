@@ -3,7 +3,7 @@
 #
 # **Destroy** on **`pull_request` `closed`** for **same-repo** PRs only (immediate teardown). Uses **`verify:deploy-env:preview`** before destroy so teardown is not skipped when **`DEPLOY_ENABLED`** is false (avoids orphaned **`pr-*`** stacks).
 # After a successful destroy, best-effort deactivates/deletes GitHub **`preview-pr-<n>`** Deployments/Environment.
-# Operators can sweep leftover **`{PRODUCT_PREFIX}-*-pr-*`** stacks with **`bun run preview:cleanup:orphans`** (dry-run default; **`--apply`** to mutate; **`--exclude <n>`** for open PRs).
+# Operators can sweep leftover exact Alchemy **`…-pr-*`** stacks (see **`preview-pr-resources`**) with **`bun run preview:cleanup:orphans`** (dry-run default; **`--apply`** to mutate; open PRs auto-excluded; **`--include-open`** to override; **`--exclude <n>`** for extras).
 #
 # **`alchemy destroy`** still evaluates each **`alchemy.run.ts`** — keep **`Destroy PR preview`** **`env:`** in sync with **PR preview deploy** when you add bindings / env reads.
 #
@@ -225,7 +225,7 @@ jobs:
                     ? `- GitHub preview environment cleanup skipped`
                     : "";
 
-            const body = [
+            const bodyParts = [
               marker,
               "# PR preview",
               "",
@@ -236,14 +236,17 @@ jobs:
               "**Links**",
               "",
               `- This **PR preview** run — [workflow run](${runUrl})`,
-              ghLine,
+            ];
+            if (ghLine) {
+              bodyParts.push(ghLine);
+            }
+            bodyParts.push(
               "",
               "---",
               "",
               "_Updates automatically while the same-repo PR preview workflow runs._",
-            ]
-              .filter((line) => line !== "")
-              .join("\n");
+            );
+            const body = bodyParts.join("\n");
 
             const comments = await github.paginate(github.rest.issues.listComments, {
               owner,

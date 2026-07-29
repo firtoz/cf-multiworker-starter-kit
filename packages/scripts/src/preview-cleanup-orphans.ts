@@ -1,12 +1,14 @@
 /**
  * Sweep leftover PR preview resources for this product (Cloudflare + GitHub Environments).
  *
- * Scope: only names matching `{PRODUCT_PREFIX}-…-pr-<n>` and GitHub `preview-pr-<n>`.
- * Never touches shared `alchemy-state-service` or other products’ leftovers on a shared account.
+ * Scope: exact Alchemy physical names from `alchemy-utils/preview-pr-resources` catalogs
+ * (`{appId}-{resourceId}-pr-<n>`) plus GitHub `preview-pr-<n>`.
+ * Never touches shared `alchemy-state-service` or other products on a shared account.
  *
  * Usage (from repo root):
  *   bun run preview:cleanup:orphans -- --exclude 22
  *   bun run preview:cleanup:orphans -- --apply
+ *   bun run preview:cleanup:orphans -- --apply --include-open   # dangerous: also target open PRs
  *
  * Needs: CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID, and `gh` auth for GitHub Environments.
  */
@@ -14,9 +16,17 @@ import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import {
+	isPreviewD1Name,
+	isPreviewDoNamespace,
+	isPreviewKvTitle,
+	isPreviewR2Name,
+	isPreviewWorkerName,
+	parsePrNumberFromPhysicalName,
+	resolveCleanupExcludePrs,
+} from "alchemy-utils/preview-pr-resources";
 import { PRODUCT_PREFIX } from "alchemy-utils/worker-peer-scripts";
 
-const PR_IN_NAME_RE = /(?:^|[-_])pr-(\d+)(?:$|[-_])/i;
 const PREVIEW_ENV_RE = /^preview-pr-(\d+)$/;
 const STATE_SERVICE = "alchemy-state-service";
 
@@ -29,9 +39,10 @@ type Item = {
 
 function usage(): never {
 	console.error(
-		"Usage: bun run preview:cleanup:orphans -- [--exclude <n>[,n…]] [--apply]\n" +
+		"Usage: bun run preview:cleanup:orphans -- [--exclude <n>[,n…]] [--include-open] [--apply]\n" +
 			"  Default is dry-run. Pass --apply to delete.\n" +
-			"  --exclude keeps live open PR stacks (e.g. --exclude 22).",
+			"  Open PRs are auto-excluded unless --include-open.\n" +
+			"  --exclude adds extra PR numbers to keep (e.g. --exclude 22).",
 	);
 	process.exit(2);
 }
@@ -52,13 +63,22 @@ function findRepoRoot(): string {
 	throw new Error("Could not locate repo root (apps/web missing)");
 }
 
-function parseArgs(argv: string[]): { exclude: Set<number>; apply: boolean } {
+function parseArgs(argv: string[]): {
+	exclude: Set<number>;
+	apply: boolean;
+	includeOpen: boolean;
+} {
 	const exclude = new Set<number>();
 	let apply = false;
+	let includeOpen = false;
 	for (let i = 0; i < argv.length; i++) {
 		const a = argv[i];
 		if (a === "--apply") {
 			apply = true;
+			continue;
+		}
+		if (a === "--include-open") {
+			includeOpen = true;
 			continue;
 		}
 		if (a === "--exclude") {
@@ -81,27 +101,15 @@ function parseArgs(argv: string[]): { exclude: Set<number>; apply: boolean } {
 		console.error(`Unknown argument: ${a}`);
 		usage();
 	}
-	return { exclude, apply };
+	return { exclude, apply, includeOpen };
 }
 
-function prFromName(name: string): number | undefined {
+function prFromGithubEnvName(name: string): number | undefined {
 	const envMatch = PREVIEW_ENV_RE.exec(name);
-	if (envMatch) {
-		return Number(envMatch[1]);
-	}
-	const m = PR_IN_NAME_RE.exec(name);
-	if (!m) {
+	if (!envMatch) {
 		return undefined;
 	}
-	return Number(m[1]);
-}
-
-/** Cloudflare resources only — requires `{PRODUCT_PREFIX}-…-pr-<n>`. GitHub `preview-pr-<n>` is matched separately. */
-function isProductPrResource(name: string): boolean {
-	if (!name || name === STATE_SERVICE || name.includes(STATE_SERVICE)) {
-		return false;
-	}
-	return name.startsWith(`${PRODUCT_PREFIX}-`) && PR_IN_NAME_RE.test(name);
+	return Number(envMatch[1]);
 }
 
 type CfResultInfo = {
@@ -110,6 +118,7 @@ type CfResultInfo = {
 	count?: number;
 	total_count?: number;
 	total_pages?: number;
+	cursor?: string;
 };
 
 async function cfApi<T>(
@@ -159,61 +168,31 @@ async function cfApi<T>(
 	};
 }
 
-async function listCfWorkers(accountId: string, token: string): Promise<Item[]> {
-	const { ok, result, errors } = await cfApi<Array<{ id?: string }>>(
-		"GET",
-		"/workers/scripts",
-		accountId,
-		token,
-	);
-	if (!ok || !result) {
-		console.warn("[cf] list workers failed", errors);
-		return [];
-	}
-	const items: Item[] = [];
-	for (const s of result) {
-		const id = s.id?.trim();
-		if (!id || !isProductPrResource(id)) {
-			continue;
-		}
-		const pr = prFromName(id);
-		if (pr === undefined) {
-			continue;
-		}
-		items.push({ kind: "worker", id, label: id, pr });
-	}
-	return items;
-}
-
-async function listCfD1(accountId: string, token: string): Promise<Item[]> {
-	const items: Item[] = [];
-	const perPage = 100;
-	const maxPages = 100;
+async function forEachCfPage<T>(options: {
+	accountId: string;
+	token: string;
+	pathForPage: (page: number, perPage: number) => string;
+	label: string;
+	perPage?: number;
+	maxPages?: number;
+	onPage: (rows: T[]) => void;
+}): Promise<void> {
+	const perPage = options.perPage ?? 100;
+	const maxPages = options.maxPages ?? 100;
 	for (let page = 1; page <= maxPages; page++) {
-		const { ok, result, errors, resultInfo } = await cfApi<Array<{ uuid?: string; name?: string }>>(
+		const { ok, result, errors, resultInfo } = await cfApi<T[]>(
 			"GET",
-			`/d1/database?page=${page}&per_page=${perPage}`,
-			accountId,
-			token,
+			options.pathForPage(page, perPage),
+			options.accountId,
+			options.token,
 		);
 		if (!ok || !result) {
 			if (page === 1) {
-				console.warn("[cf] list D1 failed", errors);
+				console.warn(`[cf] list ${options.label} failed`, errors);
 			}
 			break;
 		}
-		for (const db of result) {
-			const name = db.name?.trim();
-			const uuid = db.uuid?.trim();
-			if (!name || !uuid || !isProductPrResource(name)) {
-				continue;
-			}
-			const pr = prFromName(name);
-			if (pr === undefined) {
-				continue;
-			}
-			items.push({ kind: "d1", id: uuid, label: name, pr });
-		}
+		options.onPage(result);
 		const totalPages = resultInfo?.total_pages;
 		if (totalPages != null) {
 			if (page >= totalPages) {
@@ -225,84 +204,148 @@ async function listCfD1(accountId: string, token: string): Promise<Item[]> {
 			break;
 		}
 	}
+}
+
+async function listCfWorkers(accountId: string, token: string): Promise<Item[]> {
+	const items: Item[] = [];
+	await forEachCfPage<{ id?: string; script_name?: string; service_name?: string }>({
+		accountId,
+		token,
+		label: "workers",
+		pathForPage: (page, perPage) =>
+			`/workers/scripts-search?page=${page}&per_page=${perPage}&order_by=name`,
+		onPage: (rows) => {
+			for (const s of rows) {
+				const id = (s.script_name ?? s.service_name ?? s.id)?.trim();
+				if (!id || id.includes(STATE_SERVICE) || !isPreviewWorkerName(id)) {
+					continue;
+				}
+				const pr = parsePrNumberFromPhysicalName(id);
+				if (pr === undefined) {
+					continue;
+				}
+				items.push({ kind: "worker", id, label: id, pr });
+			}
+		},
+	});
+	return items;
+}
+
+async function listCfD1(accountId: string, token: string): Promise<Item[]> {
+	const items: Item[] = [];
+	await forEachCfPage<{ uuid?: string; name?: string }>({
+		accountId,
+		token,
+		label: "D1",
+		pathForPage: (page, perPage) => `/d1/database?page=${page}&per_page=${perPage}`,
+		onPage: (rows) => {
+			for (const db of rows) {
+				const name = db.name?.trim();
+				const uuid = db.uuid?.trim();
+				if (!name || !uuid || !isPreviewD1Name(name)) {
+					continue;
+				}
+				const pr = parsePrNumberFromPhysicalName(name);
+				if (pr === undefined) {
+					continue;
+				}
+				items.push({ kind: "d1", id: uuid, label: name, pr });
+			}
+		},
+	});
 	return items;
 }
 
 async function listCfR2(accountId: string, token: string): Promise<Item[]> {
-	const { ok, result, errors } = await cfApi<{ buckets?: Array<{ name?: string }> }>(
-		"GET",
-		"/r2/buckets",
-		accountId,
-		token,
-	);
-	const buckets = result?.buckets ?? (Array.isArray(result) ? result : null);
-	if (!ok || !buckets) {
-		console.warn("[cf] list R2 failed", errors);
-		return [];
-	}
 	const items: Item[] = [];
-	for (const b of buckets as Array<{ name?: string }>) {
-		const name = b.name?.trim();
-		if (!name || !isProductPrResource(name)) {
-			continue;
+	let cursor: string | undefined;
+	for (let page = 0; page < 100; page++) {
+		const q = new URLSearchParams({ per_page: "100" });
+		if (cursor) {
+			q.set("cursor", cursor);
 		}
-		const pr = prFromName(name);
-		if (pr === undefined) {
-			continue;
+		const { ok, result, errors, resultInfo } = await cfApi<{
+			buckets?: Array<{ name?: string }>;
+		}>("GET", `/r2/buckets?${q}`, accountId, token);
+		const buckets = result?.buckets ?? (Array.isArray(result) ? result : null);
+		if (!ok || !buckets) {
+			if (page === 0) {
+				console.warn("[cf] list R2 failed", errors);
+			}
+			break;
 		}
-		items.push({ kind: "r2", id: name, label: name, pr });
+		for (const b of buckets as Array<{ name?: string }>) {
+			const name = b.name?.trim();
+			if (!name || !isPreviewR2Name(name)) {
+				continue;
+			}
+			const pr = parsePrNumberFromPhysicalName(name);
+			if (pr === undefined) {
+				continue;
+			}
+			items.push({ kind: "r2", id: name, label: name, pr });
+		}
+		cursor = resultInfo?.cursor?.trim() || undefined;
+		if (!cursor) {
+			break;
+		}
 	}
 	return items;
 }
 
 async function listCfKv(accountId: string, token: string): Promise<Item[]> {
-	const { ok, result, errors } = await cfApi<Array<{ id?: string; title?: string }>>(
-		"GET",
-		"/storage/kv/namespaces?per_page=100",
+	const items: Item[] = [];
+	await forEachCfPage<{ id?: string; title?: string }>({
 		accountId,
 		token,
-	);
-	if (!ok || !result) {
-		console.warn("[cf] list KV failed", errors);
-		return [];
-	}
-	const items: Item[] = [];
-	for (const ns of result) {
-		const title = ns.title?.trim();
-		const id = ns.id?.trim();
-		if (!title || !id || !isProductPrResource(title)) {
-			continue;
-		}
-		const pr = prFromName(title);
-		if (pr === undefined) {
-			continue;
-		}
-		items.push({ kind: "kv", id, label: title, pr });
-	}
+		label: "KV",
+		pathForPage: (page, perPage) => `/storage/kv/namespaces?page=${page}&per_page=${perPage}`,
+		onPage: (rows) => {
+			for (const ns of rows) {
+				const title = ns.title?.trim();
+				const id = ns.id?.trim();
+				if (!title || !id || !isPreviewKvTitle(title)) {
+					continue;
+				}
+				const pr = parsePrNumberFromPhysicalName(title);
+				if (pr === undefined) {
+					continue;
+				}
+				items.push({ kind: "kv", id, label: title, pr });
+			}
+		},
+	});
 	return items;
 }
 
 async function listCfDoNamespaces(accountId: string, token: string): Promise<Item[]> {
-	const { ok, result, errors } = await cfApi<
-		Array<{ id?: string; name?: string; script?: string }>
-	>("GET", "/workers/durable_objects/namespaces", accountId, token);
-	if (!ok || !result) {
-		console.warn("[cf] list DO namespaces failed", errors);
-		return [];
-	}
 	const items: Item[] = [];
-	for (const ns of result) {
-		const name = ns.name?.trim();
-		const id = ns.id?.trim();
-		if (!name || !id || !isProductPrResource(name)) {
-			continue;
-		}
-		const pr = prFromName(name);
-		if (pr === undefined) {
-			continue;
-		}
-		items.push({ kind: "do-namespace", id, label: name, pr });
-	}
+	await forEachCfPage<{ id?: string; name?: string; script?: string; class?: string }>({
+		accountId,
+		token,
+		label: "DO namespaces",
+		pathForPage: (page, perPage) =>
+			`/workers/durable_objects/namespaces?page=${page}&per_page=${perPage}`,
+		onPage: (rows) => {
+			for (const ns of rows) {
+				const id = ns.id?.trim();
+				if (!id || !isPreviewDoNamespace(ns)) {
+					continue;
+				}
+				const scriptOrName = (ns.script ?? ns.name ?? "").trim();
+				const pr = parsePrNumberFromPhysicalName(scriptOrName);
+				if (pr === undefined) {
+					continue;
+				}
+				items.push({
+					kind: "do-namespace",
+					id,
+					label: scriptOrName || id,
+					pr,
+				});
+			}
+		},
+	});
 	return items;
 }
 
@@ -325,7 +368,7 @@ function listGithubPreviewEnvs(): Item[] {
 		if (!PREVIEW_ENV_RE.test(name)) {
 			continue;
 		}
-		const pr = prFromName(name);
+		const pr = prFromGithubEnvName(name);
 		if (pr === undefined) {
 			continue;
 		}
@@ -334,35 +377,69 @@ function listGithubPreviewEnvs(): Item[] {
 	return items;
 }
 
-async function emptyR2Bucket(accountId: string, token: string, bucket: string): Promise<void> {
+function listOpenPullRequestNumbers(): { ok: boolean; numbers: Set<number> } {
+	const result = spawnSync(
+		"gh",
+		["pr", "list", "--state", "open", "--limit", "1000", "--json", "number", "--jq", ".[].number"],
+		{ encoding: "utf8", env: process.env, maxBuffer: 8 * 1024 * 1024 },
+	);
+	const numbers = new Set<number>();
+	if (result.status !== 0) {
+		console.warn("[gh] list open PRs failed:", result.stderr?.trim() || `exit ${result.status}`);
+		return { ok: false, numbers };
+	}
+	for (const line of (result.stdout ?? "").split("\n")) {
+		const n = Number(line.trim());
+		if (Number.isInteger(n) && n > 0) {
+			numbers.add(n);
+		}
+	}
+	return { ok: true, numbers };
+}
+
+async function emptyR2Bucket(accountId: string, token: string, bucket: string): Promise<boolean> {
 	let cursor: string | undefined;
-	for (let page = 0; page < 50; page++) {
+	for (let page = 0; page < 500; page++) {
 		const q = cursor ? `?cursor=${encodeURIComponent(cursor)}` : "";
 		const listed = await cfApi<{
 			objects?: Array<{ key?: string }>;
 			truncated_after?: string;
 		}>("GET", `/r2/buckets/${encodeURIComponent(bucket)}/objects${q}`, accountId, token);
+		if (!listed.ok) {
+			console.warn(
+				`\n    list objects in ${bucket} failed: ${JSON.stringify(listed.errors ?? listed.status)}`,
+			);
+			return false;
+		}
 		const objects = listed.result?.objects ?? [];
 		if (objects.length === 0) {
-			break;
+			return true;
 		}
 		for (const obj of objects) {
 			const key = obj.key;
 			if (!key) {
 				continue;
 			}
-			await cfApi(
+			const del = await cfApi(
 				"DELETE",
 				`/r2/buckets/${encodeURIComponent(bucket)}/objects/${encodeURIComponent(key)}`,
 				accountId,
 				token,
 			);
+			if (!del.ok && del.status !== 404) {
+				console.warn(
+					`\n    delete object ${key} in ${bucket} failed: ${JSON.stringify(del.errors ?? del.status)}`,
+				);
+				return false;
+			}
 		}
 		cursor = listed.result?.truncated_after;
 		if (!cursor) {
-			break;
+			return true;
 		}
 	}
+	console.warn(`\n    empty ${bucket}: hit object page cap with cursor still set`);
+	return false;
 }
 
 /** Clear service bindings so circular Worker refs do not block DELETE. */
@@ -455,7 +532,10 @@ async function deleteItem(
 			if (!accountId || !cfToken) {
 				return false;
 			}
-			await emptyR2Bucket(accountId, cfToken, item.id);
+			const emptied = await emptyR2Bucket(accountId, cfToken, item.id);
+			if (!emptied) {
+				return false;
+			}
 			const r = await cfApi(
 				"DELETE",
 				`/r2/buckets/${encodeURIComponent(item.id)}`,
@@ -493,11 +573,12 @@ async function deleteItem(
 				"gh",
 				[
 					"api",
+					"--paginate",
 					`repos/{owner}/{repo}/deployments?environment=${encodeURIComponent(item.id)}&per_page=100`,
 					"--jq",
 					".[].id",
 				],
-				{ encoding: "utf8", env: process.env },
+				{ encoding: "utf8", env: process.env, maxBuffer: 8 * 1024 * 1024 },
 			);
 			for (const line of (list.stdout ?? "").split("\n")) {
 				const id = line.trim();
@@ -532,13 +613,38 @@ async function deleteItem(
 	}
 }
 
+function itemKey(item: Item): string {
+	return `${item.kind}:${item.id}`;
+}
+
 async function main(): Promise<void> {
-	const { exclude, apply } = parseArgs(process.argv.slice(2));
+	const { exclude: manualExclude, apply, includeOpen } = parseArgs(process.argv.slice(2));
 	findRepoRoot(); // validate cwd / workspace
+
+	const openListed = listOpenPullRequestNumbers();
+	if (apply && !includeOpen && !openListed.ok) {
+		console.error(
+			"[preview-cleanup-orphans] --apply aborted: could not list open PRs (pass --include-open only if intentional)",
+		);
+		process.exit(1);
+	}
+	const openPrNumbers = openListed.numbers;
+
+	const exclude = resolveCleanupExcludePrs({
+		manualExclude,
+		openPrNumbers,
+		includeOpen,
+	});
+
 	const mode = apply ? "APPLY" : "DRY-RUN";
 	console.log(
-		`[preview-cleanup-orphans] product=${PRODUCT_PREFIX} mode=${mode} exclude=[${[...exclude].sort((a, b) => a - b).join(",")}]`,
+		`[preview-cleanup-orphans] product=${PRODUCT_PREFIX} mode=${mode} includeOpen=${includeOpen} exclude=[${[...exclude].sort((a, b) => a - b).join(",")}]`,
 	);
+	if (!includeOpen && openPrNumbers.size > 0) {
+		console.log(
+			`[preview-cleanup-orphans] auto-excluding open PR(s): ${[...openPrNumbers].sort((a, b) => a - b).join(", ")}`,
+		);
+	}
 
 	const accountId = process.env["CLOUDFLARE_ACCOUNT_ID"]?.trim();
 	const cfToken = process.env["CLOUDFLARE_API_TOKEN"]?.trim();
@@ -580,14 +686,14 @@ async function main(): Promise<void> {
 		return;
 	}
 
-	let okCount = 0;
-	let failCount = 0;
+	const succeeded = new Set<string>();
+	const failed = new Set<string>();
 	const failedWorkers: Item[] = [];
 
 	// Strip Worker bindings first so circular service refs do not block DELETE.
 	const workers = filtered.filter((i) => i.kind === "worker");
 	const rest = filtered.filter((i) => i.kind !== "worker");
-	if (apply && accountId && cfToken && workers.length > 0) {
+	if (accountId && cfToken && workers.length > 0) {
 		console.log(`[preview-cleanup-orphans] stripping bindings on ${workers.length} worker(s)…`);
 		for (const w of workers) {
 			const ok = await stripWorkerBindings(accountId, cfToken, w.id);
@@ -596,21 +702,23 @@ async function main(): Promise<void> {
 	}
 
 	for (const item of [...rest, ...workers]) {
+		const key = itemKey(item);
 		process.stdout.write(`  deleting [${item.kind}] ${item.label} … `);
 		try {
 			const ok = await deleteItem(item, accountId, cfToken);
 			if (ok) {
-				okCount += 1;
+				succeeded.add(key);
+				failed.delete(key);
 				console.log("ok");
 			} else {
-				failCount += 1;
+				failed.add(key);
 				if (item.kind === "worker") {
 					failedWorkers.push(item);
 				}
 				console.log("FAILED");
 			}
 		} catch (error) {
-			failCount += 1;
+			failed.add(key);
 			if (item.kind === "worker") {
 				failedWorkers.push(item);
 			}
@@ -622,18 +730,22 @@ async function main(): Promise<void> {
 	if (failedWorkers.length > 0 && accountId && cfToken) {
 		console.log("[preview-cleanup-orphans] retrying worker deletes…");
 		for (const item of failedWorkers) {
+			const key = itemKey(item);
 			process.stdout.write(`  retry delete ${item.label} … `);
 			const ok = await deleteItem(item, accountId, cfToken);
 			if (ok) {
-				failCount = Math.max(0, failCount - 1);
-				okCount += 1;
+				succeeded.add(key);
+				failed.delete(key);
 				console.log("ok");
 			} else {
+				failed.add(key);
 				console.log("FAILED");
 			}
 		}
 	}
 
+	const okCount = succeeded.size;
+	const failCount = failed.size;
 	console.log(`[preview-cleanup-orphans] done — deleted=${okCount} failed=${failCount}`);
 	if (failCount > 0) {
 		process.exit(1);
