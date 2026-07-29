@@ -3,23 +3,19 @@
  *
  * Usage: `bun run --cwd packages/alchemy-utils check:preview-catalog`
  */
-import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { type Dirent, existsSync, readdirSync, readFileSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
+	ALCHEMY_RESOURCE_CONSTANT_VALUES,
+	discoverAlchemyRunResources,
+} from "./discover-alchemy-run-resources";
+import {
 	checkPreviewPrCatalogConsistency,
 	PREVIEW_CATALOG_DECLARATIONS,
-	type PreviewCatalogKind,
 	physicalBaseForDeclaration,
 } from "./preview-pr-resources";
-import {
-	ALCHEMY_APP_IDS,
-	DEFAULT_AUTH_D1_DATABASE_RESOURCE_ID,
-	DEFAULT_AUTH_KV_RESOURCE_ID,
-	DEFAULT_D1_DATABASE_RESOURCE_ID,
-	DEFAULT_REACT_ROUTER_WEB_RESOURCE_ID,
-	DEFAULT_WORKER_RESOURCE_ID,
-} from "./worker-peer-scripts";
+import { ALCHEMY_APP_IDS } from "./worker-peer-scripts";
 
 function findRepoRoot(): string {
 	const here = dirname(fileURLToPath(import.meta.url));
@@ -33,18 +29,10 @@ function findRepoRoot(): string {
 	throw new Error("Could not locate repo root (apps/web missing)");
 }
 
-const CONSTANT_VALUES: Record<string, string> = {
-	DEFAULT_WORKER_RESOURCE_ID,
-	DEFAULT_REACT_ROUTER_WEB_RESOURCE_ID,
-	DEFAULT_D1_DATABASE_RESOURCE_ID,
-	DEFAULT_AUTH_D1_DATABASE_RESOURCE_ID,
-	DEFAULT_AUTH_KV_RESOURCE_ID,
-};
-
 function listAlchemyRunFiles(root: string): string[] {
 	const out: string[] = [];
 	const walk = (dir: string) => {
-		let entries: ReturnType<typeof readdirSync>;
+		let entries: Dirent[];
 		try {
 			entries = readdirSync(dir, { withFileTypes: true });
 		} catch {
@@ -86,70 +74,12 @@ function fileMentionsResourceId(src: string, resourceId: string): boolean {
 	if (src.includes(`"${resourceId}"`) || src.includes(`'${resourceId}'`)) {
 		return true;
 	}
-	for (const [constName, value] of Object.entries(CONSTANT_VALUES)) {
+	for (const [constName, value] of Object.entries(ALCHEMY_RESOURCE_CONSTANT_VALUES)) {
 		if (value === resourceId && src.includes(constName)) {
 			return true;
 		}
 	}
 	return false;
-}
-
-type FoundResource = { kind: PreviewCatalogKind; id: string };
-
-/** String-literal Cloudflare resource ids. */
-function literalResourceIds(src: string): FoundResource[] {
-	const out: FoundResource[] = [];
-	const re =
-		/\b(KVNamespace|R2Bucket|D1Database|Worker|ReactRouter)\(\s*(?:DEFAULT_\w+\s*,\s*)?["']([^"']+)["']/g;
-	for (const m of src.matchAll(re)) {
-		const kindRaw = m[1];
-		const id = m[2];
-		if (!kindRaw || !id) {
-			continue;
-		}
-		const kind: PreviewCatalogKind =
-			kindRaw === "KVNamespace"
-				? "kv"
-				: kindRaw === "R2Bucket"
-					? "r2"
-					: kindRaw === "D1Database"
-						? "d1"
-						: "worker";
-		out.push({ kind, id });
-	}
-	return out;
-}
-
-/** Constant-based resource ids (Worker(DEFAULT_WORKER_RESOURCE_ID, …), etc.). */
-function constantResourceIds(src: string): FoundResource[] {
-	const out: FoundResource[] = [];
-	const patterns: Array<{ kind: PreviewCatalogKind; re: RegExp }> = [
-		{
-			kind: "worker",
-			re: /\b(?:Worker|ReactRouter)\(\s*(DEFAULT_WORKER_RESOURCE_ID|DEFAULT_REACT_ROUTER_WEB_RESOURCE_ID)\b/g,
-		},
-		{
-			kind: "d1",
-			re: /\bD1Database\(\s*(DEFAULT_D1_DATABASE_RESOURCE_ID|DEFAULT_AUTH_D1_DATABASE_RESOURCE_ID)\b/g,
-		},
-		{
-			kind: "kv",
-			re: /\bKVNamespace\(\s*(DEFAULT_AUTH_KV_RESOURCE_ID)\b/g,
-		},
-	];
-	for (const { kind, re } of patterns) {
-		for (const m of src.matchAll(re)) {
-			const constName = m[1];
-			if (!constName) {
-				continue;
-			}
-			const id = CONSTANT_VALUES[constName];
-			if (id) {
-				out.push({ kind, id });
-			}
-		}
-	}
-	return out;
 }
 
 function main(): void {
@@ -185,7 +115,7 @@ function main(): void {
 			continue;
 		}
 		const appId = ALCHEMY_APP_IDS[appKey as keyof typeof ALCHEMY_APP_IDS];
-		const found = [...literalResourceIds(src), ...constantResourceIds(src)];
+		const found = discoverAlchemyRunResources(src);
 		for (const res of found) {
 			const base = `${appId}-${res.id}`;
 			const declared = PREVIEW_CATALOG_DECLARATIONS.some(
