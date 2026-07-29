@@ -96,15 +96,21 @@ function prFromName(name: string): number | undefined {
 	return Number(m[1]);
 }
 
+/** Cloudflare resources only — requires `{PRODUCT_PREFIX}-…-pr-<n>`. GitHub `preview-pr-<n>` is matched separately. */
 function isProductPrResource(name: string): boolean {
 	if (!name || name === STATE_SERVICE || name.includes(STATE_SERVICE)) {
 		return false;
 	}
-	if (PREVIEW_ENV_RE.test(name)) {
-		return true;
-	}
 	return name.startsWith(`${PRODUCT_PREFIX}-`) && PR_IN_NAME_RE.test(name);
 }
+
+type CfResultInfo = {
+	page?: number;
+	per_page?: number;
+	count?: number;
+	total_count?: number;
+	total_pages?: number;
+};
 
 async function cfApi<T>(
 	method: string,
@@ -112,7 +118,13 @@ async function cfApi<T>(
 	accountId: string,
 	token: string,
 	body?: unknown,
-): Promise<{ ok: boolean; status: number; result: T | null; errors: unknown }> {
+): Promise<{
+	ok: boolean;
+	status: number;
+	result: T | null;
+	errors: unknown;
+	resultInfo: CfResultInfo | null;
+}> {
 	const url = path.startsWith("http")
 		? path
 		: `https://api.cloudflare.com/client/v4/accounts/${accountId}${path}`;
@@ -127,7 +139,12 @@ async function cfApi<T>(
 		init.body = JSON.stringify(body);
 	}
 	const res = await fetch(url, init);
-	let json: { success?: boolean; result?: T; errors?: unknown } = {};
+	let json: {
+		success?: boolean;
+		result?: T;
+		errors?: unknown;
+		result_info?: CfResultInfo;
+	} = {};
 	try {
 		json = (await res.json()) as typeof json;
 	} catch {
@@ -138,6 +155,7 @@ async function cfApi<T>(
 		status: res.status,
 		result: (json.result ?? null) as T | null,
 		errors: json.errors,
+		resultInfo: json.result_info ?? null,
 	};
 }
 
@@ -168,28 +186,44 @@ async function listCfWorkers(accountId: string, token: string): Promise<Item[]> 
 }
 
 async function listCfD1(accountId: string, token: string): Promise<Item[]> {
-	const { ok, result, errors } = await cfApi<Array<{ uuid?: string; name?: string }>>(
-		"GET",
-		"/d1/database",
-		accountId,
-		token,
-	);
-	if (!ok || !result) {
-		console.warn("[cf] list D1 failed", errors);
-		return [];
-	}
 	const items: Item[] = [];
-	for (const db of result) {
-		const name = db.name?.trim();
-		const uuid = db.uuid?.trim();
-		if (!name || !uuid || !isProductPrResource(name)) {
+	const perPage = 100;
+	const maxPages = 100;
+	for (let page = 1; page <= maxPages; page++) {
+		const { ok, result, errors, resultInfo } = await cfApi<Array<{ uuid?: string; name?: string }>>(
+			"GET",
+			`/d1/database?page=${page}&per_page=${perPage}`,
+			accountId,
+			token,
+		);
+		if (!ok || !result) {
+			if (page === 1) {
+				console.warn("[cf] list D1 failed", errors);
+			}
+			break;
+		}
+		for (const db of result) {
+			const name = db.name?.trim();
+			const uuid = db.uuid?.trim();
+			if (!name || !uuid || !isProductPrResource(name)) {
+				continue;
+			}
+			const pr = prFromName(name);
+			if (pr === undefined) {
+				continue;
+			}
+			items.push({ kind: "d1", id: uuid, label: name, pr });
+		}
+		const totalPages = resultInfo?.total_pages;
+		if (totalPages != null) {
+			if (page >= totalPages) {
+				break;
+			}
 			continue;
 		}
-		const pr = prFromName(name);
-		if (pr === undefined) {
-			continue;
+		if (result.length < perPage) {
+			break;
 		}
-		items.push({ kind: "d1", id: uuid, label: name, pr });
 	}
 	return items;
 }
@@ -258,15 +292,16 @@ async function listCfDoNamespaces(accountId: string, token: string): Promise<Ite
 	}
 	const items: Item[] = [];
 	for (const ns of result) {
-		const name = (ns.id ?? ns.name ?? "").trim();
-		if (!name || !isProductPrResource(name)) {
+		const name = ns.name?.trim();
+		const id = ns.id?.trim();
+		if (!name || !id || !isProductPrResource(name)) {
 			continue;
 		}
 		const pr = prFromName(name);
 		if (pr === undefined) {
 			continue;
 		}
-		items.push({ kind: "do-namespace", id: name, label: name, pr });
+		items.push({ kind: "do-namespace", id, label: name, pr });
 	}
 	return items;
 }
@@ -547,6 +582,7 @@ async function main(): Promise<void> {
 
 	let okCount = 0;
 	let failCount = 0;
+	const failedWorkers: Item[] = [];
 
 	// Strip Worker bindings first so circular service refs do not block DELETE.
 	const workers = filtered.filter((i) => i.kind === "worker");
@@ -568,18 +604,24 @@ async function main(): Promise<void> {
 				console.log("ok");
 			} else {
 				failCount += 1;
+				if (item.kind === "worker") {
+					failedWorkers.push(item);
+				}
 				console.log("FAILED");
 			}
 		} catch (error) {
 			failCount += 1;
+			if (item.kind === "worker") {
+				failedWorkers.push(item);
+			}
 			console.log(`FAILED (${String(error)})`);
 		}
 	}
 
-	// Second pass for workers still blocked by bindings the first pass cleared.
-	if (failCount > 0 && accountId && cfToken && workers.length > 0) {
+	// Second pass only for workers that failed (bindings peers may have cleared).
+	if (failedWorkers.length > 0 && accountId && cfToken) {
 		console.log("[preview-cleanup-orphans] retrying worker deletes…");
-		for (const item of workers) {
+		for (const item of failedWorkers) {
 			process.stdout.write(`  retry delete ${item.label} … `);
 			const ok = await deleteItem(item, accountId, cfToken);
 			if (ok) {

@@ -2,7 +2,7 @@
 # **Fork** PRs run **Quality only** (after GitHub’s fork workflow approval gate); they do **not** deploy previews or receive deploy secrets.
 #
 # **Destroy** on **`pull_request` `closed`** for **same-repo** PRs only (immediate teardown). Uses **`verify:deploy-env:preview`** before destroy so teardown is not skipped when **`DEPLOY_ENABLED`** is false (avoids orphaned **`pr-*`** stacks).
-# Also best-effort deactivates/deletes GitHub **`preview-pr-<n>`** Deployments/Environment.
+# After a successful destroy, best-effort deactivates/deletes GitHub **`preview-pr-<n>`** Deployments/Environment.
 # Operators can sweep leftover **`{PRODUCT_PREFIX}-*-pr-*`** stacks with **`bun run preview:cleanup:orphans`** (dry-run default; **`--apply`** to mutate; **`--exclude <n>`** for open PRs).
 #
 # **`alchemy destroy`** still evaluates each **`alchemy.run.ts`** — keep **`Destroy PR preview`** **`env:`** in sync with **PR preview deploy** when you add bindings / env reads.
@@ -124,9 +124,10 @@ jobs:
           set -o pipefail
           bun run destroy:preview 2>&1 | tee destroy-output.txt
 
+      # Only after destroy succeeds — otherwise GitHub would hide a still-live CF preview.
       - name: Clean up GitHub preview-pr environment
         id: gh_env_cleanup
-        if: always()
+        if: steps.destroy.outcome == 'success'
         uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
         env:
           PR_NUMBER: ${{ github.event.pull_request.number }}
@@ -142,7 +143,8 @@ jobs:
           WORKFLOW_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           VF_OUT: ${{ steps.verify_env.outcome }}
           DS_OUT: ${{ steps.destroy.outcome }}
-          GH_OUT: ${{ steps.gh_env_cleanup.outcome }}
+          # Prefer helper output (soft-fail sets outcome without failing the step); fall back to step outcome when skipped.
+          GH_OUT: ${{ steps.gh_env_cleanup.outputs.outcome || steps.gh_env_cleanup.outcome }}
           GH_ENV_DELETED: ${{ steps.gh_env_cleanup.outputs.environment_deleted }}
           GH_INACTIVATED: ${{ steps.gh_env_cleanup.outputs.inactivated }}
         run: |
@@ -185,7 +187,7 @@ jobs:
           MERGED: ${{ github.event.pull_request.merged }}
           VF_OUT: ${{ steps.verify_env.outcome }}
           DS_OUT: ${{ steps.destroy.outcome }}
-          GH_OUT: ${{ steps.gh_env_cleanup.outcome }}
+          GH_OUT: ${{ steps.gh_env_cleanup.outputs.outcome || steps.gh_env_cleanup.outcome }}
           GH_ENV_DELETED: ${{ steps.gh_env_cleanup.outputs.environment_deleted }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         with:
