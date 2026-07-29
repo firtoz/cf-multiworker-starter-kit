@@ -36,8 +36,8 @@ describe("parseGhPaginatedJson", () => {
 		expect(parseGhPaginatedJson("   ")).toEqual([]);
 	});
 
-	test("environments page missing key ⇒ incomplete", () => {
-		const { complete } = environmentNamesFromGhPages([{ total_count: 0 }]);
-		expect(complete).toBe(false);
+	test("deployments parse failure yields no ids (caller must fail closed)", () => {
+		expect(parseGhPaginatedJson("{not-json")).toEqual([]);
+		expect(deploymentIdsFromGhPages([])).toEqual([]);
 	});
 });

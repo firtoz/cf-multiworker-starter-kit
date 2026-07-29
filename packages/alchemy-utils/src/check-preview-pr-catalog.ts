@@ -3,12 +3,13 @@
  *
  * Usage: `bun run --cwd packages/alchemy-utils check:preview-catalog`
  */
-import { existsSync, readFileSync } from "node:fs";
-import { dirname, resolve } from "node:path";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
 	checkPreviewPrCatalogConsistency,
 	PREVIEW_CATALOG_DECLARATIONS,
+	type PreviewCatalogKind,
 	physicalBaseForDeclaration,
 } from "./preview-pr-resources";
 import {
@@ -40,6 +41,42 @@ const CONSTANT_VALUES: Record<string, string> = {
 	DEFAULT_AUTH_KV_RESOURCE_ID,
 };
 
+function listAlchemyRunFiles(root: string): string[] {
+	const out: string[] = [];
+	const walk = (dir: string) => {
+		let entries: ReturnType<typeof readdirSync>;
+		try {
+			entries = readdirSync(dir, { withFileTypes: true });
+		} catch {
+			return;
+		}
+		for (const ent of entries) {
+			if (
+				ent.name === "node_modules" ||
+				ent.name === ".git" ||
+				ent.name === ".alchemy" ||
+				ent.name === "dist" ||
+				ent.name === "build"
+			) {
+				continue;
+			}
+			const p = join(dir, ent.name);
+			if (ent.isDirectory()) {
+				walk(p);
+			} else if (ent.name === "alchemy.run.ts") {
+				out.push(relative(root, p).split("\\").join("/"));
+			}
+		}
+	};
+	for (const top of ["apps", "workers", "durable-objects", "packages", "stacks"]) {
+		const d = join(root, top);
+		if (existsSync(d)) {
+			walk(d);
+		}
+	}
+	return out.sort();
+}
+
 function extractAppIdKey(src: string): string | undefined {
 	const m = /alchemy\(\s*ALCHEMY_APP_IDS\.(\w+)/.exec(src);
 	return m?.[1];
@@ -57,9 +94,11 @@ function fileMentionsResourceId(src: string, resourceId: string): boolean {
 	return false;
 }
 
-/** String-literal Cloudflare resource ids that must appear in a catalog declaration for this app. */
-function literalResourceIds(src: string): Array<{ kind: string; id: string }> {
-	const out: Array<{ kind: string; id: string }> = [];
+type FoundResource = { kind: PreviewCatalogKind; id: string };
+
+/** String-literal Cloudflare resource ids. */
+function literalResourceIds(src: string): FoundResource[] {
+	const out: FoundResource[] = [];
 	const re =
 		/\b(KVNamespace|R2Bucket|D1Database|Worker|ReactRouter)\(\s*(?:DEFAULT_\w+\s*,\s*)?["']([^"']+)["']/g;
 	for (const m of src.matchAll(re)) {
@@ -68,7 +107,7 @@ function literalResourceIds(src: string): Array<{ kind: string; id: string }> {
 		if (!kindRaw || !id) {
 			continue;
 		}
-		const kind =
+		const kind: PreviewCatalogKind =
 			kindRaw === "KVNamespace"
 				? "kv"
 				: kindRaw === "R2Bucket"
@@ -81,9 +120,42 @@ function literalResourceIds(src: string): Array<{ kind: string; id: string }> {
 	return out;
 }
 
+/** Constant-based resource ids (Worker(DEFAULT_WORKER_RESOURCE_ID, …), etc.). */
+function constantResourceIds(src: string): FoundResource[] {
+	const out: FoundResource[] = [];
+	const patterns: Array<{ kind: PreviewCatalogKind; re: RegExp }> = [
+		{
+			kind: "worker",
+			re: /\b(?:Worker|ReactRouter)\(\s*(DEFAULT_WORKER_RESOURCE_ID|DEFAULT_REACT_ROUTER_WEB_RESOURCE_ID)\b/g,
+		},
+		{
+			kind: "d1",
+			re: /\bD1Database\(\s*(DEFAULT_D1_DATABASE_RESOURCE_ID|DEFAULT_AUTH_D1_DATABASE_RESOURCE_ID)\b/g,
+		},
+		{
+			kind: "kv",
+			re: /\bKVNamespace\(\s*(DEFAULT_AUTH_KV_RESOURCE_ID)\b/g,
+		},
+	];
+	for (const { kind, re } of patterns) {
+		for (const m of src.matchAll(re)) {
+			const constName = m[1];
+			if (!constName) {
+				continue;
+			}
+			const id = CONSTANT_VALUES[constName];
+			if (id) {
+				out.push({ kind, id });
+			}
+		}
+	}
+	return out;
+}
+
 function main(): void {
 	const problems = [...checkPreviewPrCatalogConsistency()];
 	const root = findRepoRoot();
+	const alchemyFiles = listAlchemyRunFiles(root);
 
 	for (const decl of PREVIEW_CATALOG_DECLARATIONS) {
 		const abs = resolve(root, decl.file);
@@ -105,41 +177,24 @@ function main(): void {
 		}
 	}
 
-	// Any string-literal CF resources in alchemy.run.ts must be declared.
-	const alchemyFiles = new Set(PREVIEW_CATALOG_DECLARATIONS.map((d) => d.file));
-	// Also scan known alchemy.run.ts paths that might add literals later.
-	for (const extra of [
-		"apps/web/alchemy.run.ts",
-		"workers/auth-worker/alchemy.run.ts",
-		"workers/posthog-proxy/alchemy.run.ts",
-		"durable-objects/chatroom-do/alchemy.run.ts",
-		"packages/db/alchemy.run.ts",
-		"packages/auth-db/alchemy.run.ts",
-		"packages/state-hub/alchemy.run.ts",
-	]) {
-		alchemyFiles.add(extra);
-	}
-
 	for (const rel of alchemyFiles) {
 		const abs = resolve(root, rel);
-		if (!existsSync(abs)) {
-			continue;
-		}
 		const src = readFileSync(abs, "utf8");
 		const appKey = extractAppIdKey(src);
 		if (!appKey || !(appKey in ALCHEMY_APP_IDS)) {
 			continue;
 		}
 		const appId = ALCHEMY_APP_IDS[appKey as keyof typeof ALCHEMY_APP_IDS];
-		for (const lit of literalResourceIds(src)) {
-			const base = `${appId}-${lit.id}`;
+		const found = [...literalResourceIds(src), ...constantResourceIds(src)];
+		for (const res of found) {
+			const base = `${appId}-${res.id}`;
 			const declared = PREVIEW_CATALOG_DECLARATIONS.some(
 				(d) =>
-					d.kind === lit.kind && physicalBaseForDeclaration(d).toLowerCase() === base.toLowerCase(),
+					d.kind === res.kind && physicalBaseForDeclaration(d).toLowerCase() === base.toLowerCase(),
 			);
 			if (!declared) {
 				problems.push(
-					`${rel}: literal ${lit.kind} "${lit.id}" ⇒ base "${base}" missing from PREVIEW_CATALOG_DECLARATIONS`,
+					`${rel}: ${res.kind} "${res.id}" ⇒ base "${base}" missing from PREVIEW_CATALOG_DECLARATIONS`,
 				);
 			}
 		}
@@ -152,7 +207,9 @@ function main(): void {
 		}
 		process.exit(1);
 	}
-	console.log("[check:preview-catalog] ok — catalogs match declarations and alchemy.run.ts");
+	console.log(
+		`[check:preview-catalog] ok — catalogs match declarations and ${alchemyFiles.length} alchemy.run.ts file(s)`,
+	);
 }
 
 main();

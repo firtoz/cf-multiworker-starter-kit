@@ -71,7 +71,9 @@ jobs:
       pull-requests: write
       deployments: write
     concurrency:
-      group: pr-preview-${{ github.event.pull_request.number }}
+      # Separate from deploy_preview so reopen/synchronize cannot cancel an in-flight destroy
+      # (shared group would let deploy's cancel-in-progress preempt teardown and leave CF orphans).
+      group: pr-preview-destroy-${{ github.event.pull_request.number }}
       cancel-in-progress: true
     environment: staging
 
@@ -207,8 +209,16 @@ jobs:
               ? "**Removed.** Preview stack destroyed after merge."
               : "**Removed.** Preview stack destroyed after close.";
             if (vf === "failure") headline = "**Teardown blocked.** Env verification failed.";
+            else if (vf === "skipped") headline = "**Teardown cancelled** before env verification.";
             else if (ds === "failure") headline = "**Teardown failed.** See workflow logs.";
             else if (ds === "cancelled") headline = "**Teardown cancelled.**";
+            else if (ds === "skipped") headline = "**Teardown skipped.** Destroy did not run.";
+            else if (ds !== "success") headline = "**Teardown status unknown.** See workflow logs.";
+            else if (gh === "failure") {
+              headline = merged
+                ? "**Removed (Cloudflare).** Preview destroy succeeded; GitHub env cleanup failed."
+                : "**Removed (Cloudflare).** Preview destroy succeeded; GitHub env cleanup failed.";
+            }
 
             const ghLine =
               gh === "success"

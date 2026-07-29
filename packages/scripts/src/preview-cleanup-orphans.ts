@@ -270,6 +270,7 @@ async function listCfWorkers(accountId: string, token: string): Promise<ListResu
 	}
 
 	console.warn("[cf] scripts-search incomplete — falling back to /workers/scripts");
+	const searchHadPartialResults = items.length > 0;
 	items.length = 0;
 	const classic = await cfApi<Array<{ id?: string; script_name?: string; service_name?: string }>>(
 		"GET",
@@ -282,8 +283,9 @@ async function listCfWorkers(accountId: string, token: string): Promise<ListResu
 		return { items, complete: false };
 	}
 	items.push(...collectWorkerItems(classic.result, true));
-	// Classic list is historically unpaginated (full set). Treat as complete when ok.
-	return { items, complete: true };
+	// Trust classic only when scripts-search never returned rows (API missing/forbidden).
+	// If search was partial, refuse to claim a complete inventory.
+	return { items, complete: !searchHadPartialResults };
 }
 
 async function listCfD1(accountId: string, token: string): Promise<ListResult> {
@@ -690,6 +692,11 @@ async function deleteItem(
 				return false;
 			}
 			const pages = parseGhPaginatedJson(list.stdout ?? "");
+			const listStdout = list.stdout ?? "";
+			if (pages.length === 0 && listStdout.trim().length > 0) {
+				console.warn(`\n    gh list deployments for ${item.id}: could not parse paginated JSON`);
+				return false;
+			}
 			const deploymentIds = deploymentIdsFromGhPages(pages);
 			let statusErrors = 0;
 			for (const id of deploymentIds) {
