@@ -8,6 +8,7 @@
 		"dev:preflight": "bun ./src/dev-preflight.ts",
 		"dev:preflight:interactive": "ALCHEMY_STATE_PASSWORD_INTERACTIVE=1 bun ./src/dev-preflight.ts",
 		"check:drizzle-generated": "bun ./src/check-drizzle-generated.ts",
+		"check:ci-env-wiring": "bun ./src/check-ci-env-wiring.ts",
 		"setup": "bun ./src/setup-env.ts",
 		"setup:local": "bun ./src/setup-env.ts --local",
 		"setup:prod": "bun ./src/setup-env.ts --prod",
@@ -23,8 +24,10 @@
 		"deploy:preflight:preview": "bun ./src/deploy-preflight.ts preview",
 		"sync-bootstrap-admins": "bun ./src/sync-bootstrap-admins.ts",
 		"verify:deploy-env:preview": "bun ./src/verify-deploy-env.ts",
+		"preview:cleanup:orphans": "bun ./src/preview-cleanup-orphans.ts",
 		"lint": "biome check --write .",
-		"lint:format": "biome format --write ."
+		"lint:format": "biome format --write .",
+		"test": "bun test src"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "catalog:",

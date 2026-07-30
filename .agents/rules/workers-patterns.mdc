@@ -12,6 +12,8 @@ Skim this on every task that touches workers, env, routes, or bindings.
 
 After changing `alchemy.run.ts` bindings, `apps/web/types/env.d.ts` (or a durable-object `env.d.ts`), or `.env.local` / `.env.production`, run `bun run typegen` from the repo root (see [../skills/multiworker-workflow/SKILL.md](../skills/multiworker-workflow/SKILL.md)).
 
+**New secrets/vars:** also update root `turbo.json` → `globalEnv`, deploy workflow `env:` maps, `env.requirements.ts`, and run `bun run check:ci-env-wiring`. Full checklist: [new-env-var-checklist.mdc](new-env-var-checklist.mdc).
+
 ## Package Alchemy apps
 
 - Add new Workers/DOs through package-local `alchemy.run.ts` files and export consumed resources through `./alchemy`.

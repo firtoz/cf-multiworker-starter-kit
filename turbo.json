@@ -31,6 +31,9 @@
 		"typegen": {
 			"outputLogs": "new-only"
 		},
+		"test": {
+			"outputLogs": "new-only"
+		},
 		"dev:preflight": {
 			"cache": false,
 			"outputLogs": "full"
