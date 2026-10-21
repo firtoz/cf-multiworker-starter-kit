@@ -31,7 +31,7 @@ jobs:
     if: >-
       github.event_name == 'pull_request' &&
       contains(fromJSON('["opened","synchronize","reopened"]'), github.event.action)
-    uses: ./.github/workflows/quality-reusable.yml
+    uses: $/.github/workflows/quality-reusable.yml
     with:
       concurrency_group_suffix: ${{ github.workflow }}-${{ github.event.pull_request.head.ref || github.ref }}
 
