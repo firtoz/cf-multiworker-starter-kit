@@ -36,7 +36,9 @@ A production-minded starter for full-stack Cloudflare apps: React Router on Work
 | Typegen cadence, Turbo deploy order, generated artifacts | [`.agents/skills/multiworker-workflow/SKILL.md`](.agents/skills/multiworker-workflow/SKILL.md) |
 | Cursor / IDE rules look wrong after clone | `bun run agents:link` · [`.agents/README.md`](.agents/README.md) |
 
-**Bun:** use the version in root [`package.json`](package.json) → `packageManager` (CI matches it).
+**Bun:** use the version in root [`package.json`](package.json) → `packageManager` (CI matches it). **Node:** use `nvm use` to select the patched version in `.nvmrc`.
+
+Runtime pins are included in Turbo's global cache inputs, so runtime upgrades rerun checks. CI runs a blocking dependency audit and exercises Alchemy's pinned Miniflare with HTTP, D1, WebSocket and Sharp smoke checks. The existing Alchemy 0.93.12 pin is preserved; scoped overrides patch Miniflare's Undici/WebSocket/Sharp dependencies, the image plugin's Sharp, and the legacy Drizzle loader's esbuild. Remove each override when its parent updates the dependency and audit plus smoke checks stay clean.
 
 ## Quick start
 

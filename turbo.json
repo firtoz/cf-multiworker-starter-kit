@@ -11,7 +11,9 @@
 		"packages/alchemy-utils/src/deployment-stage.ts",
 		"packages/alchemy-utils/src/alchemy-cli.ts",
 		"packages/scripts/src/collected-env-requirements.ts",
-		"packages/state-hub/alchemy.run.ts"
+		"packages/state-hub/alchemy.run.ts",
+		"package.json",
+		".nvmrc"
 	],
 
 	"ui": "tui",
