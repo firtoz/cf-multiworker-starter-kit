@@ -116,8 +116,14 @@ These trip up new contributors and agents most often. For commands and checklist
 24. **Minimum release age (`bunfig.toml`)**
    - **`[install] minimumReleaseAge = 172800`** (2 days in seconds) limits installs to npm versions published at least that long ago. **[Docs](https://bun.com/docs/cli/install#minimum-release-age)**. Use **`minimumReleaseAgeExcludes`** for packages that must track bleeding-edge. Mostly affects **new** resolution, not rewriting an existing **`bun.lock`**.
 
+25. **New env secret “synced” but Worker binding missing**
+   - Turbo **strips** env vars not listed in root **`turbo.json` → `globalEnv`** before `alchemy deploy`. GitHub Environment sync + job `env:` showing `MY_KEY: ***` is **not** enough if Turbo never forwards the key.
+   - Also map **`MY_KEY: ${{ secrets.MY_KEY }}`** in **pr-deploy / main-push / prod-deploy** (sync ≠ workflow map). Mirror module-scope `requireEnv` keys on preview **destroy** jobs too.
+   - Checklist + CI guard: [workers-env-local](../workers-env-local/SKILL.md) § Checklist after changing env or bindings, **`bun run check:ci-env-wiring`**, always-apply rule **`new-env-var-checklist.mdc`**.
+
 ## Also load
 
 - [workers-patterns.mdc](../../rules/workers-patterns.mdc) — short always-on reminder for workers, env, routes.
+- [new-env-var-checklist.mdc](../../rules/new-env-var-checklist.mdc) — full checklist when adding secrets/vars.
 - [realtime-websockets.mdc](../../rules/realtime-websockets.mdc) — Socka default, no fake WebSocket hosts (when working on `durable-objects/*`, `apps/web`, or `/api/ws`).
 - [socka-realtime/SKILL.md](../socka-realtime/SKILL.md) — end-to-end Socka + DO + web checklist.

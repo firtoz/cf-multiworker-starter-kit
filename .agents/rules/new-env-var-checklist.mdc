@@ -1,0 +1,25 @@
+---
+description: Checklist when adding any new env secret/variable — Turbo globalEnv, GitHub sync, workflow maps, Alchemy bindings. Prevents "secret synced but worker never gets it".
+alwaysApply: true
+---
+
+# New env var / secret checklist (agents)
+
+**Repeated failure mode:** GitHub Environment has the secret, CI job env shows `MY_KEY: ***`, but Turbo strips it before `alchemy deploy`, so the Worker binding is missing and runtime silently no-ops.
+
+When you add or rename an env key that Alchemy, Workers, or CI deploy must see, do **all** of these (not just `env.requirements.ts`):
+
+1. **Package `env.requirements.ts`** (+ collector if new package) — setup / `github:sync:*` / preflight.
+2. **`.env.example`** — document the key (placeholder only).
+3. **`alchemy.run.ts` + `env.d.ts`** — bind when the Worker/DO needs it (`alchemy.secret` / `optionalSecretEnv` / plaintext).
+4. **Root [`turbo.json`](../../turbo.json) → `globalEnv`** — **required** for any key read under `turbo run deploy:*` / `dev`. Undeclared keys are **stripped** from child processes.
+5. **Deploy workflows** map the key into job/step `env`:
+   - [`.github/workflows/pr-deploy.yml`](../../.github/workflows/pr-deploy.yml)
+   - [`.github/workflows/main-push.yml`](../../.github/workflows/main-push.yml)
+   - [`.github/workflows/prod-deploy.yml`](../../.github/workflows/prod-deploy.yml)
+   - Pattern: `MY_KEY: ${{ secrets.MY_KEY }}` or `vars.MY_KEY` — syncing the Environment alone is not enough.
+   - If `alchemy.run.ts` reads the key at **module scope**, mirror it on preview **destroy** jobs too.
+6. **Sync:** `bun run github:sync:staging` / `github:sync:prod` (or ask the user) so GitHub Environments receive the value.
+7. **Verify:** `bun run check:ci-env-wiring` (also runs in Quality CI).
+
+Full detail: [workers-env-local skill](../skills/workers-env-local/SKILL.md) § Checklist after changing env or bindings.

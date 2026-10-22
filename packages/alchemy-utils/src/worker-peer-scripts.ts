@@ -50,6 +50,9 @@ export const DEFAULT_D1_DATABASE_RESOURCE_ID = "main-db" as const;
  */
 export const DEFAULT_AUTH_D1_DATABASE_RESOURCE_ID = "auth-db" as const;
 
+/** Auth worker KV namespace resource id (`workers/auth-worker`); physical title adds app id + stage. */
+export const DEFAULT_AUTH_KV_RESOURCE_ID = "auth-kv" as const;
+
 /**
  * Leading segment for Alchemy **`await alchemy("…")`** ids — default **`starter`** yields **`starter-frontend`**, **`starter-chatroom`**, etc.
  *

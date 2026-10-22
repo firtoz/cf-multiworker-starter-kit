@@ -8,7 +8,7 @@ Short index for AI agents. **Details live in skills** under **[`.agents/skills/`
 | -------- | ------ |
 | Fork gotchas, forms, D1, dev port, new DO packages | [.agents/skills/multiworker-gotchas/SKILL.md](.agents/skills/multiworker-gotchas/SKILL.md) |
 | Root commands, typegen/lint cadence, deploy, checklist, `bun add` | [.agents/skills/multiworker-workflow/SKILL.md](.agents/skills/multiworker-workflow/SKILL.md) |
-| Env files, `.env.local` / `.env.production`, secrets | [.agents/skills/workers-env-local/SKILL.md](.agents/skills/workers-env-local/SKILL.md) |
+| Env files, `.env.local` / `.env.production`, secrets, Turbo `globalEnv` + workflow maps | [.agents/skills/workers-env-local/SKILL.md](.agents/skills/workers-env-local/SKILL.md) · always-apply [.agents/rules/new-env-var-checklist.mdc](.agents/rules/new-env-var-checklist.mdc) · `bun run check:ci-env-wiring` |
 | Auth worker, OAuth, admin UI, authenticated chat | [docs/oauth-setup.md](docs/oauth-setup.md) (Google/GitHub) · [.agents/skills/auth-setup/SKILL.md](.agents/skills/auth-setup/SKILL.md) |
 | Turbo tasks, `^`, cache, `inputs` | [.agents/skills/turborepo/SKILL.md](.agents/skills/turborepo/SKILL.md) |
 | Web ↔ worker bindings, `apps/web/alchemy.run.ts` | [.agents/skills/web-alchemy-bindings/SKILL.md](.agents/skills/web-alchemy-bindings/SKILL.md) |
@@ -24,6 +24,8 @@ Short index for AI agents. **Details live in skills** under **[`.agents/skills/`
 | Authoring or updating skills | [.agents/skills/creating-skills/SKILL.md](.agents/skills/creating-skills/SKILL.md) |
 
 **Always-on reminder (workers, env, routes):** [.agents/rules/workers-patterns.mdc](.agents/rules/workers-patterns.mdc)
+
+**New env secrets/vars checklist:** [.agents/rules/new-env-var-checklist.mdc](.agents/rules/new-env-var-checklist.mdc) — Turbo `globalEnv` + deploy workflow `env:` maps + `env.requirements.ts`; verify with **`bun run check:ci-env-wiring`**.
 
 **Imports (no cross-package re-exports):** [.agents/rules/typescript-imports.mdc](.agents/rules/typescript-imports.mdc) — package `index.ts` barrels **its own** modules only; import schemas/constants from `@internal/auth-db`, client helpers from `@internal/auth-client`, etc.
 

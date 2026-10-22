@@ -36,6 +36,10 @@ Turbo: resolves package order, parallelizes, caches. **Turbo `inputs`** (per-pac
 
 ## Core Principles
 
+### Root `globalEnv` (secrets under Turbo)
+
+Any env var that Alchemy / package scripts must see during **`turbo run deploy:*`** / **`dev`** must be listed in root [`turbo.json`](../../../turbo.json) **`globalEnv`**. Undeclared keys are stripped from child processes — GitHub Actions job `env:` alone is not enough. When adding a key: update `globalEnv`, deploy workflow maps, and `env.requirements.ts`; run **`bun run check:ci-env-wiring`**. See [workers-env-local](../workers-env-local/SKILL.md).
+
 ### `@internal/web` — package-local `inputs`, `^` for cross-package work
 
 **Rule:** Each package’s `turbo.json` **`inputs`** should list **only files inside that package** (plus shared root env / `tsconfig.base.json` when your `tsconfig` extends it). **Do not** add `$TURBO_ROOT$/packages/foo/**` or `../../durable-objects/**` to **`apps/web`** to fake cache invalidation.
@@ -409,7 +413,7 @@ bun run build --verbose
 - Global settings: `globalDependencies`, `ui`, task defaults
 - Tasks: `build`, `build:local`, `build:prod`, `typecheck`, `typegen`, `dev`, `lint`, `clean`, `db:generate`, `deploy:*`, `destroy:*` (output log defaults)
 
-- `globalEnv`: `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, `CI`, `ALCHEMY_PASSWORD`, `ALCHEMY_STATE_TOKEN`, `CHATROOM_INTERNAL_SECRET`, `STAGE`, `DEPLOY_ENABLED`
+- `globalEnv`: full list in root `turbo.json` (must include every secret Alchemy reads under Turbo). Adding a key? Update `globalEnv` + deploy workflow maps + `env.requirements.ts`, then **`bun run check:ci-env-wiring`**.
 
 ### apps/web/turbo.json
 - **`typegen`** — `dependsOn`: **`^typegen`**, **`^db:generate`**; **outputs** **`.react-router/**`**; package script runs **`react-router typegen`** (**`bun run rr-typegen`**)

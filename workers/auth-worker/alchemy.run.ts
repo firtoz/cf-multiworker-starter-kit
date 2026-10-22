@@ -16,7 +16,11 @@ import {
 } from "alchemy-utils/local-portless-dev";
 import { commaSeparatedEnvSegments, WEB_DOMAINS_ENV_KEY } from "alchemy-utils/web-deploy-hostnames";
 import { workerObservabilityWithTraces } from "alchemy-utils/worker-observability";
-import { ALCHEMY_APP_IDS, DEFAULT_WORKER_RESOURCE_ID } from "alchemy-utils/worker-peer-scripts";
+import {
+	ALCHEMY_APP_IDS,
+	DEFAULT_AUTH_KV_RESOURCE_ID,
+	DEFAULT_WORKER_RESOURCE_ID,
+} from "alchemy-utils/worker-peer-scripts";
 
 const stage = resolveStageFromEnv();
 const app = await alchemy(ALCHEMY_APP_IDS.auth, {
@@ -69,7 +73,7 @@ const authSeedOrigins = [
 	.filter((v, i, a) => a.indexOf(v) === i)
 	.join(",");
 
-export const authKv = await KVNamespace("auth-kv", { adopt: true });
+export const authKv = await KVNamespace(DEFAULT_AUTH_KV_RESOURCE_ID, { adopt: true });
 
 export const authWorker = await Worker(DEFAULT_WORKER_RESOURCE_ID, {
 	entrypoint: new URL("./workers/app.ts", import.meta.url).pathname,

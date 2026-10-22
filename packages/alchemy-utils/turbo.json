@@ -12,6 +12,10 @@
 			"inputs": ["src/**/*.ts", "tsconfig.json", "package.json", "$TURBO_ROOT$/tsconfig.base.json"],
 			"outputs": []
 		},
+		"test": {
+			"inputs": ["src/**/*.ts", "tsconfig.json", "package.json"],
+			"outputs": []
+		},
 		"deploy:prod": {
 			"dependsOn": ["typecheck"],
 			"cache": false,
