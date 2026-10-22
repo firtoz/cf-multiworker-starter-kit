@@ -91,7 +91,7 @@
 		"@biomejs/biome": "catalog:",
 		"@cloudflare/workers-types": "catalog:",
 		"@octokit/rest": "^22.0.1",
-		"@turbo/gen": "^2.10.3",
+		"@turbo/gen": "^2.11.9",
 		"@types/bun": "^1.3.13",
 		"@typescript/native-preview": "catalog:",
 		"alchemy": "catalog:",
@@ -102,8 +102,13 @@
 		"turbo": "^2.10.3",
 		"typescript": "catalog:"
 	},
-	"packageManager": "bun@1.4.3",
+	"packageManager": "bun@1.4.4",
 	"overrides": {
-		"alchemy": "0.93.12"
+		"alchemy": "0.93.12",
+		"@esbuild-kit/core-utils>esbuild": "0.25.12",
+		"vite-imagetools>sharp": "0.35.5",
+		"miniflare>sharp": "0.35.5",
+		"miniflare>undici": "7.29.1",
+		"miniflare>ws": "8.21.0"
 	}
 }
