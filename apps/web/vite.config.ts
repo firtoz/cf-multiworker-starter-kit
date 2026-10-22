@@ -147,7 +147,8 @@ export default defineConfig((configEnv) => {
 		],
 		build: {
 			cssCodeSplit: true,
-			minify: "esbuild",
+			// Vite 8 uses Oxc; the Cloudflare Worker target is newer than esbuild accepts.
+			minify: "oxc",
 			rollupOptions: useAlchemyPlugin
 				? undefined
 				: {
