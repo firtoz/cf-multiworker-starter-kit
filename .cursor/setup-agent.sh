@@ -20,21 +20,24 @@ fi
 echo "📍 Working directory: $PWD"
 echo ""
 
-# Install bun if not available
-if ! command -v bun &> /dev/null; then
-    echo "📦 Installing bun..."
-    curl -fsSL https://bun.sh/install | bash
-    export PATH="$HOME/.bun/bin:$PATH"
-    
-    # Source bashrc to ensure bun is available
-    if [ -f "$HOME/.bashrc" ]; then
-        source "$HOME/.bashrc"
-    fi
-    
-    echo "✅ Bun installed: $(bun --version)"
-else
-    echo "✅ Bun already installed: $(bun --version)"
+# Keep agent setup aligned with the runtime pin used by CI.
+PINNED_BUN_VERSION="$(grep -oE '"packageManager"[[:space:]]*:[[:space:]]*"bun@[0-9.]+"' package.json | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' || true)"
+if [ -z "$PINNED_BUN_VERSION" ]; then
+    echo "❌ package.json must declare a numeric bun@ version."
+    exit 1
 fi
+
+if ! command -v bun &> /dev/null || [ "$(bun --version)" != "$PINNED_BUN_VERSION" ]; then
+    echo "📦 Installing Bun $PINNED_BUN_VERSION from packageManager..."
+    curl -fsSL https://bun.sh/install | bash -s -- "bun-v$PINNED_BUN_VERSION"
+    export PATH="$HOME/.bun/bin:$PATH"
+fi
+
+if [ "$(bun --version)" != "$PINNED_BUN_VERSION" ]; then
+    echo "❌ Bun does not match the packageManager pin."
+    exit 1
+fi
+echo "✅ Bun ready: $(bun --version)"
 
 # Ensure bun is in PATH for this session
 export PATH="$HOME/.bun/bin:$PATH"
